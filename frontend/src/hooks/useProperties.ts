@@ -1,0 +1,24 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { propertiesApi, type CreatePropertyInput } from '../api/properties'
+
+const KEY = ['properties']
+
+export function useProperties() {
+  return useQuery({ queryKey: KEY, queryFn: propertiesApi.list })
+}
+
+export function useCreateProperty() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreatePropertyInput) => propertiesApi.create(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
+export function useDeleteProperty() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => propertiesApi.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  })
+}

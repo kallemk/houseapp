@@ -1,0 +1,53 @@
+export interface MeResponse {
+  id: string
+  email: string
+  displayName: string
+}
+
+export interface PropertyDto {
+  id: string
+  nickname: string
+  address: string
+  purchaseDate: string
+  purchasePrice: number
+  createdAt: string
+}
+
+export type RenovationCategory = 'Renovation' | 'Maintenance' | 'Furniture' | 'Other'
+export type DocumentCategory = 'Deed' | 'Warranty' | 'Receipt' | 'Photo' | 'Other'
+
+export interface ValuationEntryDto {
+  id: string
+  propertyId: string
+  date: string
+  value: number
+  source: string | null
+  notes: string | null
+  createdByUserId: string
+  createdAt: string
+}
+
+export interface RenovationEntryDto {
+  id: string
+  propertyId: string
+  date: string
+  category: RenovationCategory
+  title: string
+  description: string | null
+  amount: number
+  vendor: string | null
+  createdByUserId: string
+  createdAt: string
+}
+
+export interface DocumentDto {
+  id: string
+  propertyId: string
+  renovationEntryId: string | null
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  category: DocumentCategory
+  uploadedByUserId: string
+  uploadedAt: string
+}
