@@ -84,6 +84,12 @@ public static class ServiceCollectionExtensions
         var cosmosConnectionString = configuration.GetConnectionString("Cosmos");
         var databaseName = configuration["Cosmos:DatabaseName"] ?? "houseapp";
 
+        // Created once here, not inside the options lambda below: AddDbContext is Scoped, so that
+        // lambda re-runs on every request (once per DI scope). A fresh DefaultAzureCredential
+        // instance each time defeats EF Core's internal service-provider cache (it's part of the
+        // cache key), which eventually throws ManyServiceProvidersCreatedWarning after 20 requests.
+        var credential = new DefaultAzureCredential();
+
         services.AddDbContext<AppDbContext>(options =>
         {
             if (!string.IsNullOrEmpty(cosmosConnectionString))
@@ -94,7 +100,7 @@ public static class ServiceCollectionExtensions
             {
                 var accountEndpoint = configuration["Cosmos:AccountEndpoint"]
                     ?? throw new InvalidOperationException("Either ConnectionStrings:Cosmos or Cosmos:AccountEndpoint must be configured.");
-                options.UseCosmos(accountEndpoint, new DefaultAzureCredential(), databaseName);
+                options.UseCosmos(accountEndpoint, credential, databaseName);
             }
         });
 

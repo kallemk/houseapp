@@ -122,6 +122,14 @@ being caught — the test suite did not catch any of them):
   (extracted key doesn't match the one in the request header). Fixed via
   `.Property(x => x.PropertyId).ToJsonProperty("propertyId")` in `AppDbContext`. If you add a
   new partition-key property, add the matching `ToJsonProperty` call too.
+- `AddHouseAppData`'s `DefaultAzureCredential` is created **once, outside** the `AddDbContext`
+  options lambda, not inside it. `AddDbContext` registers `AppDbContext` as Scoped, so that
+  lambda re-runs on every request (once per DI scope) — a fresh `DefaultAzureCredential`
+  instance each time defeats EF Core's internal service-provider cache (the credential is part
+  of the cache key), and after 20 requests this throws `ManyServiceProvidersCreatedWarning`
+  (one of the EF Core warnings that's throw-by-default, not just logged). Any other per-request
+  service registered via `AddDbContext`'s options lambda needs the same care — construct
+  expensive/identity-bearing objects outside the lambda and capture them in the closure.
 
 ### No Azure account keys or connection secrets anywhere
 
