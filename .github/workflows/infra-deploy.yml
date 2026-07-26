@@ -41,7 +41,6 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production # requires manual approval — configure this as a protected environment in repo settings
     steps:
