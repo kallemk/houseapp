@@ -138,6 +138,18 @@ on local disk. `AddHouseAppDataProtection` persists it to Blob Storage
 (`PersistKeysToAzureBlobStorage`) so restarts/idle-unloads on App Service don't silently
 invalidate every login. Don't remove this even though nothing else references it directly.
 
+`Azure.Storage.Blobs` is **pinned to 12.26.0** in `HouseApp.Api.csproj`, not left floating —
+`Azure.Extensions.AspNetCore.DataProtection.Blobs@1.5.3` (last updated against exactly that
+version) breaks against newer `Azure.Storage.Blobs` releases: `AzureBlobXmlRepository`'s key
+ring download fails in production with `InvalidQueryParameterValue` on an empty `comp` query
+parameter, crashing every login (`KeyRingBasedDataProtector.Protect` throws
+`CryptographicException` from inside `CookieAuthenticationHandler.SignInAsync`). If you ever
+bump `Azure.Storage.Blobs`, check whether `Azure.Extensions.AspNetCore.DataProtection.Blobs`
+has a newer release tested against it first — the two versions are coupled even though NuGet
+won't warn you about it. This also means `BlobStorageService.GetUserDelegationKeyAsync` must
+use the older 2-arg `(DateTimeOffset?, DateTimeOffset)` overload, not the newer
+`BlobGetUserDelegationKeyOptions`-based one, which doesn't exist in 12.26.0.
+
 ### Frontend property scoping
 
 The data model supports multiple properties, but the UI deliberately doesn't have a

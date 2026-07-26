@@ -10,7 +10,10 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.3" />
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.3" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
+    <!-- Pinned to match what Azure.Extensions.AspNetCore.DataProtection.Blobs 1.5.3 was built
+         against — letting this float to a newer Azure.Storage.Blobs breaks
+         AzureBlobXmlRepository's key-ring download with a malformed "comp" query parameter. -->
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.26.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="9.0.9" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>

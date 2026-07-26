@@ -1,5 +1,4 @@
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 
 namespace HouseApp.Api.Services;
@@ -68,11 +67,9 @@ public class BlobStorageService(BlobServiceClient blobServiceClient) : IBlobStor
         }
 
         // Production (managed identity) — no account key exists, so request a short-lived user delegation key.
-        var delegationKeyOptions = new BlobGetUserDelegationKeyOptions(DateTimeOffset.UtcNow.Add(SasLifetime))
-        {
-            StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
-        };
-        var delegationKey = await blobServiceClient.GetUserDelegationKeyAsync(delegationKeyOptions);
+        var delegationKey = await blobServiceClient.GetUserDelegationKeyAsync(
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.Add(SasLifetime));
 
         var sasQuery = sasBuilder.ToSasQueryParameters(delegationKey.Value, blobServiceClient.AccountName);
         var builder = new UriBuilder(blobClient.Uri) { Query = sasQuery.ToString() };
