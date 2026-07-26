@@ -24,7 +24,9 @@ public class AuthController(AppDbContext db) : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<MeResponse>> Login(LoginRequest request)
     {
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == request.Email);
+        // .Where(...).ToListAsync() rather than SingleOrDefaultAsync(predicate) — the Cosmos
+        // provider's SQL generation for predicate-based Single/Any/First is unreliable.
+        var user = (await db.Users.Where(u => u.Email == request.Email).ToListAsync()).SingleOrDefault();
         if (user is null)
         {
             return Unauthorized();

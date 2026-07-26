@@ -23,10 +23,14 @@ public static class DbSeeder
 
         var hasher = new PasswordHasher<ApplicationUser>();
 
+        // One plain read of the whole (tiny, 2-row) container rather than a per-user existence
+        // query — the Cosmos provider's SQL generation for predicate-based Any/Single/First is
+        // unreliable (see the "Identifier 'root' could not be resolved" crash this replaced).
+        var existingEmails = (await db.Users.ToListAsync()).Select(u => u.Email).ToHashSet();
+
         foreach (var seedUser in seedUsers)
         {
-            var exists = await db.Users.AnyAsync(u => u.Email == seedUser.Email);
-            if (exists)
+            if (existingEmails.Contains(seedUser.Email))
             {
                 continue;
             }
