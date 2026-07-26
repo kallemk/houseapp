@@ -18,7 +18,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.ToContainer("users");
             b.HasPartitionKey(u => u.Id);
             b.HasNoDiscriminator();
-            b.HasIndex(u => u.Email);
+            // No HasIndex() — the Cosmos provider doesn't support EF index declarations (it indexes
+            // every property automatically by default), and calling it throws at model-validation time.
         });
 
         modelBuilder.Entity<Property>(b =>
