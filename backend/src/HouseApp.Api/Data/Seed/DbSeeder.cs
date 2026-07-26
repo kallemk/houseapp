@@ -1,5 +1,6 @@
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Data.Seed;
 
@@ -24,7 +25,7 @@ public static class DbSeeder
 
         foreach (var seedUser in seedUsers)
         {
-            var exists = db.Users.Any(u => u.Email == seedUser.Email);
+            var exists = await db.Users.AnyAsync(u => u.Email == seedUser.Email);
             if (exists)
             {
                 continue;
