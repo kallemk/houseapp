@@ -44,6 +44,7 @@ export interface DocumentDto {
   id: string
   propertyId: string
   renovationEntryId: string | null
+  date: string
   fileName: string
   contentType: string
   sizeBytes: number

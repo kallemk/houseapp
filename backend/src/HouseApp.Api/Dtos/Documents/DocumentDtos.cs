@@ -6,6 +6,7 @@ public record DocumentDto(
     string Id,
     string PropertyId,
     string? RenovationEntryId,
+    DateOnly Date,
     string FileName,
     string ContentType,
     long SizeBytes,
@@ -22,6 +23,7 @@ public record UploadUrlResponse(string UploadUrl, string BlobPath);
 public record CreateDocumentRequest(
     string PropertyId,
     string? RenovationEntryId,
+    DateOnly Date,
     string FileName,
     string ContentType,
     string BlobPath,

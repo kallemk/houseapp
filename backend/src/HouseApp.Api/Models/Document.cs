@@ -8,6 +8,11 @@ public class Document
     public required string PropertyId { get; set; }
 
     public string? RenovationEntryId { get; set; }
+
+    // The date this document represents/is dated (e.g. a receipt's purchase date), for timeline
+    // placement — distinct from UploadedAt, which is when the file was actually uploaded.
+    public DateOnly Date { get; set; }
+
     public required string FileName { get; set; }
     public required string ContentType { get; set; }
     public required string BlobPath { get; set; }

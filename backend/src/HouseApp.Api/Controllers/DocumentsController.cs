@@ -18,7 +18,7 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     {
         var documents = await db.Documents
             .Where(d => d.PropertyId == propertyId)
-            .OrderByDescending(d => d.UploadedAt)
+            .OrderByDescending(d => d.Date)
             .ToListAsync();
         return Ok(documents.Select(ToDto));
     }
@@ -38,6 +38,7 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
         {
             PropertyId = request.PropertyId,
             RenovationEntryId = request.RenovationEntryId,
+            Date = request.Date,
             FileName = request.FileName,
             ContentType = request.ContentType,
             BlobPath = request.BlobPath,
@@ -83,5 +84,5 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     }
 
     private static DocumentDto ToDto(Document d) =>
-        new(d.Id, d.PropertyId, d.RenovationEntryId, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
+        new(d.Id, d.PropertyId, d.RenovationEntryId, d.Date, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
 }

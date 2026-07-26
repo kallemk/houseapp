@@ -18,6 +18,7 @@ export const documentsApi = {
     propertyId: string,
     file: File,
     category: DocumentCategory,
+    date: string,
     renovationEntryId?: string | null,
   ): Promise<DocumentDto> {
     const { uploadUrl, blobPath } = await apiClient.post<UploadUrlResponse>('/documents/upload-url', {
@@ -41,6 +42,7 @@ export const documentsApi = {
     return apiClient.post<DocumentDto>('/documents', {
       propertyId,
       renovationEntryId: renovationEntryId ?? null,
+      date,
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
       blobPath,

@@ -1,12 +1,16 @@
 import { Button, Card, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { Center, Loader, ThemeIcon } from '@mantine/core'
-import { IconChartLine, IconHammer, IconHome2, IconTag } from '@tabler/icons-react'
+import { IconHammer, IconHome2, IconTag } from '@tabler/icons-react'
+import { useState } from 'react'
 import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
 import { useCreateProperty } from '../hooks/useProperties'
 import { useValuations } from '../hooks/useValuations'
 import { useRenovationEntries } from '../hooks/useRenovationEntries'
+import { useDocuments } from '../hooks/useDocuments'
 import { EmptyState } from '../components/common/EmptyState'
+import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
+import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
 
 // No currency is configured anywhere in the data model, so this formats a plain grouped number
 // rather than guessing a currency symbol.
@@ -75,6 +79,8 @@ export function DashboardPage() {
   const { property, isLoading } = usePrimaryProperty()
   const { data: valuations } = useValuations(property?.id ?? '')
   const { data: renovations } = useRenovationEntries(property?.id ?? '')
+  const { data: documents } = useDocuments(property?.id ?? '')
+  const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
 
   if (isLoading) {
     return (
@@ -91,21 +97,6 @@ export function DashboardPage() {
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice
   const totalInvested = (renovations ?? []).reduce((sum, r) => sum + r.amount, 0)
 
-  const recentActivity = [
-    ...(valuations ?? []).map((v) => ({
-      date: v.date,
-      label: `Valuation logged: ${formatCurrency(v.value)}`,
-      icon: IconChartLine,
-    })),
-    ...(renovations ?? []).map((r) => ({
-      date: r.date,
-      label: `${r.title}: ${formatCurrency(r.amount)}`,
-      icon: IconHammer,
-    })),
-  ]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5)
-
   return (
     <Stack>
       <Title order={2}>{property.nickname}</Title>
@@ -118,39 +109,19 @@ export function DashboardPage() {
       </SimpleGrid>
 
       <Title order={4} mt="lg">
-        Recent activity
+        Timeline
       </Title>
-      {recentActivity.length === 0 ? (
-        <EmptyState message="No valuations or renovation entries logged yet." />
-      ) : (
-        <Card withBorder padding="sm">
-          <Stack gap={0}>
-            {recentActivity.map((item, index) => (
-              <Group
-                key={index}
-                justify="space-between"
-                py="xs"
-                px="xs"
-                style={
-                  index < recentActivity.length - 1
-                    ? { borderBottom: '1px solid var(--mantine-color-gray-1)' }
-                    : undefined
-                }
-              >
-                <Group gap="sm">
-                  <ThemeIcon variant="light" size={30} radius="md">
-                    <item.icon size={16} />
-                  </ThemeIcon>
-                  <Text size="sm">{item.label}</Text>
-                </Group>
-                <Text c="dimmed" size="sm">
-                  {item.date}
-                </Text>
-              </Group>
-            ))}
-          </Stack>
-        </Card>
-      )}
+      <Card withBorder padding="lg">
+        <PropertyTimeline
+          purchaseDate={property.purchaseDate}
+          valuations={valuations ?? []}
+          renovations={renovations ?? []}
+          documents={documents ?? []}
+          onQuickAdd={setQuickAddRequest}
+        />
+      </Card>
+
+      <QuickAddModal propertyId={property.id} request={quickAddRequest} onClose={() => setQuickAddRequest(null)} />
     </Stack>
   )
 }

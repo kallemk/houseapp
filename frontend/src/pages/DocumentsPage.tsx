@@ -43,8 +43,8 @@ export function DocumentsPage() {
     return <EmptyState message="Add a property on the Dashboard first." />
   }
 
-  function handleUpload(file: File, category: DocumentCategory) {
-    uploadDocument.mutate({ file, category })
+  function handleUpload(file: File, category: DocumentCategory, date: string) {
+    uploadDocument.mutate({ file, category, date })
   }
 
   return (
@@ -70,7 +70,7 @@ export function DocumentsPage() {
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Category</Table.Th>
                 <Table.Th>Size</Table.Th>
-                <Table.Th>Uploaded</Table.Th>
+                <Table.Th>Date</Table.Th>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
@@ -88,7 +88,7 @@ export function DocumentsPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td c="dimmed">{formatSize(doc.sizeBytes)}</Table.Td>
-                  <Table.Td c="dimmed">{new Date(doc.uploadedAt).toLocaleDateString()}</Table.Td>
+                  <Table.Td c="dimmed">{doc.date}</Table.Td>
                   <Table.Td>
                     <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc.id, propertyId)} mr="xs">
                       <IconDownload size={16} />
