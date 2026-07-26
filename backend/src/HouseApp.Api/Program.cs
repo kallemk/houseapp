@@ -19,7 +19,7 @@ if (builder.Environment.EnvironmentName == "Testing")
 }
 else
 {
-    builder.Services.AddHouseAppDataProtection(builder.Configuration);
+    builder.Services.AddHouseAppDataProtection();
 }
 
 builder.Services.AddHouseAppCookieAuth();

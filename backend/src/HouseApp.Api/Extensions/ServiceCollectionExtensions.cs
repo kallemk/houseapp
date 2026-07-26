@@ -54,28 +54,27 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddHouseAppDataProtection(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddHouseAppDataProtection(this IServiceCollection services)
     {
-        var keyVaultUri = configuration["KeyVault:Uri"];
-
         // Persisted to local disk, not Blob Storage — App Service Linux's /home directory is
         // persistent across restarts/idle-unloads for a single instance (our F1 plan runs exactly
         // one), and this keeps the Blob SDK out of the startup/login path entirely for something as
         // foundational as the auth cookie key ring. HOME is set to /home on App Service Linux; local
         // dev falls back to the OS temp directory.
+        //
+        // Not encrypted-at-rest with Key Vault: ProtectKeysWithAzureKeyVault needs a URI to a
+        // specific key inside the vault (.../keys/<name>), not the vault's own base URI, so doing
+        // this properly means provisioning a Key Vault key via Bicep too. Skipped as unnecessary
+        // hardening for a 2-user app — the key file is only readable by the App Service's own
+        // process/identity either way.
         var keysPath = Environment.GetEnvironmentVariable("HOME") is { } home
             ? Path.Combine(home, "data-protection-keys")
             : Path.Combine(Path.GetTempPath(), "houseapp-dataprotection-keys");
         Directory.CreateDirectory(keysPath);
 
-        var builder = services.AddDataProtection()
+        services.AddDataProtection()
             .SetApplicationName("HouseApp")
             .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
-
-        if (!string.IsNullOrEmpty(keyVaultUri))
-        {
-            builder.ProtectKeysWithAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
-        }
 
         return services;
     }

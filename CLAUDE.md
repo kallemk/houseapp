@@ -137,13 +137,19 @@ auth encrypts the session cookie with the Data Protection key ring. `AddHouseApp
 persists it to **local disk** (`PersistKeysToFileSystem`), not Blob Storage — on App Service
 Linux this resolves to `/home/data-protection-keys`, which is persistent across
 restarts/idle-unloads for a single instance (our F1 plan runs exactly one), so logins survive
-them. Optionally encrypted at rest with `ProtectKeysWithAzureKeyVault` when `KeyVault:Uri` is
-configured. Don't switch this back to Blob Storage without reading the git history first — it
-was deliberately moved off Blob after `AzureBlobXmlRepository`'s key-ring read crashed every
-login with `CryptographicException` → `InvalidQueryParameterValue` (empty `comp` parameter),
-traced to the SDK's default download transfer validation being rejected by this storage
-account (see the `CreateBlobClientOptions` note below) — moving key persistence to local disk
-sidesteps the Blob SDK for this entirely rather than trusting that workaround.
+them. **Not** encrypted at rest with Key Vault — `ProtectKeysWithAzureKeyVault` needs a URI to
+a specific key inside the vault (`.../keys/<name>`), not the vault's own base URI, so wiring
+it up properly means provisioning a Key Vault key via Bicep too; skipped as unnecessary
+hardening for a 2-user app (this crashed startup with `Invalid ObjectIdentifier ... Bad number
+of segments: 1` before being removed). **Key Vault is consequently unused by the app** —
+`infra/modules/keyVault.bicep` and the `KeyVault__Uri` app setting are currently dead weight,
+kept only because removing the resource is a separate decision from fixing the crash it
+caused. Don't switch key persistence back to Blob Storage without reading the git history
+first — it was deliberately moved off Blob after `AzureBlobXmlRepository`'s key-ring read
+crashed every login with `CryptographicException` → `InvalidQueryParameterValue` (empty
+`comp` parameter), traced to the SDK's default download transfer validation being rejected by
+this storage account (see the `CreateBlobClientOptions` note below) — moving key persistence
+to local disk sidesteps the Blob SDK for this entirely rather than trusting that workaround.
 
 **Every `BlobServiceClient`/`BlobContainerClient` — currently just the one `AddHouseAppBlobStorage`
 constructs for documents — is built with download transfer validation disabled**
