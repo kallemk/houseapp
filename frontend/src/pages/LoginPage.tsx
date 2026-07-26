@@ -20,8 +20,8 @@ export function LoginPage() {
   const form = useForm<LoginFormValues>({
     initialValues: { email: '', password: '' },
     validate: {
-      email: (value) => (value.length === 0 ? 'Email is required' : null),
-      password: (value) => (value.length === 0 ? 'Password is required' : null),
+      email: (value) => (value.length === 0 ? 'E-post krävs' : null),
+      password: (value) => (value.length === 0 ? 'Lösenord krävs' : null),
     },
   })
 
@@ -37,7 +37,7 @@ export function LoginPage() {
       await login(values.email, values.password)
       navigate('/', { replace: true })
     } catch {
-      setError('Incorrect email or password.')
+      setError('Fel e-post eller lösenord.')
     } finally {
       setSubmitting(false)
     }
@@ -55,7 +55,7 @@ export function LoginPage() {
           </ThemeIcon>
           <Title order={2}>HouseApp</Title>
           <Text c="dimmed" size="sm">
-            Track your home, together
+            Håll koll på hemmet, tillsammans
           </Text>
         </Stack>
 
@@ -67,10 +67,10 @@ export function LoginPage() {
                   {error}
                 </Alert>
               )}
-              <TextInput label="Email" type="email" required {...form.getInputProps('email')} />
-              <PasswordInput label="Password" required {...form.getInputProps('password')} />
+              <TextInput label="E-post" type="email" required {...form.getInputProps('email')} />
+              <PasswordInput label="Lösenord" required {...form.getInputProps('password')} />
               <Button type="submit" loading={submitting} fullWidth>
-                Log in
+                Logga in
               </Button>
             </Stack>
           </form>

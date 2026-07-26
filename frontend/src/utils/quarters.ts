@@ -14,7 +14,7 @@ export function currentQuarterKey(): string {
 
 export function quarterLabel(key: string): string {
   const [year, q] = key.split('-Q')
-  return `Q${q} ${year}`
+  return `Kv ${q} ${year}`
 }
 
 /** First day of the quarter, as an ISO date string. */

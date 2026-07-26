@@ -9,13 +9,13 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
-export function ConfirmDialog({ opened, title, message, confirmLabel = 'Delete', onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ opened, title, message, confirmLabel = 'Ta bort', onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <Modal opened={opened} onClose={onCancel} title={title} centered>
       <Text mb="lg">{message}</Text>
       <Group justify="flex-end">
         <Button variant="default" onClick={onCancel}>
-          Cancel
+          Avbryt
         </Button>
         <Button color="red" onClick={onConfirm}>
           {confirmLabel}

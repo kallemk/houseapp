@@ -28,7 +28,7 @@ interface PropertyTimelineProps {
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(value)
 }
 
 export function PropertyTimeline({ purchaseDate, valuations, renovations, documents, onQuickAdd }: PropertyTimelineProps) {
@@ -38,7 +38,7 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
       date: v.date,
       icon: IconChartLine,
       color: 'terracotta',
-      label: `Valuation: ${formatNumber(v.value)}`,
+      label: `Värdering: ${formatNumber(v.value)}`,
     })),
     ...renovations.map((r) => ({
       id: `renovation-${r.id}`,
@@ -94,19 +94,19 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
                     leftSection={<IconChartLine size={14} />}
                     onClick={() => onQuickAdd({ type: 'valuation', defaultDate: defaultDateForQuarter(quarter) })}
                   >
-                    Add valuation
+                    Lägg till värdering
                   </Menu.Item>
                   <Menu.Item
                     leftSection={<IconHammer size={14} />}
                     onClick={() => onQuickAdd({ type: 'renovation', defaultDate: defaultDateForQuarter(quarter) })}
                   >
-                    Add renovation
+                    Lägg till renovering
                   </Menu.Item>
                   <Menu.Item
                     leftSection={<IconFiles size={14} />}
                     onClick={() => onQuickAdd({ type: 'document', defaultDate: defaultDateForQuarter(quarter) })}
                   >
-                    Add document
+                    Lägg till dokument
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
@@ -125,7 +125,7 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
               </Stack>
             ) : (
               <Text size="xs" c="dimmed">
-                No activity
+                Ingen aktivitet
               </Text>
             )}
           </Timeline.Item>

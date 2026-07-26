@@ -8,6 +8,7 @@ import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
 import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/useDocuments'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory } from '../api/types'
+import { DOCUMENT_CATEGORY_LABELS } from '../utils/labels'
 
 const CATEGORY_COLORS: Record<DocumentCategory, string> = {
   Deed: 'terracotta',
@@ -40,7 +41,7 @@ export function DocumentsPage() {
   }
 
   if (!property) {
-    return <EmptyState message="Add a property on the Dashboard first." />
+    return <EmptyState message="Lägg till en bostad på översikten först." />
   }
 
   function handleUpload(file: File, category: DocumentCategory, date: string) {
@@ -53,7 +54,7 @@ export function DocumentsPage() {
         <ThemeIcon variant="light" size={36} radius="md">
           <IconFiles size={20} />
         </ThemeIcon>
-        <Title order={2}>Documents</Title>
+        <Title order={2}>Dokument</Title>
       </Group>
 
       <Card withBorder padding="md">
@@ -61,16 +62,16 @@ export function DocumentsPage() {
       </Card>
 
       {!documents || documents.length === 0 ? (
-        <EmptyState icon={IconFiles} message="No documents uploaded yet." />
+        <EmptyState icon={IconFiles} message="Inga dokument uppladdade ännu." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Category</Table.Th>
-                <Table.Th>Size</Table.Th>
-                <Table.Th>Date</Table.Th>
+                <Table.Th>Namn</Table.Th>
+                <Table.Th>Kategori</Table.Th>
+                <Table.Th>Storlek</Table.Th>
+                <Table.Th>Datum</Table.Th>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
@@ -84,7 +85,7 @@ export function DocumentsPage() {
                   </Table.Td>
                   <Table.Td>
                     <Badge color={CATEGORY_COLORS[doc.category]} variant="light">
-                      {doc.category}
+                      {DOCUMENT_CATEGORY_LABELS[doc.category]}
                     </Badge>
                   </Table.Td>
                   <Table.Td c="dimmed">{formatSize(doc.sizeBytes)}</Table.Td>
@@ -106,8 +107,8 @@ export function DocumentsPage() {
 
       <ConfirmDialog
         opened={pendingDeleteId !== null}
-        title="Delete document"
-        message="This removes the file and its record. This can't be undone."
+        title="Ta bort dokument"
+        message="Detta tar bort filen och dess post. Detta kan inte ångras."
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {
           if (pendingDeleteId) {

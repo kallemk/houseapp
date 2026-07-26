@@ -35,7 +35,7 @@ export function ValuationsPage() {
   }
 
   if (!property) {
-    return <EmptyState message="Add a property on the Dashboard first." />
+    return <EmptyState message="Lägg till en bostad på översikten först." />
   }
 
   function handleSubmit(values: ValuationFormValues) {
@@ -51,32 +51,32 @@ export function ValuationsPage() {
         <ThemeIcon variant="light" size={36} radius="md">
           <IconChartLine size={20} />
         </ThemeIcon>
-        <Title order={2}>Valuations</Title>
+        <Title order={2}>Värderingar</Title>
       </Group>
 
       <Card withBorder padding="md">
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Group align="flex-end">
-            <TextInput label="Date" type="date" required {...form.getInputProps('date')} />
-            <TextInput label="Value" type="number" required {...form.getInputProps('value')} />
-            <TextInput label="Source" placeholder="e.g. Appraisal" {...form.getInputProps('source')} />
+            <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
+            <TextInput label="Värde" type="number" required {...form.getInputProps('value')} />
+            <TextInput label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
             <Button type="submit" loading={createValuation.isPending}>
-              Add
+              Lägg till
             </Button>
           </Group>
         </form>
       </Card>
 
       {!valuations || valuations.length === 0 ? (
-        <EmptyState icon={IconChartLine} message="No valuations logged yet." />
+        <EmptyState icon={IconChartLine} message="Inga värderingar registrerade ännu." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Date</Table.Th>
-                <Table.Th>Value</Table.Th>
-                <Table.Th>Source</Table.Th>
+                <Table.Th>Datum</Table.Th>
+                <Table.Th>Värde</Table.Th>
+                <Table.Th>Källa</Table.Th>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
@@ -84,7 +84,7 @@ export function ValuationsPage() {
               {valuations.map((v) => (
                 <Table.Tr key={v.id}>
                   <Table.Td>{v.date}</Table.Td>
-                  <Table.Td fw={600}>{v.value.toLocaleString()}</Table.Td>
+                  <Table.Td fw={600}>{v.value.toLocaleString('sv-SE')}</Table.Td>
                   <Table.Td c="dimmed">{v.source ?? '—'}</Table.Td>
                   <Table.Td>
                     <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(v.id)}>
@@ -100,8 +100,8 @@ export function ValuationsPage() {
 
       <ConfirmDialog
         opened={pendingDeleteId !== null}
-        title="Delete valuation"
-        message="This can't be undone."
+        title="Ta bort värdering"
+        message="Detta kan inte ångras."
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {
           if (pendingDeleteId) {

@@ -21,8 +21,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
 import { useCreateRenovationEntry, useDeleteRenovationEntry, useRenovationEntries } from '../hooks/useRenovationEntries'
 import type { RenovationCategory } from '../api/types'
-
-const CATEGORY_OPTIONS: RenovationCategory[] = ['Renovation', 'Maintenance', 'Furniture', 'Other']
+import { RENOVATION_CATEGORY_LABELS, RENOVATION_CATEGORY_OPTIONS } from '../utils/labels'
 
 const CATEGORY_COLORS: Record<RenovationCategory, string> = {
   Renovation: 'terracotta',
@@ -60,7 +59,7 @@ export function RenovationsPage() {
   }
 
   if (!property) {
-    return <EmptyState message="Add a property on the Dashboard first." />
+    return <EmptyState message="Lägg till en bostad på översikten först." />
   }
 
   function handleSubmit(values: RenovationFormValues) {
@@ -82,36 +81,41 @@ export function RenovationsPage() {
         <ThemeIcon variant="light" size={36} radius="md">
           <IconHammer size={20} />
         </ThemeIcon>
-        <Title order={2}>Renovations &amp; investments</Title>
+        <Title order={2}>Renoveringar &amp; investeringar</Title>
       </Group>
 
       <Card withBorder padding="md">
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Group align="flex-end">
-            <TextInput label="Date" type="date" required {...form.getInputProps('date')} />
-            <Select label="Category" data={CATEGORY_OPTIONS} allowDeselect={false} {...form.getInputProps('category')} />
-            <TextInput label="Title" required {...form.getInputProps('title')} />
-            <TextInput label="Amount" type="number" required {...form.getInputProps('amount')} />
-            <TextInput label="Vendor" {...form.getInputProps('vendor')} />
+            <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
+            <Select
+              label="Kategori"
+              data={RENOVATION_CATEGORY_OPTIONS}
+              allowDeselect={false}
+              {...form.getInputProps('category')}
+            />
+            <TextInput label="Titel" required {...form.getInputProps('title')} />
+            <TextInput label="Belopp" type="number" required {...form.getInputProps('amount')} />
+            <TextInput label="Leverantör" {...form.getInputProps('vendor')} />
             <Button type="submit" loading={createEntry.isPending}>
-              Add
+              Lägg till
             </Button>
           </Group>
         </form>
       </Card>
 
       {!entries || entries.length === 0 ? (
-        <EmptyState icon={IconHammer} message="No renovation entries logged yet." />
+        <EmptyState icon={IconHammer} message="Inga renoveringar registrerade ännu." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Date</Table.Th>
-                <Table.Th>Category</Table.Th>
-                <Table.Th>Title</Table.Th>
-                <Table.Th>Amount</Table.Th>
-                <Table.Th>Vendor</Table.Th>
+                <Table.Th>Datum</Table.Th>
+                <Table.Th>Kategori</Table.Th>
+                <Table.Th>Titel</Table.Th>
+                <Table.Th>Belopp</Table.Th>
+                <Table.Th>Leverantör</Table.Th>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
@@ -121,11 +125,11 @@ export function RenovationsPage() {
                   <Table.Td>{entry.date}</Table.Td>
                   <Table.Td>
                     <Badge color={CATEGORY_COLORS[entry.category]} variant="light">
-                      {entry.category}
+                      {RENOVATION_CATEGORY_LABELS[entry.category]}
                     </Badge>
                   </Table.Td>
                   <Table.Td>{entry.title}</Table.Td>
-                  <Table.Td fw={600}>{entry.amount.toLocaleString()}</Table.Td>
+                  <Table.Td fw={600}>{entry.amount.toLocaleString('sv-SE')}</Table.Td>
                   <Table.Td c="dimmed">{entry.vendor ?? '—'}</Table.Td>
                   <Table.Td>
                     <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(entry.id)}>
@@ -141,8 +145,8 @@ export function RenovationsPage() {
 
       <ConfirmDialog
         opened={pendingDeleteId !== null}
-        title="Delete entry"
-        message="This can't be undone."
+        title="Ta bort post"
+        message="Detta kan inte ångras."
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {
           if (pendingDeleteId) {

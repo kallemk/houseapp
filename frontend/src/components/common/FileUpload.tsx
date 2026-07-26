@@ -2,14 +2,7 @@ import { Button, FileButton, Group, Select, TextInput } from '@mantine/core'
 import { IconUpload } from '@tabler/icons-react'
 import { useState } from 'react'
 import type { DocumentCategory } from '../../api/types'
-
-const CATEGORY_OPTIONS: { value: DocumentCategory; label: string }[] = [
-  { value: 'Deed', label: 'Deed' },
-  { value: 'Warranty', label: 'Warranty' },
-  { value: 'Receipt', label: 'Receipt' },
-  { value: 'Photo', label: 'Photo' },
-  { value: 'Other', label: 'Other' },
-]
+import { DOCUMENT_CATEGORY_OPTIONS } from '../../utils/labels'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -27,10 +20,10 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
 
   return (
     <Group align="flex-end">
-      <TextInput label="Date" type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} w={160} />
+      <TextInput label="Datum" type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} w={160} />
       <Select
-        label="Category"
-        data={CATEGORY_OPTIONS}
+        label="Kategori"
+        data={DOCUMENT_CATEGORY_OPTIONS}
         value={category}
         onChange={(value) => setCategory((value as DocumentCategory) ?? 'Other')}
         allowDeselect={false}
@@ -39,7 +32,7 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
       <FileButton onChange={(file) => file && date && onUpload(file, category, date)}>
         {(props) => (
           <Button {...props} leftSection={<IconUpload size={16} />} loading={uploading}>
-            Upload file
+            Ladda upp fil
           </Button>
         )}
       </FileButton>

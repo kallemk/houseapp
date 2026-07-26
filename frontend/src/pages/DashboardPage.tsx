@@ -15,7 +15,7 @@ import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/Qui
 // No currency is configured anywhere in the data model, so this formats a plain grouped number
 // rather than guessing a currency symbol.
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(value)
 }
 
 function CreatePropertyForm() {
@@ -27,7 +27,7 @@ function CreatePropertyForm() {
   return (
     <EmptyState
       icon={IconHome2}
-      message="No property yet — add the house to start tracking it."
+      message="Ingen bostad ännu — lägg till huset för att börja spåra det."
       action={
         <form
           onSubmit={form.onSubmit((values) =>
@@ -35,12 +35,12 @@ function CreatePropertyForm() {
           )}
         >
           <Stack w={320}>
-            <TextInput label="Nickname" required {...form.getInputProps('nickname')} />
-            <TextInput label="Address" required {...form.getInputProps('address')} />
-            <TextInput label="Purchase date" type="date" required {...form.getInputProps('purchaseDate')} />
-            <TextInput label="Purchase price" type="number" required {...form.getInputProps('purchasePrice')} />
+            <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
+            <TextInput label="Adress" required {...form.getInputProps('address')} />
+            <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
+            <TextInput label="Köpeskilling" type="number" required {...form.getInputProps('purchasePrice')} />
             <Button type="submit" loading={createProperty.isPending}>
-              Add property
+              Lägg till bostad
             </Button>
           </Stack>
         </form>
@@ -103,13 +103,13 @@ export function DashboardPage() {
       <Text c="dimmed">{property.address}</Text>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} mt="md">
-        <StatCard icon={IconHome2} label="Current value" value={formatCurrency(currentValue)} />
-        <StatCard icon={IconTag} label="Purchase price" value={formatCurrency(property.purchasePrice)} />
-        <StatCard icon={IconHammer} label="Total invested" value={formatCurrency(totalInvested)} />
+        <StatCard icon={IconHome2} label="Nuvarande värde" value={formatCurrency(currentValue)} />
+        <StatCard icon={IconTag} label="Köpeskilling" value={formatCurrency(property.purchasePrice)} />
+        <StatCard icon={IconHammer} label="Totalt investerat" value={formatCurrency(totalInvested)} />
       </SimpleGrid>
 
       <Title order={4} mt="lg">
-        Timeline
+        Tidslinje
       </Title>
       <Card withBorder padding="lg">
         <PropertyTimeline

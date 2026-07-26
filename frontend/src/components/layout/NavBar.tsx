@@ -11,10 +11,10 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: IconHome2, end: true },
-  { to: '/valuations', label: 'Valuations', icon: IconChartLine, end: false },
-  { to: '/renovations', label: 'Renovations', icon: IconHammer, end: false },
-  { to: '/documents', label: 'Documents', icon: IconFiles, end: false },
+  { to: '/', label: 'Översikt', icon: IconHome2, end: true },
+  { to: '/valuations', label: 'Värderingar', icon: IconChartLine, end: false },
+  { to: '/renovations', label: 'Renoveringar', icon: IconHammer, end: false },
+  { to: '/documents', label: 'Dokument', icon: IconFiles, end: false },
 ]
 
 export function NavBar() {
@@ -71,7 +71,7 @@ export function NavBar() {
           }}
         >
           <IconLogout size={16} />
-          Log out
+          Logga ut
         </UnstyledButton>
       </Group>
     </Group>

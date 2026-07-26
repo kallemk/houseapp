@@ -188,6 +188,22 @@ property switcher — `hooks/usePrimaryProperty.ts` always uses the first proper
 since in practice this will be the one house being tracked. If multi-property UI is ever
 needed, this is the seam to extend.
 
+### UI language
+
+All user-facing frontend text (labels, buttons, headings, messages, empty states) is in
+**Swedish** — the two users are Swedish-only. Code, comments, identifiers, API contracts, and
+backend text stay in English (standard practice). Backend enum values
+(`RenovationCategory`, `DocumentCategory`) are English strings by design — never rename them
+to Swedish, since that's the wire contract — but their display labels are Swedish, defined in
+`frontend/src/utils/labels.ts` (`RENOVATION_CATEGORY_LABELS`/`_OPTIONS`,
+`DOCUMENT_CATEGORY_LABELS`/`_OPTIONS`). Use these maps for any new UI that displays or selects
+a category rather than rendering the raw enum value. Number formatting is pinned to the
+`'sv-SE'` locale explicitly (not `undefined`/browser-default) so output is consistent
+regardless of the viewer's browser locale — see `formatCurrency`/`formatNumber` in
+`DashboardPage.tsx`/`PropertyTimeline.tsx`. `index.html` sets `lang="sv"` to match. Dates are
+left as plain ISO `YYYY-MM-DD` strings throughout (no locale formatting needed — this already
+matches Swedish date convention).
+
 ### Test setup
 
 `backend/tests/HouseApp.Api.Tests/HouseAppWebApplicationFactory.cs` boots the real

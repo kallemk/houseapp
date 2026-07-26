@@ -5,6 +5,7 @@ import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateRenovationEntry } from '../../hooks/useRenovationEntries'
 import { useUploadDocument } from '../../hooks/useDocuments'
 import type { DocumentCategory, RenovationCategory } from '../../api/types'
+import { RENOVATION_CATEGORY_OPTIONS } from '../../utils/labels'
 
 export type QuickAddType = 'valuation' | 'renovation' | 'document'
 
@@ -20,12 +21,10 @@ interface QuickAddModalProps {
 }
 
 const TITLES: Record<QuickAddType, string> = {
-  valuation: 'Add valuation',
-  renovation: 'Add renovation',
-  document: 'Add document',
+  valuation: 'Lägg till värdering',
+  renovation: 'Lägg till renovering',
+  document: 'Lägg till dokument',
 }
-
-const RENOVATION_CATEGORY_OPTIONS: RenovationCategory[] = ['Renovation', 'Maintenance', 'Furniture', 'Other']
 
 function QuickAddValuationForm({
   propertyId,
@@ -49,12 +48,12 @@ function QuickAddValuationForm({
   return (
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
-        <TextInput label="Date" type="date" required {...form.getInputProps('date')} />
-        <TextInput label="Value" type="number" required {...form.getInputProps('value')} />
-        <TextInput label="Source" placeholder="e.g. Appraisal" {...form.getInputProps('source')} />
+        <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
+        <TextInput label="Värde" type="number" required {...form.getInputProps('value')} />
+        <TextInput label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createValuation.isPending}>
-            Save
+            Spara
           </Button>
         </Group>
       </Stack>
@@ -92,19 +91,19 @@ function QuickAddRenovationForm({
   return (
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
-        <TextInput label="Date" type="date" required {...form.getInputProps('date')} />
+        <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <Select
-          label="Category"
+          label="Kategori"
           data={RENOVATION_CATEGORY_OPTIONS}
           allowDeselect={false}
           {...form.getInputProps('category')}
         />
-        <TextInput label="Title" required {...form.getInputProps('title')} />
-        <TextInput label="Amount" type="number" required {...form.getInputProps('amount')} />
-        <TextInput label="Vendor" {...form.getInputProps('vendor')} />
+        <TextInput label="Titel" required {...form.getInputProps('title')} />
+        <TextInput label="Belopp" type="number" required {...form.getInputProps('amount')} />
+        <TextInput label="Leverantör" {...form.getInputProps('vendor')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createEntry.isPending}>
-            Save
+            Spara
           </Button>
         </Group>
       </Stack>
