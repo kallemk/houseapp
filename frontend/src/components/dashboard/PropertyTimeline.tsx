@@ -10,6 +10,7 @@ import {
   quarterLabel,
 } from '../../utils/quarters'
 import type { QuickAddRequest } from './QuickAddModal'
+import { formatCurrency } from '../../utils/currency'
 
 interface TimelineEvent {
   id: string
@@ -27,10 +28,6 @@ interface PropertyTimelineProps {
   onQuickAdd: (request: QuickAddRequest) => void
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(value)
-}
-
 export function PropertyTimeline({ purchaseDate, valuations, renovations, documents, onQuickAdd }: PropertyTimelineProps) {
   const events: TimelineEvent[] = [
     ...valuations.map((v) => ({
@@ -38,14 +35,14 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
       date: v.date,
       icon: IconChartLine,
       color: 'terracotta',
-      label: `Värdering: ${formatNumber(v.value)}`,
+      label: `Värdering: ${formatCurrency(v.value)}`,
     })),
     ...renovations.map((r) => ({
       id: `renovation-${r.id}`,
       date: r.date,
       icon: IconHammer,
       color: 'blue',
-      label: `${r.title}: ${formatNumber(r.amount)}`,
+      label: `${r.title}: ${formatCurrency(r.amount)}`,
     })),
     ...documents.map((d) => ({
       id: `document-${d.id}`,

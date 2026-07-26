@@ -49,7 +49,7 @@ function QuickAddValuationForm({
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
-        <TextInput label="Värde" type="number" required {...form.getInputProps('value')} />
+        <TextInput label="Värde (kr)" type="number" required {...form.getInputProps('value')} />
         <TextInput label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createValuation.isPending}>
@@ -99,7 +99,7 @@ function QuickAddRenovationForm({
           {...form.getInputProps('category')}
         />
         <TextInput label="Titel" required {...form.getInputProps('title')} />
-        <TextInput label="Belopp" type="number" required {...form.getInputProps('amount')} />
+        <TextInput label="Belopp (kr)" type="number" required {...form.getInputProps('amount')} />
         <TextInput label="Leverantör" {...form.getInputProps('vendor')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createEntry.isPending}>

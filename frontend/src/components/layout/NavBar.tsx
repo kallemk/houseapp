@@ -27,7 +27,7 @@ export function NavBar() {
           <ThemeIcon variant="light" radius="md" size="md">
             <IconHomeStar size={18} />
           </ThemeIcon>
-          <Text fw={700}>HouseApp</Text>
+          <Text fw={700}>HusTracker</Text>
         </Group>
         <Group gap={4}>
           {links.map((link) => (

@@ -22,6 +22,7 @@ import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
 import { useCreateRenovationEntry, useDeleteRenovationEntry, useRenovationEntries } from '../hooks/useRenovationEntries'
 import type { RenovationCategory } from '../api/types'
 import { RENOVATION_CATEGORY_LABELS, RENOVATION_CATEGORY_OPTIONS } from '../utils/labels'
+import { formatCurrency } from '../utils/currency'
 
 const CATEGORY_COLORS: Record<RenovationCategory, string> = {
   Renovation: 'terracotta',
@@ -95,7 +96,7 @@ export function RenovationsPage() {
               {...form.getInputProps('category')}
             />
             <TextInput label="Titel" required {...form.getInputProps('title')} />
-            <TextInput label="Belopp" type="number" required {...form.getInputProps('amount')} />
+            <TextInput label="Belopp (kr)" type="number" required {...form.getInputProps('amount')} />
             <TextInput label="Leverantör" {...form.getInputProps('vendor')} />
             <Button type="submit" loading={createEntry.isPending}>
               Lägg till
@@ -129,7 +130,7 @@ export function RenovationsPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td>{entry.title}</Table.Td>
-                  <Table.Td fw={600}>{entry.amount.toLocaleString('sv-SE')}</Table.Td>
+                  <Table.Td fw={600}>{formatCurrency(entry.amount)}</Table.Td>
                   <Table.Td c="dimmed">{entry.vendor ?? '—'}</Table.Td>
                   <Table.Td>
                     <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(entry.id)}>

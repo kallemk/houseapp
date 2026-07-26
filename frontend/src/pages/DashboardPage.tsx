@@ -11,12 +11,7 @@ import { useDocuments } from '../hooks/useDocuments'
 import { EmptyState } from '../components/common/EmptyState'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
-
-// No currency is configured anywhere in the data model, so this formats a plain grouped number
-// rather than guessing a currency symbol.
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(value)
-}
+import { formatCurrency } from '../utils/currency'
 
 function CreatePropertyForm() {
   const createProperty = useCreateProperty()
@@ -38,7 +33,7 @@ function CreatePropertyForm() {
             <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
             <TextInput label="Adress" required {...form.getInputProps('address')} />
             <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
-            <TextInput label="Köpeskilling" type="number" required {...form.getInputProps('purchasePrice')} />
+            <TextInput label="Köpeskilling (kr)" type="number" required {...form.getInputProps('purchasePrice')} />
             <Button type="submit" loading={createProperty.isPending}>
               Lägg till bostad
             </Button>

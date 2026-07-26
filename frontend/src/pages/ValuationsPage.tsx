@@ -6,6 +6,7 @@ import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
 import { useCreateValuation, useDeleteValuation, useValuations } from '../hooks/useValuations'
+import { formatCurrency } from '../utils/currency'
 
 interface ValuationFormValues {
   date: string
@@ -58,7 +59,7 @@ export function ValuationsPage() {
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Group align="flex-end">
             <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
-            <TextInput label="Värde" type="number" required {...form.getInputProps('value')} />
+            <TextInput label="Värde (kr)" type="number" required {...form.getInputProps('value')} />
             <TextInput label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
             <Button type="submit" loading={createValuation.isPending}>
               Lägg till
@@ -84,7 +85,7 @@ export function ValuationsPage() {
               {valuations.map((v) => (
                 <Table.Tr key={v.id}>
                   <Table.Td>{v.date}</Table.Td>
-                  <Table.Td fw={600}>{v.value.toLocaleString('sv-SE')}</Table.Td>
+                  <Table.Td fw={600}>{formatCurrency(v.value)}</Table.Td>
                   <Table.Td c="dimmed">{v.source ?? '—'}</Table.Td>
                   <Table.Td>
                     <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(v.id)}>

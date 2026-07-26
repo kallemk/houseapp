@@ -53,7 +53,7 @@ export function LoginPage() {
           <ThemeIcon variant="light" size={56} radius="xl">
             <IconHomeStar size={30} />
           </ThemeIcon>
-          <Title order={2}>HouseApp</Title>
+          <Title order={2}>HusTracker</Title>
           <Text c="dimmed" size="sm">
             Håll koll på hemmet, tillsammans
           </Text>
