@@ -96,6 +96,24 @@ Controllers that update/delete a single item (`ValuationsController`,
 key) as a query-string parameter on `PUT`/`DELETE` — this is required by the frontend API
 client (`frontend/src/api/*.ts`), not optional plumbing.
 
+**Cosmos provider footguns that only show up against real Cosmos DB, not the InMemory
+provider the tests use** (all three crashed the App Service on startup in production before
+being caught — the test suite did not catch any of them):
+- `HasIndex(...)` in `OnModelCreating` throws at model-validation time — the Cosmos provider
+  doesn't support EF index declarations at all (it indexes every property automatically by
+  default). Don't add one.
+- Any synchronous EF query (e.g. `db.Users.Any(...)` instead of `AnyAsync`) throws
+  `SyncNotSupported` — Cosmos disallows sync I/O outright, unlike relational providers
+  which just block a thread. Every DB call must be the `Async` form, no exceptions.
+- Predicate-argument aggregate queries — `SingleOrDefaultAsync(predicate)`,
+  `AnyAsync(predicate)`, `FirstAsync(predicate)` — generate SQL that Cosmos has rejected
+  with `Identifier 'root' could not be resolved` (BadRequest). The fix used throughout this
+  codebase is `.Where(predicate).ToListAsync()` followed by the client-side LINQ operator
+  (`.SingleOrDefault()`, `.Count > 0`, etc.) instead of passing the predicate straight to the
+  terminal async method — see `AuthController.Login` and `DbSeeder.SeedAsync`. Follow this
+  same shape for any new single-item-by-predicate lookup; don't reintroduce the inline-
+  predicate form.
+
 ### No Azure account keys or connection secrets anywhere
 
 Cosmos DB and Storage are both accessed via the App Service's user-assigned managed
