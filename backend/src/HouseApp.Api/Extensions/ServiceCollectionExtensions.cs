@@ -1,4 +1,5 @@
 using Azure.Identity;
+using Azure.Storage;
 using Azure.Storage.Blobs;
 using HouseApp.Api.Data;
 using HouseApp.Api.Services;
@@ -10,6 +11,17 @@ namespace HouseApp.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    // The SDK's default ("Auto") download transfer validation negotiates structured-message/CRC64
+    // downloads, which this storage account/region combination rejects with a malformed "comp"
+    // query parameter (InvalidQueryParameterValue) — this crashed both DbSeeder and cookie sign-in
+    // (Data Protection reads its key ring from Blob Storage on every request). Disabling it avoids
+    // the negotiation entirely; SAS-issued URLs for document upload/download are unaffected since
+    // those are plain HTTP PUT/GET from the browser, not SDK calls.
+    private static BlobClientOptions CreateBlobClientOptions() => new()
+    {
+        TransferValidation = { Download = { ChecksumAlgorithm = StorageChecksumAlgorithm.None } },
+    };
+
     public static IServiceCollection AddHouseAppCookieAuth(this IServiceCollection services)
     {
         services
@@ -51,7 +63,7 @@ public static class ServiceCollectionExtensions
 
         if (!string.IsNullOrEmpty(storageConnectionString))
         {
-            var containerClient = new BlobContainerClient(storageConnectionString, "dataprotection-keys");
+            var containerClient = new BlobContainerClient(storageConnectionString, "dataprotection-keys", CreateBlobClientOptions());
             containerClient.CreateIfNotExists();
             builder.PersistKeysToAzureBlobStorage(containerClient.GetBlobClient("keys.xml"));
         }
@@ -60,7 +72,7 @@ public static class ServiceCollectionExtensions
             var storageAccountUrl = configuration["Storage:AccountUrl"]
                 ?? throw new InvalidOperationException("Either ConnectionStrings:Storage or Storage:AccountUrl must be configured.");
             var credential = new DefaultAzureCredential();
-            var containerClient = new BlobContainerClient(new Uri($"{storageAccountUrl}/dataprotection-keys"), credential);
+            var containerClient = new BlobContainerClient(new Uri($"{storageAccountUrl}/dataprotection-keys"), credential, CreateBlobClientOptions());
             containerClient.CreateIfNotExists();
             builder.PersistKeysToAzureBlobStorage(containerClient.GetBlobClient("keys.xml"));
 
@@ -102,12 +114,12 @@ public static class ServiceCollectionExtensions
             var storageConnectionString = configuration.GetConnectionString("Storage");
             if (!string.IsNullOrEmpty(storageConnectionString))
             {
-                return new BlobServiceClient(storageConnectionString);
+                return new BlobServiceClient(storageConnectionString, CreateBlobClientOptions());
             }
 
             var storageAccountUrl = configuration["Storage:AccountUrl"]
                 ?? throw new InvalidOperationException("Either ConnectionStrings:Storage or Storage:AccountUrl must be configured.");
-            return new BlobServiceClient(new Uri(storageAccountUrl), new DefaultAzureCredential());
+            return new BlobServiceClient(new Uri(storageAccountUrl), new DefaultAzureCredential(), CreateBlobClientOptions());
         });
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         return services;
