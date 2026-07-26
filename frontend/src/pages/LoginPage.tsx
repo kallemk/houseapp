@@ -1,5 +1,6 @@
-import { Alert, Button, Center, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
+import { Alert, Button, Center, Paper, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
+import { IconHomeStar } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -43,26 +44,38 @@ export function LoginPage() {
   }
 
   return (
-    <Center h="100vh">
-      <Paper withBorder shadow="sm" p="xl" w={360}>
-        <Title order={3} mb="lg">
-          HouseApp
-        </Title>
-        <form onSubmit={form.onSubmit(handleSubmit)}>
-          <Stack>
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <TextInput label="Email" type="email" required {...form.getInputProps('email')} />
-            <PasswordInput label="Password" required {...form.getInputProps('password')} />
-            <Button type="submit" loading={submitting} fullWidth>
-              Log in
-            </Button>
-          </Stack>
-        </form>
-      </Paper>
+    <Center
+      h="100vh"
+      style={{ background: 'linear-gradient(160deg, #fdf3f0 0%, #faf6f2 45%, #f3e8df 100%)' }}
+    >
+      <Stack align="center" gap="lg">
+        <Stack align="center" gap={4}>
+          <ThemeIcon variant="light" size={56} radius="xl">
+            <IconHomeStar size={30} />
+          </ThemeIcon>
+          <Title order={2}>HouseApp</Title>
+          <Text c="dimmed" size="sm">
+            Track your home, together
+          </Text>
+        </Stack>
+
+        <Paper withBorder shadow="md" p="xl" w={360}>
+          <form onSubmit={form.onSubmit(handleSubmit)}>
+            <Stack>
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <TextInput label="Email" type="email" required {...form.getInputProps('email')} />
+              <PasswordInput label="Password" required {...form.getInputProps('password')} />
+              <Button type="submit" loading={submitting} fullWidth>
+                Log in
+              </Button>
+            </Stack>
+          </form>
+        </Paper>
+      </Stack>
     </Center>
   )
 }

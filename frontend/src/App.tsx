@@ -11,12 +11,13 @@ import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RenovationsPage } from './pages/RenovationsPage'
 import { ValuationsPage } from './pages/ValuationsPage'
+import { theme } from './theme'
 
 const queryClient = new QueryClient()
 
 export default function App() {
   return (
-    <MantineProvider>
+    <MantineProvider theme={theme}>
       <Notifications />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>

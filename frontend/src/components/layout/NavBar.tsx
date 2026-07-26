@@ -1,12 +1,20 @@
-import { Button, Group, Text } from '@mantine/core'
+import { Group, Text, ThemeIcon, UnstyledButton } from '@mantine/core'
+import {
+  IconChartLine,
+  IconFiles,
+  IconHammer,
+  IconHome2,
+  IconHomeStar,
+  IconLogout,
+} from '@tabler/icons-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 
 const links = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/valuations', label: 'Valuations' },
-  { to: '/renovations', label: 'Renovations' },
-  { to: '/documents', label: 'Documents' },
+  { to: '/', label: 'Dashboard', icon: IconHome2, end: true },
+  { to: '/valuations', label: 'Valuations', icon: IconChartLine, end: false },
+  { to: '/renovations', label: 'Renovations', icon: IconHammer, end: false },
+  { to: '/documents', label: 'Documents', icon: IconFiles, end: false },
 ]
 
 export function NavBar() {
@@ -14,31 +22,57 @@ export function NavBar() {
 
   return (
     <Group h="100%" px="md" justify="space-between">
-      <Group gap="lg">
-        <Text fw={700}>HouseApp</Text>
-        {links.map((link) => (
-          <Text
-            key={link.to}
-            component={NavLink}
-            to={link.to}
-            end={link.to === '/'}
-            style={({ isActive }: { isActive: boolean }) => ({
-              fontWeight: isActive ? 700 : 400,
-              textDecoration: 'none',
-              color: 'inherit',
-            })}
-          >
-            {link.label}
-          </Text>
-        ))}
+      <Group gap="xl">
+        <Group gap="xs">
+          <ThemeIcon variant="light" radius="md" size="md">
+            <IconHomeStar size={18} />
+          </ThemeIcon>
+          <Text fw={700}>HouseApp</Text>
+        </Group>
+        <Group gap={4}>
+          {links.map((link) => (
+            <UnstyledButton
+              key={link.to}
+              component={NavLink}
+              to={link.to}
+              end={link.end}
+              style={({ isActive }: { isActive: boolean }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 'var(--mantine-radius-md)',
+                fontSize: 'var(--mantine-font-size-sm)',
+                fontWeight: isActive ? 600 : 500,
+                color: isActive ? 'var(--mantine-color-terracotta-7)' : 'var(--mantine-color-gray-7)',
+                backgroundColor: isActive ? 'var(--mantine-color-terracotta-0)' : 'transparent',
+              })}
+            >
+              <link.icon size={16} />
+              {link.label}
+            </UnstyledButton>
+          ))}
+        </Group>
       </Group>
       <Group gap="sm">
         <Text size="sm" c="dimmed">
           {user?.displayName}
         </Text>
-        <Button variant="subtle" size="xs" onClick={() => logout()}>
+        <UnstyledButton
+          onClick={() => logout()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 10px',
+            borderRadius: 'var(--mantine-radius-md)',
+            fontSize: 'var(--mantine-font-size-sm)',
+            color: 'var(--mantine-color-gray-6)',
+          }}
+        >
+          <IconLogout size={16} />
           Log out
-        </Button>
+        </UnstyledButton>
       </Group>
     </Group>
   )
