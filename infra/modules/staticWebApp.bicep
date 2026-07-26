@@ -13,9 +13,12 @@ param linkedBackendLocation string
 resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   name: name
   location: location
+  // Linked backends (the /api/* proxy the cookie-auth design relies on) are a Standard-tier-only
+  // feature — Free does not support them, and deployment fails with "SkuCode 'Free' is invalid"
+  // on the linkedBackends resource below if this is set to Free.
   sku: {
-    name: 'Free'
-    tier: 'Free'
+    name: 'Standard'
+    tier: 'Standard'
   }
   properties: {
     // No repositoryUrl/branch here — content is deployed directly by the frontend-ci-cd GitHub

@@ -151,6 +151,11 @@ choices, don't "fix" these without re-reading why:
   delay (unlike SQL Serverless-style auto-pause).
 - Static Web Apps only deploy in a limited set of regions — `staticWebAppLocation`
   defaults to `westeurope` independently of the `location` param used for everything else.
+- The Static Web App SKU is **Standard**, not Free (~$9/mo) — this is required, not a
+  choice: `linkedBackends` (the `/api/*` proxy the whole cookie-auth design depends on) is
+  a Standard-tier-only feature and deployment fails with `SkuCode 'Free' is invalid` on
+  Free. Don't downgrade this SKU without also removing the linked backend and rethinking
+  auth (CORS + `SameSite=None` cookies).
 - Storage CORS allows `*` for origins deliberately (see comment in
   `modules/storage.bicep`): security for direct browser-to-blob SAS uploads comes from the
   SAS signature/expiry, not origin restriction, since wiring the Static Web App's hostname
