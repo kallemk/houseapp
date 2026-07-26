@@ -133,28 +133,30 @@ both a shared-key SAS (local dev via Azurite connection string,
 identity, no account key) — same code path, branched at runtime.
 
 **Data Protection key persistence is load-bearing, not optional infrastructure**: cookie
-auth encrypts the session cookie with the Data Protection key ring, which by default lives
-on local disk. `AddHouseAppDataProtection` persists it to Blob Storage
-(`PersistKeysToAzureBlobStorage`) so restarts/idle-unloads on App Service don't silently
-invalidate every login. Don't remove this even though nothing else references it directly.
+auth encrypts the session cookie with the Data Protection key ring. `AddHouseAppDataProtection`
+persists it to **local disk** (`PersistKeysToFileSystem`), not Blob Storage — on App Service
+Linux this resolves to `/home/data-protection-keys`, which is persistent across
+restarts/idle-unloads for a single instance (our F1 plan runs exactly one), so logins survive
+them. Optionally encrypted at rest with `ProtectKeysWithAzureKeyVault` when `KeyVault:Uri` is
+configured. Don't switch this back to Blob Storage without reading the git history first — it
+was deliberately moved off Blob after `AzureBlobXmlRepository`'s key-ring read crashed every
+login with `CryptographicException` → `InvalidQueryParameterValue` (empty `comp` parameter),
+traced to the SDK's default download transfer validation being rejected by this storage
+account (see the `CreateBlobClientOptions` note below) — moving key persistence to local disk
+sidesteps the Blob SDK for this entirely rather than trusting that workaround.
 
-**Every `BlobServiceClient`/`BlobContainerClient` is constructed with download transfer
-validation disabled** (`ServiceCollectionExtensions.CreateBlobClientOptions()`,
-`ChecksumAlgorithm = StorageChecksumAlgorithm.None`). The SDK's default (`Auto`) negotiates a
-structured-message/CRC64 download, which this storage account rejects with `BadRequest
-InvalidQueryParameterValue` on an empty `comp` query parameter — this crashed both `DbSeeder`
-(reading the `users` container) and every login (`AzureBlobXmlRepository` reading the Data
-Protection key ring, surfacing as `CryptographicException` from
-`CookieAuthenticationHandler.HandleSignInAsync`). Any new code that constructs a Blob client
-directly (bypassing DI) needs the same options or will hit the same crash.
+**Every `BlobServiceClient`/`BlobContainerClient` — currently just the one `AddHouseAppBlobStorage`
+constructs for documents — is built with download transfer validation disabled**
+(`ServiceCollectionExtensions.CreateBlobClientOptions()`, `ChecksumAlgorithm =
+StorageChecksumAlgorithm.None`), for the reason above. `BlobStorageService` itself never
+downloads blob content (it only issues SAS URLs), so this is defensive for now — but any new
+code that reads blob content directly needs the same options or risks the same crash.
 
-`Azure.Storage.Blobs` is also pinned to **12.26.0** in `HouseApp.Api.csproj` (matching what
-`Azure.Extensions.AspNetCore.DataProtection.Blobs@1.5.3` declares as its minimum) — this
-turned out not to be the fix for the above (the transfer-validation setting is), but there's
-no reason to float ahead of it regardless. This does mean
-`BlobStorageService.GetUserDelegationKeyAsync` must use the older 2-arg
-`(DateTimeOffset?, DateTimeOffset)` overload, not the newer `BlobGetUserDelegationKeyOptions`-
-based one, which doesn't exist in 12.26.0.
+`Azure.Storage.Blobs` is pinned to **12.26.0** in `HouseApp.Api.csproj` — kept at the version
+that was live when the transfer-validation fix above was verified, deliberately not left to
+float to latest untested. This does mean `BlobStorageService.GetUserDelegationKeyAsync` must
+use the older 2-arg `(DateTimeOffset?, DateTimeOffset)` overload, not the newer
+`BlobGetUserDelegationKeyOptions`-based one, which doesn't exist in 12.26.0.
 
 ### Frontend property scoping
 

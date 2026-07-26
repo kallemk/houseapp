@@ -56,30 +56,25 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddHouseAppDataProtection(this IServiceCollection services, IConfiguration configuration)
     {
-        var storageConnectionString = configuration.GetConnectionString("Storage");
         var keyVaultUri = configuration["KeyVault:Uri"];
 
-        var builder = services.AddDataProtection().SetApplicationName("HouseApp");
+        // Persisted to local disk, not Blob Storage — App Service Linux's /home directory is
+        // persistent across restarts/idle-unloads for a single instance (our F1 plan runs exactly
+        // one), and this keeps the Blob SDK out of the startup/login path entirely for something as
+        // foundational as the auth cookie key ring. HOME is set to /home on App Service Linux; local
+        // dev falls back to the OS temp directory.
+        var keysPath = Environment.GetEnvironmentVariable("HOME") is { } home
+            ? Path.Combine(home, "data-protection-keys")
+            : Path.Combine(Path.GetTempPath(), "houseapp-dataprotection-keys");
+        Directory.CreateDirectory(keysPath);
 
-        if (!string.IsNullOrEmpty(storageConnectionString))
-        {
-            var containerClient = new BlobContainerClient(storageConnectionString, "dataprotection-keys", CreateBlobClientOptions());
-            containerClient.CreateIfNotExists();
-            builder.PersistKeysToAzureBlobStorage(containerClient.GetBlobClient("keys.xml"));
-        }
-        else
-        {
-            var storageAccountUrl = configuration["Storage:AccountUrl"]
-                ?? throw new InvalidOperationException("Either ConnectionStrings:Storage or Storage:AccountUrl must be configured.");
-            var credential = new DefaultAzureCredential();
-            var containerClient = new BlobContainerClient(new Uri($"{storageAccountUrl}/dataprotection-keys"), credential, CreateBlobClientOptions());
-            containerClient.CreateIfNotExists();
-            builder.PersistKeysToAzureBlobStorage(containerClient.GetBlobClient("keys.xml"));
+        var builder = services.AddDataProtection()
+            .SetApplicationName("HouseApp")
+            .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 
-            if (!string.IsNullOrEmpty(keyVaultUri))
-            {
-                builder.ProtectKeysWithAzureKeyVault(new Uri(keyVaultUri), credential);
-            }
+        if (!string.IsNullOrEmpty(keyVaultUri))
+        {
+            builder.ProtectKeysWithAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
         }
 
         return services;

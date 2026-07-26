@@ -52,14 +52,6 @@ resource documentsContainer 'Microsoft.Storage/storageAccounts/blobServices/cont
   }
 }
 
-resource dataProtectionKeysContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  parent: blobService
-  name: 'dataprotection-keys'
-  properties: {
-    publicAccess: 'None'
-  }
-}
-
 // "Storage Blob Data Contributor" built-in role — read/write/delete blob data, no account key access.
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 

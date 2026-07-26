@@ -7,13 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.3" />
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.3" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <!-- Matches the version Azure.Extensions.AspNetCore.DataProtection.Blobs 1.5.3 declares as its
-         minimum. The actual fix for the blob-download crash this was chasing turned out to be
-         disabling download transfer validation (see ServiceCollectionExtensions.CreateBlobClientOptions) —
-         kept pinned here anyway since there's no reason to float ahead of what DataProtection.Blobs targets. -->
+    <!-- Kept at the version that was live when CreateBlobClientOptions' transfer-validation-disable
+         fix (see ServiceCollectionExtensions.cs) was verified, rather than floating to latest
+         untested — bump deliberately, not by accident. -->
     <PackageReference Include="Azure.Storage.Blobs" Version="12.26.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="9.0.9" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
