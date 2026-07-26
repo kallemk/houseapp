@@ -113,6 +113,15 @@ being caught — the test suite did not catch any of them):
   terminal async method — see `AuthController.Login` and `DbSeeder.SeedAsync`. Follow this
   same shape for any new single-item-by-predicate lookup; don't reintroduce the inline-
   predicate form.
+- Partition-key property casing must match the container's Bicep-declared path exactly.
+  Cosmos extracts the partition key value from the document JSON server-side using that path
+  (`infra/modules/cosmos.bicep`: `/propertyId`, lowercase); EF Core only special-cases the
+  primary `Id`/`id` property to lowercase, so any other property used as a partition key (e.g.
+  `PropertyId` on `ValuationEntry`/`RenovationEntry`/`Document`) gets written under its literal
+  PascalCase C# name unless told otherwise — every write then fails with `PartitionKeyMismatch`
+  (extracted key doesn't match the one in the request header). Fixed via
+  `.Property(x => x.PropertyId).ToJsonProperty("propertyId")` in `AppDbContext`. If you add a
+  new partition-key property, add the matching `ToJsonProperty` call too.
 
 ### No Azure account keys or connection secrets anywhere
 

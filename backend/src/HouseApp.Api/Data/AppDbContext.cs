@@ -34,6 +34,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.ToContainer("valuationEntries");
             b.HasPartitionKey(v => v.PropertyId);
             b.HasNoDiscriminator();
+            // Cosmos extracts the partition key value from the document JSON using the container's
+            // declared path (infra/modules/cosmos.bicep: "/propertyId", lowercase) — EF Core only
+            // special-cases the primary "id" field to lowercase, so PropertyId would otherwise be
+            // written as "PropertyId" and every write would fail with PartitionKeyMismatch (extracted
+            // key doesn't match the one in the request header) because the case doesn't line up.
+            b.Property(v => v.PropertyId).ToJsonProperty("propertyId");
         });
 
         modelBuilder.Entity<RenovationEntry>(b =>
@@ -41,6 +47,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.ToContainer("renovationEntries");
             b.HasPartitionKey(r => r.PropertyId);
             b.HasNoDiscriminator();
+            b.Property(r => r.PropertyId).ToJsonProperty("propertyId");
         });
 
         modelBuilder.Entity<Document>(b =>
@@ -48,6 +55,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.ToContainer("documents");
             b.HasPartitionKey(d => d.PropertyId);
             b.HasNoDiscriminator();
+            b.Property(d => d.PropertyId).ToJsonProperty("propertyId");
         });
     }
 }
