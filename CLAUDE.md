@@ -183,14 +183,26 @@ use the older 2-arg `(DateTimeOffset?, DateTimeOffset)` overload, not the newer
 
 ### Property membership (multi-property, per-user)
 
-A user can belong to 0:N properties. `Property.MemberUserIds` (a plain string list on the
-document) records who's connected — there is no separate join container. Membership is
+A user can belong to 0:N properties. `Property.MemberUserIds` (a plain nullable string list on
+the document) records who's connected — there is no separate join container. Membership is
 **not** enforced via a Cosmos query predicate: `PropertiesController` fetches the whole
-`properties` container with a plain `ToListAsync()` and filters by `MemberUserIds.Contains(userId)`
-**in memory**, same reasoning as the other Cosmos footguns above (translating `.Contains()`
-on a list property into Cosmos SQL is exactly the kind of query shape that's bitten this
-project before, and the container will only ever hold a handful of documents). Don't rewrite
-this as a `Where(p => p.MemberUserIds.Contains(userId))` LINQ-to-Cosmos query.
+`properties` container with a plain `ToListAsync()` and filters **in memory** via the
+`IsMember(property, userId)` helper, same reasoning as the other Cosmos footguns above
+(translating `.Contains()` on a list property into Cosmos SQL is exactly the kind of query
+shape that's bitten this project before, and the container will only ever hold a handful of
+documents). Don't rewrite this as a `Where(p => p.MemberUserIds.Contains(userId))`
+LINQ-to-Cosmos query.
+
+`MemberUserIds` is `List<string>?`, not `List<string>` — genuinely nullable, not just
+defaulted to `[]`. This field was added after properties already existed in production;
+those older documents have no such JSON property at all, and Cosmos deserializes a missing
+property as null, **not** the C# `= []` field initializer (this crashed `GetAll` in
+production the first time — `.Contains()` on null — see
+`PropertiesControllerTests.GetAll_SkipsPropertyWithNullMemberUserIds_WithoutThrowing`). Always
+go through `IsMember()` rather than calling `.Contains()` on `MemberUserIds` directly. This is
+a general pattern worth remembering: adding a required-looking field to an existing Cosmos
+entity does not backfill it onto documents that predate the change — either null-check
+defensively (as here) or write a one-time backfill if the field truly can't be absent.
 
 **Every account is connected automatically when a property is created** (`PropertiesController.Create`
 reads all of `db.Users` and stamps every id into `MemberUserIds`) — there's deliberately no

@@ -22,7 +22,7 @@ public class PropertiesController(AppDbContext db) : ControllerBase
         // predicate — the properties container is tiny (a handful of properties, ever), and this
         // sidesteps translating .Contains() on a list property into Cosmos SQL entirely.
         var properties = await db.Properties.ToListAsync();
-        var ownProperties = properties.Where(p => p.MemberUserIds.Contains(userId));
+        var ownProperties = properties.Where(p => IsMember(p, userId));
         return Ok(ownProperties.Select(ToDto));
     }
 
@@ -31,7 +31,7 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        if (property is null || !property.MemberUserIds.Contains(userId))
+        if (property is null || !IsMember(property, userId))
         {
             return NotFound();
         }
@@ -65,7 +65,7 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        if (property is null || !property.MemberUserIds.Contains(userId))
+        if (property is null || !IsMember(property, userId))
         {
             return NotFound();
         }
@@ -83,7 +83,7 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        if (property is null || !property.MemberUserIds.Contains(userId))
+        if (property is null || !IsMember(property, userId))
         {
             return NotFound();
         }
@@ -92,6 +92,12 @@ public class PropertiesController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    // MemberUserIds is null (not an empty list) for properties that existed before this field was
+    // added — a missing JSON property deserializes to the CLR default, not the "= []" initializer
+    // — so this must stay null-safe rather than calling .Contains() directly.
+    private static bool IsMember(Property property, string userId) =>
+        property.MemberUserIds?.Contains(userId) == true;
 
     private static PropertyDto ToDto(Property p) =>
         new(p.Id, p.Nickname, p.Address, p.PurchaseDate, p.PurchasePrice, p.CreatedAt);

@@ -98,4 +98,34 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         var bGetP1 = await clientB.GetAsync($"/api/properties/{p1!.Id}");
         Assert.Equal(HttpStatusCode.NotFound, bGetP1.StatusCode);
     }
+
+    [Fact]
+    public async Task GetAll_SkipsPropertyWithNullMemberUserIds_WithoutThrowing()
+    {
+        // Regression test: properties that existed before MemberUserIds was added deserialize
+        // from Cosmos with a null (not empty) list, since a missing JSON property becomes the CLR
+        // default rather than the "= []" field initializer. GetAll previously called
+        // .Contains() directly on that null and threw a 500 for every request.
+        var client = await CreateAuthenticatedClientAsync();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Properties.Add(new Property
+            {
+                Nickname = "Legacy House",
+                Address = "Old St",
+                PurchaseDate = new DateOnly(2018, 1, 1),
+                PurchasePrice = 100000m,
+                MemberUserIds = null,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/properties");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var list = await response.Content.ReadFromJsonAsync<List<PropertyDto>>();
+        Assert.DoesNotContain(list!, p => p.Nickname == "Legacy House");
+    }
 }
