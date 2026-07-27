@@ -4,6 +4,14 @@ export interface MeResponse {
   displayName: string
 }
 
+export interface UserDto {
+  id: string
+  email: string
+  displayName: string
+  hasPassword: boolean
+  createdAt: string
+}
+
 export interface PropertyDto {
   id: string
   nickname: string

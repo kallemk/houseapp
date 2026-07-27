@@ -32,6 +32,11 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IBlobStorageService>();
             services.AddSingleton<IBlobStorageService, FakeBlobStorageService>();
+
+            // A real OAuth round trip can't happen in-process, so only the outbound call to Google
+            // is stubbed — the endpoint, allowlist check and cookie issuance are still the real ones.
+            services.RemoveAll<IGoogleTokenValidator>();
+            services.AddSingleton<IGoogleTokenValidator, FakeGoogleTokenValidator>();
         });
     }
 }

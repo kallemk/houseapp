@@ -19,7 +19,10 @@ param storageBlobEndpoint string
 param keyVaultUri string
 param appInsightsConnectionString string
 
-@description('The two admin-seeded accounts — there is no public registration endpoint. Change the temp password via /api/auth/change-password immediately after first login.')
+@description('Google OAuth client ID used to validate ID tokens. Deliberately NOT @secure() — it ships inside the frontend JS bundle and is public by design; this flow uses no client secret at all.')
+param googleClientId string = ''
+
+@description('The accounts seeded on first startup, which bootstrap the sign-in allowlist. Further users are added in-app via the Users page rather than here.')
 @secure()
 param seedUser1 {
   email: string
@@ -58,6 +61,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'Storage__AccountUrl', value: storageBlobEndpoint }
         { name: 'KeyVault__Uri', value: keyVaultUri }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
+        { name: 'Authentication__Google__ClientId', value: googleClientId }
         { name: 'Seed__Users__0__Email', value: seedUser1.email }
         { name: 'Seed__Users__0__DisplayName', value: seedUser1.displayName }
         { name: 'Seed__Users__0__TempPassword', value: seedUser1.tempPassword }

@@ -124,4 +124,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         return services;
     }
+
+    public static IServiceCollection AddHouseAppGoogleAuth(this IServiceCollection services)
+    {
+        // No AddGoogle()/OAuth handler here on purpose: the frontend uses Google Identity Services
+        // to obtain an ID token and posts it to /api/auth/google, so there is no redirect dance —
+        // which is what lets the session stay a plain same-origin cookie (see CLAUDE.md).
+        services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
+        return services;
+    }
 }

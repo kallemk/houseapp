@@ -12,7 +12,10 @@ param staticWebAppLocation string = 'westeurope'
 @description('App Service Plan SKU — F1 is free; bump to B1 (~$13/mo, always-on) if the F1 daily quota becomes limiting')
 param appServiceSku string = 'F1'
 
-@description('First admin-seeded account — change the temp password immediately after first login')
+@description('Google OAuth client ID for Sign in with Google. Public by design (it ships in the frontend bundle) so it is not @secure() and can live in main.parameters.json; this flow uses no client secret.')
+param googleClientId string = ''
+
+@description('First bootstrap account — seeded on first startup so someone can sign in and manage the rest via the in-app Users page')
 @secure()
 param seedUser1 {
   email: string
@@ -20,7 +23,7 @@ param seedUser1 {
   tempPassword: string
 }
 
-@description('Second admin-seeded account — change the temp password immediately after first login')
+@description('Second bootstrap account — seeded on first startup so someone can sign in and manage the rest via the in-app Users page')
 @secure()
 param seedUser2 {
   email: string
@@ -118,6 +121,7 @@ module appService 'modules/appService.bicep' = {
     storageBlobEndpoint: storage.outputs.blobEndpoint
     keyVaultUri: keyVault.outputs.uri
     appInsightsConnectionString: appInsights.outputs.connectionString
+    googleClientId: googleClientId
     seedUser1: seedUser1
     seedUser2: seedUser2
   }

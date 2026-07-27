@@ -34,6 +34,11 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: frontend
+        env:
+          # Vite inlines VITE_* vars at build time, so this must be present here rather than as a
+          # runtime app setting. Not a secret — the client ID ships inside the JS bundle by design,
+          # hence a repo variable rather than a repo secret.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
 
   deploy:
     needs: build-and-test
@@ -46,6 +51,10 @@ jobs:
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          # skip_app_build is false, so this action runs the Vite build itself — the client ID has
+          # to be in the environment here too, not just in the build-and-test job above.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}

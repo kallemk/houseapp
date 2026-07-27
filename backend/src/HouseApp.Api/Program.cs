@@ -23,6 +23,7 @@ else
 }
 
 builder.Services.AddHouseAppCookieAuth();
+builder.Services.AddHouseAppGoogleAuth();
 
 var app = builder.Build();
 

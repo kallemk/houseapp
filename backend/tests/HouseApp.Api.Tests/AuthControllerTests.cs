@@ -65,4 +65,98 @@ public class AuthControllerTests : IClassFixture<HouseAppWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    /// <summary>
+    /// The critical guarantee of the whole Google migration: signing in with Google must resolve to
+    /// the *existing* ApplicationUser row, keeping its Id — that id is what's stored in
+    /// Property.MemberUserIds and every *CreatedByUserId.
+    /// </summary>
+    [Fact]
+    public async Task GoogleLogin_WithAllowlistedEmail_SignsInAsTheExistingUser()
+    {
+        const string email = "google-ok@example.com";
+        await SeedUserAsync(email, "Secret123!", "Existing Person");
+
+        string existingId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            existingId = db.Users.Single(u => u.Email == email).Id;
+        }
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<MeResponse>();
+        Assert.Equal(existingId, body!.Id);
+        Assert.Equal("Existing Person", body.DisplayName);
+
+        // The issued cookie must work on a normal authorized endpoint.
+        var meResponse = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+        Assert.Equal(existingId, (await meResponse.Content.ReadFromJsonAsync<MeResponse>())!.Id);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_MatchesEmailCaseInsensitively()
+    {
+        await SeedUserAsync("Google-Case@Example.com", "Secret123!");
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest("google-case@example.com"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithEmailNotOnAllowlist_ReturnsForbidden()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest("stranger@example.com"));
+
+        // 403, not 401 — a real Google account that simply hasn't been invited. Also proves the
+        // endpoint never auto-creates users.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithUnverifiedEmail_ReturnsUnauthorized()
+    {
+        await SeedUserAsync("unverified-user@example.com", "Secret123!");
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest("unverified:unverified-user@example.com"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithInvalidToken_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest("invalid"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ForGoogleOnlyAccountWithNoPassword_ReturnsUnauthorized()
+    {
+        // Users added via the admin page without a password must not be loggable-in via the
+        // password endpoint — guards against an empty/null hash being treated as a match.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Users.Add(new ApplicationUser { Email = "nopassword@example.com", DisplayName = "Google Only" });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("nopassword@example.com", ""));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

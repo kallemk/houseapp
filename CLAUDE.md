@@ -55,18 +55,50 @@ resource wiring, not via shared packages.
 
 ### Auth is deliberately not ASP.NET Core Identity
 
-Accounts are **admin-seeded only** — there is no public registration endpoint anywhere in
-`AuthController`. Exactly two accounts will ever exist. `Data/Seed/DbSeeder.cs` creates
-them from config (`Seed:Users` / `Seed__Users__N__*`) on every startup (idempotent — skips
-if already present), in every environment except `Testing`. This seeding-on-every-startup
-behavior is intentional and required for production: App Service has no separate
-migration step, so this is the only place the two accounts ever get created.
+There is no public registration endpoint anywhere in `AuthController`. `Data/Seed/DbSeeder.cs`
+creates the **bootstrap** accounts from config (`Seed:Users` / `Seed__Users__N__*`) on every
+startup (idempotent — skips if already present), in every environment except `Testing`. This
+seeding-on-every-startup behavior is intentional and required for production: App Service has no
+separate migration step, so this is the only way the first account can exist. Everyone after that
+is added in-app via `UsersController` / `pages/UsersPage.tsx`.
 
 Because the store is Cosmos DB (not relational), full ASP.NET Core Identity was dropped in
 favor of a lightweight hand-rolled scheme: `PasswordHasher<ApplicationUser>` for hashing +
 plain cookie authentication (`AddAuthentication().AddCookie()`, manual
 `HttpContext.SignInAsync`/`SignOutAsync` in `AuthController`). Don't reintroduce
 `UserManager`/`SignInManager`/`IdentityDbContext` — they assume a relational store.
+
+**Two ways in, one session.** Password login (`POST /api/auth/login`) and Google
+(`POST /api/auth/google`) both end at the same private `AuthController.SignInAsync`, issuing the
+same cookie. Everything downstream — `[Authorize]`, Data Protection, the `SameSite=Lax`
+same-origin design — is identical regardless of how you signed in.
+
+**`ClaimTypes.NameIdentifier` must always carry `ApplicationUser.Id` — never Google's `sub`.**
+That id is stored in `Property.MemberUserIds`, `ValuationEntry.CreatedByUserId`,
+`RenovationEntry.CreatedByUserId` and `Document.UploadedByUserId`, and there is no migration
+mechanism to rewrite them. Google sign-in therefore **matches an existing user by email
+(case-insensitively) and never creates one** — if it minted new rows, both users would silently
+lose sight of every existing property.
+
+**The `users` container doubles as the sign-in allowlist.** A Google account is accepted iff a
+user row with that email exists; otherwise `/api/auth/google` returns **403** (deliberately not
+401 — the frontend distinguishes "not invited" from "sign-in failed"). Deleting a user in the
+admin page is therefore how you revoke access.
+
+Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
+token from Google Identity Services and posts it to the API, which verifies it via
+`IGoogleTokenValidator` (`Google.Apis.Auth`). This is why there is **no client secret anywhere**
+and no `AddGoogle()` handler. It was chosen specifically because a redirect flow behind the
+Static Web App's linked-backend proxy would redirect to the App Service hostname and land the
+session cookie on the wrong domain. `IGoogleTokenValidator` is an interface purely so tests can
+substitute `FakeGoogleTokenValidator`, exactly as `IBlobStorageService` is handled.
+
+`ApplicationUser.PasswordHash` is **nullable**: users added for Google-only access have none, and
+`Login` must reject a null/empty hash rather than feeding it to the hasher.
+
+New users must be **backfilled onto existing properties** (`UsersController.Create` does this).
+`PropertiesController.Create` only stamps the users existing *at that moment* into
+`MemberUserIds`, so without the backfill an invited person signs in to an empty property list.
 
 Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookieAuth`) uses
 `SameSiteMode.Lax` and `CookieSecurePolicy.SameAsRequest` on purpose:
