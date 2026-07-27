@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ValuationEntry> ValuationEntries => Set<ValuationEntry>();
     public DbSet<RenovationEntry> RenovationEntries => Set<RenovationEntry>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<RenovationType> RenovationTypes => Set<RenovationType>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasPartitionKey(r => r.PropertyId);
             b.HasNoDiscriminator();
             b.Property(r => r.PropertyId).ToJsonProperty("propertyId");
+            // Keeps reading old enum values ("Renovation", "Maintenance", ...) as the new
+            // RenovationTypeId string — see the comment on RenovationEntry.RenovationTypeId.
+            b.Property(r => r.RenovationTypeId).ToJsonProperty("Category");
         });
 
         modelBuilder.Entity<Document>(b =>
@@ -56,6 +60,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasPartitionKey(d => d.PropertyId);
             b.HasNoDiscriminator();
             b.Property(d => d.PropertyId).ToJsonProperty("propertyId");
+        });
+
+        modelBuilder.Entity<RenovationType>(b =>
+        {
+            b.ToContainer("renovationTypes");
+            b.HasPartitionKey(t => t.Id);
+            b.HasNoDiscriminator();
         });
     }
 }

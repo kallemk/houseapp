@@ -1,11 +1,11 @@
-import { Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
+import { Button, Center, Group, Loader, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FileUpload } from '../common/FileUpload'
 import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateRenovationEntry } from '../../hooks/useRenovationEntries'
+import { useRenovationTypes } from '../../hooks/useRenovationTypes'
 import { useUploadDocument } from '../../hooks/useDocuments'
-import type { DocumentCategory, RenovationCategory } from '../../api/types'
-import { RENOVATION_CATEGORY_OPTIONS } from '../../utils/labels'
+import type { DocumentCategory } from '../../api/types'
 
 export type QuickAddType = 'valuation' | 'renovation' | 'document'
 
@@ -71,15 +71,19 @@ function QuickAddRenovationForm({
   onDone: () => void
 }) {
   const createEntry = useCreateRenovationEntry(propertyId)
+  const { data: types, isLoading: loadingTypes } = useRenovationTypes()
   const form = useForm({
-    initialValues: { date: defaultDate, category: 'Renovation' as RenovationCategory, title: '', amount: 0, vendor: '' },
+    initialValues: { date: defaultDate, renovationTypeId: '', title: '', amount: 0, vendor: '' },
+    validate: {
+      renovationTypeId: (value) => (value ? null : 'Välj en typ'),
+    },
   })
 
   function handleSubmit(values: typeof form.values) {
     createEntry.mutate(
       {
         date: values.date,
-        category: values.category,
+        renovationTypeId: values.renovationTypeId,
         title: values.title,
         amount: Number(values.amount),
         vendor: values.vendor || null,
@@ -88,15 +92,23 @@ function QuickAddRenovationForm({
     )
   }
 
+  if (loadingTypes) {
+    return (
+      <Center py="md">
+        <Loader size="sm" />
+      </Center>
+    )
+  }
+
   return (
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <Select
-          label="Kategori"
-          data={RENOVATION_CATEGORY_OPTIONS}
-          allowDeselect={false}
-          {...form.getInputProps('category')}
+          label="Typ"
+          placeholder="Välj typ"
+          data={(types ?? []).map((t) => ({ value: t.id, label: t.name }))}
+          {...form.getInputProps('renovationTypeId')}
         />
         <TextInput label="Titel" required {...form.getInputProps('title')} />
         <TextInput label="Belopp (kr)" type="number" required {...form.getInputProps('amount')} />

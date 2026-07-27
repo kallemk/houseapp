@@ -213,10 +213,34 @@ property already exists won't retroactively see it (covered by
 this can't happen since `DbSeeder` creates both accounts on first startup, before any property
 can exist.
 
+### Renovation types (admin-managed, not an enum)
+
+What used to be a hardcoded `RenovationCategory` enum (Renovation/Maintenance/Furniture/Other)
+is now admin-manageable data: `RenovationType` (its own container, `renovationTypes`, partitioned
+by `/id`) with a `Name` and an optional `RecommendedIntervalMonths`, managed via
+`RenovationTypesController` and `pages/RenovationTypesPage.tsx` (linked from a "Hantera typer"
+button on the Renovations page, not the main nav — it's admin-adjacent, not a primary
+destination). Both accounts can manage types equally; there's no separate admin role anywhere
+in this app.
+
+`RenovationTypesController.Delete` refuses (409) to delete a type still referenced by any
+`RenovationEntry` — checked via the same full-scan-then-filter-in-memory pattern as everywhere
+else, not a Cosmos query predicate.
+
+**How the enum-to-dynamic-data migration avoided a data migration**: `RenovationEntry`'s field
+was renamed from `Category` (enum) to `RenovationTypeId` (string), but is still mapped to the
+JSON property `"Category"` (`ToJsonProperty("Category")` in `AppDbContext`) — so existing
+entries' enum string values (`"Renovation"`, `"Maintenance"`, ...) are read unchanged as the new
+field's value. This only works because `RenovationTypeSeeder` seeds the four default types using
+those exact strings as their `Id` (not random GUIDs) — so old entries' references resolve to a
+real, renamed-and-editable type with zero backfill. Unlike `DbSeeder`, this seeder runs once
+ever (skips entirely if the container already has anything), not per-missing-item — re-adding a
+type the admin deliberately deleted would be a bug, not idempotent seeding.
+
 ### Frontend property routing
 
 Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,renovations,documents}`.
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,renovations,documents,renovation-types}`.
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
 (`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's
 stale — the target route re-validates membership itself (via `useSelectedProperty`, which

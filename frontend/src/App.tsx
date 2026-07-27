@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PropertyPickerPage } from './pages/PropertyPickerPage'
 import { RenovationsPage } from './pages/RenovationsPage'
+import { RenovationTypesPage } from './pages/RenovationTypesPage'
 import { ValuationsPage } from './pages/ValuationsPage'
 import { theme } from './theme'
 import { getLastPropertyId } from './utils/lastProperty'
@@ -40,6 +41,7 @@ export default function App() {
                   <Route index element={<DashboardPage />} />
                   <Route path="valuations" element={<ValuationsPage />} />
                   <Route path="renovations" element={<RenovationsPage />} />
+                  <Route path="renovation-types" element={<RenovationTypesPage />} />
                   <Route path="documents" element={<DocumentsPage />} />
                 </Route>
               </Route>

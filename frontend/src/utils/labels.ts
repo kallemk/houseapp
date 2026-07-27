@@ -1,17 +1,9 @@
 // Swedish display labels for backend enum values. The enum values themselves (the API contract)
 // stay in English — only what the user sees is translated here.
-import type { DocumentCategory, RenovationCategory } from '../api/types'
-
-export const RENOVATION_CATEGORY_LABELS: Record<RenovationCategory, string> = {
-  Renovation: 'Renovering',
-  Maintenance: 'Underhåll',
-  Furniture: 'Möbler',
-  Other: 'Övrigt',
-}
-
-export const RENOVATION_CATEGORY_OPTIONS = (Object.keys(RENOVATION_CATEGORY_LABELS) as RenovationCategory[]).map(
-  (value) => ({ value, label: RENOVATION_CATEGORY_LABELS[value] }),
-)
+//
+// Renovation types are no longer an enum (see RenovationTypesPage) — their Swedish names are
+// admin-managed data now, not hardcoded here.
+import type { DocumentCategory } from '../api/types'
 
 export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
   Deed: 'Lagfart',

@@ -1,12 +1,10 @@
-using HouseApp.Api.Models;
-
 namespace HouseApp.Api.Dtos.RenovationEntries;
 
 public record RenovationEntryDto(
     string Id,
     string PropertyId,
     DateOnly Date,
-    RenovationCategory Category,
+    string RenovationTypeId,
     string Title,
     string? Description,
     decimal Amount,
@@ -16,7 +14,7 @@ public record RenovationEntryDto(
 
 public record CreateRenovationEntryRequest(
     DateOnly Date,
-    RenovationCategory Category,
+    string RenovationTypeId,
     string Title,
     string? Description,
     decimal Amount,
@@ -24,7 +22,7 @@ public record CreateRenovationEntryRequest(
 
 public record UpdateRenovationEntryRequest(
     DateOnly Date,
-    RenovationCategory Category,
+    string RenovationTypeId,
     string Title,
     string? Description,
     decimal Amount,

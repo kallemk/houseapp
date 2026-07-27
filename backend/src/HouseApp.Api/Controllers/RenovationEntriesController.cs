@@ -30,7 +30,7 @@ public class RenovationEntriesController(AppDbContext db) : ControllerBase
         {
             PropertyId = propertyId,
             Date = request.Date,
-            Category = request.Category,
+            RenovationTypeId = request.RenovationTypeId,
             Title = request.Title,
             Description = request.Description,
             Amount = request.Amount,
@@ -54,7 +54,7 @@ public class RenovationEntriesController(AppDbContext db) : ControllerBase
         }
 
         entry.Date = request.Date;
-        entry.Category = request.Category;
+        entry.RenovationTypeId = request.RenovationTypeId;
         entry.Title = request.Title;
         entry.Description = request.Description;
         entry.Amount = request.Amount;
@@ -80,5 +80,5 @@ public class RenovationEntriesController(AppDbContext db) : ControllerBase
     }
 
     private static RenovationEntryDto ToDto(RenovationEntry r) =>
-        new(r.Id, r.PropertyId, r.Date, r.Category, r.Title, r.Description, r.Amount, r.Vendor, r.CreatedByUserId, r.CreatedAt);
+        new(r.Id, r.PropertyId, r.Date, r.RenovationTypeId, r.Title, r.Description, r.Amount, r.Vendor, r.CreatedByUserId, r.CreatedAt);
 }

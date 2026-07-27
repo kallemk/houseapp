@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Button,
   Card,
@@ -14,27 +15,20 @@ import {
   Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { IconHammer, IconTrash } from '@tabler/icons-react'
+import { IconHammer, IconSettings, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useCreateRenovationEntry, useDeleteRenovationEntry, useRenovationEntries } from '../hooks/useRenovationEntries'
-import type { RenovationCategory } from '../api/types'
-import { RENOVATION_CATEGORY_LABELS, RENOVATION_CATEGORY_OPTIONS } from '../utils/labels'
+import { useRenovationTypes } from '../hooks/useRenovationTypes'
 import { formatCurrency } from '../utils/currency'
-
-const CATEGORY_COLORS: Record<RenovationCategory, string> = {
-  Renovation: 'terracotta',
-  Maintenance: 'blue',
-  Furniture: 'grape',
-  Other: 'gray',
-}
+import { colorForId } from '../utils/typeColor'
 
 interface RenovationFormValues {
   date: string
-  category: RenovationCategory
+  renovationTypeId: string
   title: string
   amount: number
   vendor: string
@@ -44,15 +38,19 @@ export function RenovationsPage() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: entries, isLoading } = useRenovationEntries(propertyId ?? '')
+  const { data: types, isLoading: loadingTypes } = useRenovationTypes()
   const createEntry = useCreateRenovationEntry(propertyId ?? '')
   const deleteEntry = useDeleteRenovationEntry(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const form = useForm<RenovationFormValues>({
-    initialValues: { date: '', category: 'Renovation', title: '', amount: 0, vendor: '' },
+    initialValues: { date: '', renovationTypeId: '', title: '', amount: 0, vendor: '' },
+    validate: {
+      renovationTypeId: (value) => (value ? null : 'Välj en typ'),
+    },
   })
 
-  if (loadingProperty || isLoading) {
+  if (loadingProperty || isLoading || loadingTypes) {
     return (
       <Center py="xl">
         <Loader />
@@ -64,11 +62,14 @@ export function RenovationsPage() {
     return <Navigate to="/properties" replace />
   }
 
+  const typeOptions = (types ?? []).map((t) => ({ value: t.id, label: t.name }))
+  const typesById = new Map((types ?? []).map((t) => [t.id, t]))
+
   function handleSubmit(values: RenovationFormValues) {
     createEntry.mutate(
       {
         date: values.date,
-        category: values.category,
+        renovationTypeId: values.renovationTypeId,
         title: values.title,
         amount: Number(values.amount),
         vendor: values.vendor || null,
@@ -79,11 +80,19 @@ export function RenovationsPage() {
 
   return (
     <Stack>
-      <Group gap="sm">
-        <ThemeIcon variant="light" size={36} radius="md">
-          <IconHammer size={20} />
-        </ThemeIcon>
-        <Title order={2}>Renoveringar &amp; investeringar</Title>
+      <Group justify="space-between">
+        <Group gap="sm">
+          <ThemeIcon variant="light" size={36} radius="md">
+            <IconHammer size={20} />
+          </ThemeIcon>
+          <Title order={2}>Renoveringar &amp; investeringar</Title>
+        </Group>
+        <Anchor component={Link} to={`/properties/${propertyId}/renovation-types`} size="sm">
+          <Group gap={4}>
+            <IconSettings size={14} />
+            Hantera typer
+          </Group>
+        </Anchor>
       </Group>
 
       <Card withBorder padding="md">
@@ -91,10 +100,10 @@ export function RenovationsPage() {
           <Group align="flex-end">
             <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
             <Select
-              label="Kategori"
-              data={RENOVATION_CATEGORY_OPTIONS}
-              allowDeselect={false}
-              {...form.getInputProps('category')}
+              label="Typ"
+              placeholder="Välj typ"
+              data={typeOptions}
+              {...form.getInputProps('renovationTypeId')}
             />
             <TextInput label="Titel" required {...form.getInputProps('title')} />
             <TextInput label="Belopp (kr)" type="number" required {...form.getInputProps('amount')} />
@@ -114,7 +123,7 @@ export function RenovationsPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Datum</Table.Th>
-                <Table.Th>Kategori</Table.Th>
+                <Table.Th>Typ</Table.Th>
                 <Table.Th>Titel</Table.Th>
                 <Table.Th>Belopp</Table.Th>
                 <Table.Th>Leverantör</Table.Th>
@@ -126,8 +135,8 @@ export function RenovationsPage() {
                 <Table.Tr key={entry.id}>
                   <Table.Td>{entry.date}</Table.Td>
                   <Table.Td>
-                    <Badge color={CATEGORY_COLORS[entry.category]} variant="light">
-                      {RENOVATION_CATEGORY_LABELS[entry.category]}
+                    <Badge color={colorForId(entry.renovationTypeId)} variant="light">
+                      {typesById.get(entry.renovationTypeId)?.name ?? 'Okänd typ'}
                     </Badge>
                   </Table.Td>
                   <Table.Td>{entry.title}</Table.Td>

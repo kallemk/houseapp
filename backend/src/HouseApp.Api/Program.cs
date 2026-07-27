@@ -46,6 +46,7 @@ if (app.Environment.EnvironmentName != "Testing")
     // Runs on every startup, in every environment including production — DbSeeder is idempotent
     // (skips accounts that already exist), and this is the only place the 2 admin accounts get created.
     await DbSeeder.SeedAsync(db, app.Configuration, app.Logger);
+    await RenovationTypeSeeder.SeedAsync(db, app.Logger);
 }
 
 app.UseHttpsRedirection();

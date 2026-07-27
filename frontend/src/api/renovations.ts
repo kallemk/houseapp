@@ -1,9 +1,9 @@
 import { apiClient } from './client'
-import type { RenovationCategory, RenovationEntryDto } from './types'
+import type { RenovationEntryDto } from './types'
 
 export interface RenovationEntryInput {
   date: string
-  category: RenovationCategory
+  renovationTypeId: string
   title: string
   description?: string | null
   amount: number

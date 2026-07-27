@@ -13,8 +13,13 @@ export interface PropertyDto {
   createdAt: string
 }
 
-export type RenovationCategory = 'Renovation' | 'Maintenance' | 'Furniture' | 'Other'
 export type DocumentCategory = 'Deed' | 'Warranty' | 'Receipt' | 'Photo' | 'Other'
+
+export interface RenovationTypeDto {
+  id: string
+  name: string
+  recommendedIntervalMonths: number | null
+}
 
 export interface ValuationEntryDto {
   id: string
@@ -31,7 +36,7 @@ export interface RenovationEntryDto {
   id: string
   propertyId: string
   date: string
-  category: RenovationCategory
+  renovationTypeId: string
   title: string
   description: string | null
   amount: number

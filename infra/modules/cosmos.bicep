@@ -54,6 +54,7 @@ var containerDefinitions = [
   { name: 'valuationEntries', partitionKeyPath: '/propertyId' }
   { name: 'renovationEntries', partitionKeyPath: '/propertyId' }
   { name: 'documents', partitionKeyPath: '/propertyId' }
+  { name: 'renovationTypes', partitionKeyPath: '/id' }
 ]
 
 resource containers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-08-15' = [
