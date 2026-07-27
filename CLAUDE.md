@@ -251,6 +251,17 @@ anymore. `NavBar` renders a property switcher (a `Menu` populated from `usePrope
 preserves the current sub-page when switching (e.g. switching properties while on Valuations
 stays on Valuations for the new property) by reusing the current path's suffix.
 
+**`frontend/public/staticwebapp.config.json` is what makes those client-side routes survive a
+page refresh** — it is not optional boilerplate. Without a `navigationFallback`, Azure Static
+Web Apps looks for a physical file at e.g. `/properties/<guid>` and serves its own 404; the
+routes only appear to work because in-app navigation never asks the server for them (this
+shipped broken and was caught by refreshing a property page). It lives in `public/` so Vite
+copies it to `dist/` — SWA reads it from the deployed output root, so putting it anywhere else
+silently does nothing. The `exclude` list matters as much as the rewrite: `/api/*` must be
+excluded so API calls still reach the linked backend instead of being handed `index.html`, and
+static assets are excluded so a genuinely missing file 404s properly rather than returning HTML
+under a `.js`/`.css` URL (which surfaces as a confusing MIME-type error, not an obvious 404).
+
 ### UI language
 
 All user-facing frontend text (labels, buttons, headings, messages, empty states) is in
