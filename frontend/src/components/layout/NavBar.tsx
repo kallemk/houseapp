@@ -1,24 +1,42 @@
-import { Group, Text, ThemeIcon, UnstyledButton } from '@mantine/core'
+import { Group, Menu, Text, ThemeIcon, UnstyledButton } from '@mantine/core'
 import {
   IconChartLine,
+  IconChevronDown,
   IconFiles,
   IconHammer,
   IconHome2,
   IconHomeStar,
   IconLogout,
+  IconPlus,
 } from '@tabler/icons-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
-
-const links = [
-  { to: '/', label: 'Översikt', icon: IconHome2, end: true },
-  { to: '/valuations', label: 'Värderingar', icon: IconChartLine, end: false },
-  { to: '/renovations', label: 'Renoveringar', icon: IconHammer, end: false },
-  { to: '/documents', label: 'Dokument', icon: IconFiles, end: false },
-]
+import { useProperties } from '../../hooks/useProperties'
+import { setLastPropertyId } from '../../utils/lastProperty'
 
 export function NavBar() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { propertyId } = useParams<{ propertyId: string }>()
+  const { data: properties } = useProperties()
+  const currentProperty = properties?.find((p) => p.id === propertyId)
+
+  const links = [
+    { to: `/properties/${propertyId}`, label: 'Översikt', icon: IconHome2, end: true },
+    { to: `/properties/${propertyId}/valuations`, label: 'Värderingar', icon: IconChartLine, end: false },
+    { to: `/properties/${propertyId}/renovations`, label: 'Renoveringar', icon: IconHammer, end: false },
+    { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
+  ]
+
+  // Preserves which sub-page you're on (dashboard/valuations/renovations/documents) when
+  // switching to a different property, rather than always resetting to the dashboard.
+  const suffix = location.pathname.match(/^\/properties\/[^/]+(\/.*)?$/)?.[1] ?? ''
+
+  function switchTo(id: string) {
+    setLastPropertyId(id)
+    navigate(`/properties/${id}${suffix}`)
+  }
 
   return (
     <Group h="100%" px="md" justify="space-between">
@@ -29,6 +47,42 @@ export function NavBar() {
           </ThemeIcon>
           <Text fw={700}>HusTracker</Text>
         </Group>
+
+        <Menu position="bottom-start" withArrow shadow="md">
+          <Menu.Target>
+            <UnstyledButton
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 8px',
+                borderRadius: 'var(--mantine-radius-md)',
+              }}
+            >
+              <Text size="sm" fw={600}>
+                {currentProperty?.nickname ?? '…'}
+              </Text>
+              <IconChevronDown size={14} />
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>Bostäder</Menu.Label>
+            {properties?.map((property) => (
+              <Menu.Item
+                key={property.id}
+                fw={property.id === propertyId ? 700 : 400}
+                onClick={() => switchTo(property.id)}
+              >
+                {property.nickname}
+              </Menu.Item>
+            ))}
+            <Menu.Divider />
+            <Menu.Item leftSection={<IconPlus size={14} />} onClick={() => navigate('/properties')}>
+              Hantera / lägg till bostad
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+
         <Group gap={4}>
           {links.map((link) => (
             <UnstyledButton

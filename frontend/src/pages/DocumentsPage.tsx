@@ -1,10 +1,11 @@
 import { ActionIcon, Anchor, Badge, Card, Center, Group, Loader, Stack, Table, ThemeIcon, Title } from '@mantine/core'
 import { IconDownload, IconFiles, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FileUpload } from '../components/common/FileUpload'
-import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
+import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/useDocuments'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory } from '../api/types'
@@ -25,11 +26,11 @@ function formatSize(bytes: number) {
 }
 
 export function DocumentsPage() {
-  const { property, isLoading: loadingProperty } = usePrimaryProperty()
-  const propertyId = property?.id ?? ''
-  const { data: documents, isLoading } = useDocuments(propertyId)
-  const uploadDocument = useUploadDocument(propertyId)
-  const deleteDocument = useDeleteDocument(propertyId)
+  const { propertyId } = useParams<{ propertyId: string }>()
+  const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
+  const { data: documents, isLoading } = useDocuments(propertyId ?? '')
+  const uploadDocument = useUploadDocument(propertyId ?? '')
+  const deleteDocument = useDeleteDocument(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   if (loadingProperty || isLoading) {
@@ -40,8 +41,8 @@ export function DocumentsPage() {
     )
   }
 
-  if (!property) {
-    return <EmptyState message="Lägg till en bostad på översikten först." />
+  if (notFound || !property) {
+    return <Navigate to="/properties" replace />
   }
 
   function handleUpload(file: File, category: DocumentCategory, date: string) {
@@ -79,7 +80,7 @@ export function DocumentsPage() {
               {documents.map((doc) => (
                 <Table.Tr key={doc.id}>
                   <Table.Td>
-                    <Anchor onClick={() => documentsApi.download(doc.id, propertyId)} fw={500}>
+                    <Anchor onClick={() => documentsApi.download(doc.id, property.id)} fw={500}>
                       {doc.fileName}
                     </Anchor>
                   </Table.Td>
@@ -91,7 +92,7 @@ export function DocumentsPage() {
                   <Table.Td c="dimmed">{formatSize(doc.sizeBytes)}</Table.Td>
                   <Table.Td c="dimmed">{doc.date}</Table.Td>
                   <Table.Td>
-                    <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc.id, propertyId)} mr="xs">
+                    <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc.id, property.id)} mr="xs">
                       <IconDownload size={16} />
                     </ActionIcon>
                     <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(doc.id)}>

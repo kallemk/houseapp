@@ -1,48 +1,14 @@
-import { Button, Card, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { Center, Loader, ThemeIcon } from '@mantine/core'
+import { Card, Center, Group, Loader, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
 import { IconHammer, IconHome2, IconTag } from '@tabler/icons-react'
 import { useState } from 'react'
-import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
-import { useCreateProperty } from '../hooks/useProperties'
+import { Navigate, useParams } from 'react-router-dom'
+import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useValuations } from '../hooks/useValuations'
 import { useRenovationEntries } from '../hooks/useRenovationEntries'
 import { useDocuments } from '../hooks/useDocuments'
-import { EmptyState } from '../components/common/EmptyState'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
 import { formatCurrency } from '../utils/currency'
-
-function CreatePropertyForm() {
-  const createProperty = useCreateProperty()
-  const form = useForm({
-    initialValues: { nickname: '', address: '', purchaseDate: '', purchasePrice: 0 },
-  })
-
-  return (
-    <EmptyState
-      icon={IconHome2}
-      message="Ingen bostad ännu — lägg till huset för att börja spåra det."
-      action={
-        <form
-          onSubmit={form.onSubmit((values) =>
-            createProperty.mutate({ ...values, purchasePrice: Number(values.purchasePrice) }),
-          )}
-        >
-          <Stack w={320}>
-            <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
-            <TextInput label="Adress" required {...form.getInputProps('address')} />
-            <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
-            <TextInput label="Köpeskilling (kr)" type="number" required {...form.getInputProps('purchasePrice')} />
-            <Button type="submit" loading={createProperty.isPending}>
-              Lägg till bostad
-            </Button>
-          </Stack>
-        </form>
-      }
-    />
-  )
-}
 
 interface StatCardProps {
   icon: typeof IconHome2
@@ -71,10 +37,11 @@ function StatCard({ icon: Icon, label, value }: StatCardProps) {
 }
 
 export function DashboardPage() {
-  const { property, isLoading } = usePrimaryProperty()
-  const { data: valuations } = useValuations(property?.id ?? '')
-  const { data: renovations } = useRenovationEntries(property?.id ?? '')
-  const { data: documents } = useDocuments(property?.id ?? '')
+  const { propertyId } = useParams<{ propertyId: string }>()
+  const { property, isLoading, notFound } = useSelectedProperty(propertyId)
+  const { data: valuations } = useValuations(propertyId ?? '')
+  const { data: renovations } = useRenovationEntries(propertyId ?? '')
+  const { data: documents } = useDocuments(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
 
   if (isLoading) {
@@ -85,8 +52,8 @@ export function DashboardPage() {
     )
   }
 
-  if (!property) {
-    return <CreatePropertyForm />
+  if (notFound || !property) {
+    return <Navigate to="/properties" replace />
   }
 
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice

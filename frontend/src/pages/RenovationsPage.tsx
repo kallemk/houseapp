@@ -16,9 +16,10 @@ import {
 import { useForm } from '@mantine/form'
 import { IconHammer, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
-import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
+import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useCreateRenovationEntry, useDeleteRenovationEntry, useRenovationEntries } from '../hooks/useRenovationEntries'
 import type { RenovationCategory } from '../api/types'
 import { RENOVATION_CATEGORY_LABELS, RENOVATION_CATEGORY_OPTIONS } from '../utils/labels'
@@ -40,11 +41,11 @@ interface RenovationFormValues {
 }
 
 export function RenovationsPage() {
-  const { property, isLoading: loadingProperty } = usePrimaryProperty()
-  const propertyId = property?.id ?? ''
-  const { data: entries, isLoading } = useRenovationEntries(propertyId)
-  const createEntry = useCreateRenovationEntry(propertyId)
-  const deleteEntry = useDeleteRenovationEntry(propertyId)
+  const { propertyId } = useParams<{ propertyId: string }>()
+  const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
+  const { data: entries, isLoading } = useRenovationEntries(propertyId ?? '')
+  const createEntry = useCreateRenovationEntry(propertyId ?? '')
+  const deleteEntry = useDeleteRenovationEntry(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const form = useForm<RenovationFormValues>({
@@ -59,8 +60,8 @@ export function RenovationsPage() {
     )
   }
 
-  if (!property) {
-    return <EmptyState message="Lägg till en bostad på översikten först." />
+  if (notFound || !property) {
+    return <Navigate to="/properties" replace />
   }
 
   function handleSubmit(values: RenovationFormValues) {

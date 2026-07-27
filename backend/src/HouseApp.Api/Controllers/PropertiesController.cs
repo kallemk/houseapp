@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Properties;
 using HouseApp.Api.Models;
@@ -15,26 +16,44 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<PropertyDto>>> GetAll()
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        // Full container scan + in-memory filter, not a Cosmos query with an array-Contains
+        // predicate — the properties container is tiny (a handful of properties, ever), and this
+        // sidesteps translating .Contains() on a list property into Cosmos SQL entirely.
         var properties = await db.Properties.ToListAsync();
-        return Ok(properties.Select(ToDto));
+        var ownProperties = properties.Where(p => p.MemberUserIds.Contains(userId));
+        return Ok(ownProperties.Select(ToDto));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<PropertyDto>> GetById(string id)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        return property is null ? NotFound() : Ok(ToDto(property));
+        if (property is null || !property.MemberUserIds.Contains(userId))
+        {
+            return NotFound();
+        }
+
+        return Ok(ToDto(property));
     }
 
     [HttpPost]
     public async Task<ActionResult<PropertyDto>> Create(CreatePropertyRequest request)
     {
+        // Every account gets connected automatically — there are only ever 2 (admin-seeded), and
+        // this app is about a couple sharing visibility into the same house(s), not private
+        // per-user properties. No invite/sharing step needed as a result.
+        var allUserIds = (await db.Users.ToListAsync()).Select(u => u.Id).ToList();
+
         var property = new Property
         {
             Nickname = request.Nickname,
             Address = request.Address,
             PurchaseDate = request.PurchaseDate,
             PurchasePrice = request.PurchasePrice,
+            MemberUserIds = allUserIds,
         };
         db.Properties.Add(property);
         await db.SaveChangesAsync();
@@ -44,8 +63,9 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, UpdatePropertyRequest request)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        if (property is null)
+        if (property is null || !property.MemberUserIds.Contains(userId))
         {
             return NotFound();
         }
@@ -61,8 +81,9 @@ public class PropertiesController(AppDbContext db) : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
-        if (property is null)
+        if (property is null || !property.MemberUserIds.Contains(userId))
         {
             return NotFound();
         }

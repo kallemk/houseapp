@@ -69,4 +69,33 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetAll_OnlyReturnsPropertiesCreatedWhileUserExisted()
+    {
+        // Property creation connects every account that exists at that moment. A user created
+        // afterwards shouldn't retroactively see properties created before they existed.
+        var clientA = await CreateAuthenticatedClientAsync();
+        var createP1 = await clientA.PostAsJsonAsync(
+            "/api/properties",
+            new CreatePropertyRequest("House A", "1 Main St", new DateOnly(2020, 1, 1), 100000m));
+        var p1 = await createP1.Content.ReadFromJsonAsync<PropertyDto>();
+
+        var clientB = await CreateAuthenticatedClientAsync();
+        var createP2 = await clientB.PostAsJsonAsync(
+            "/api/properties",
+            new CreatePropertyRequest("House B", "2 Main St", new DateOnly(2021, 1, 1), 200000m));
+        var p2 = await createP2.Content.ReadFromJsonAsync<PropertyDto>();
+
+        var bList = await (await clientB.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
+        Assert.DoesNotContain(bList!, p => p.Id == p1!.Id);
+        Assert.Contains(bList!, p => p.Id == p2!.Id);
+
+        var aList = await (await clientA.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
+        Assert.Contains(aList!, p => p.Id == p1!.Id);
+        Assert.Contains(aList!, p => p.Id == p2!.Id);
+
+        var bGetP1 = await clientB.GetAsync($"/api/properties/{p1!.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, bGetP1.StatusCode);
+    }
 }

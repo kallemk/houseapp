@@ -2,9 +2,10 @@ import { ActionIcon, Button, Card, Center, Group, Loader, Stack, Table, TextInpu
 import { useForm } from '@mantine/form'
 import { IconChartLine, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
-import { usePrimaryProperty } from '../hooks/usePrimaryProperty'
+import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useCreateValuation, useDeleteValuation, useValuations } from '../hooks/useValuations'
 import { formatCurrency } from '../utils/currency'
 
@@ -16,11 +17,11 @@ interface ValuationFormValues {
 }
 
 export function ValuationsPage() {
-  const { property, isLoading: loadingProperty } = usePrimaryProperty()
-  const propertyId = property?.id ?? ''
-  const { data: valuations, isLoading } = useValuations(propertyId)
-  const createValuation = useCreateValuation(propertyId)
-  const deleteValuation = useDeleteValuation(propertyId)
+  const { propertyId } = useParams<{ propertyId: string }>()
+  const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
+  const { data: valuations, isLoading } = useValuations(propertyId ?? '')
+  const createValuation = useCreateValuation(propertyId ?? '')
+  const deleteValuation = useDeleteValuation(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const form = useForm<ValuationFormValues>({
@@ -35,8 +36,8 @@ export function ValuationsPage() {
     )
   }
 
-  if (!property) {
-    return <EmptyState message="Lägg till en bostad på översikten först." />
+  if (notFound || !property) {
+    return <Navigate to="/properties" replace />
   }
 
   function handleSubmit(values: ValuationFormValues) {

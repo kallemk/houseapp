@@ -181,12 +181,39 @@ float to latest untested. This does mean `BlobStorageService.GetUserDelegationKe
 use the older 2-arg `(DateTimeOffset?, DateTimeOffset)` overload, not the newer
 `BlobGetUserDelegationKeyOptions`-based one, which doesn't exist in 12.26.0.
 
-### Frontend property scoping
+### Property membership (multi-property, per-user)
 
-The data model supports multiple properties, but the UI deliberately doesn't have a
-property switcher — `hooks/usePrimaryProperty.ts` always uses the first property returned,
-since in practice this will be the one house being tracked. If multi-property UI is ever
-needed, this is the seam to extend.
+A user can belong to 0:N properties. `Property.MemberUserIds` (a plain string list on the
+document) records who's connected — there is no separate join container. Membership is
+**not** enforced via a Cosmos query predicate: `PropertiesController` fetches the whole
+`properties` container with a plain `ToListAsync()` and filters by `MemberUserIds.Contains(userId)`
+**in memory**, same reasoning as the other Cosmos footguns above (translating `.Contains()`
+on a list property into Cosmos SQL is exactly the kind of query shape that's bitten this
+project before, and the container will only ever hold a handful of documents). Don't rewrite
+this as a `Where(p => p.MemberUserIds.Contains(userId))` LINQ-to-Cosmos query.
+
+**Every account is connected automatically when a property is created** (`PropertiesController.Create`
+reads all of `db.Users` and stamps every id into `MemberUserIds`) — there's deliberately no
+invite/sharing flow, since there are only ever 2 accounts and the app's whole premise is a
+couple sharing visibility into the same house(s). A consequence: a user created *after* a
+property already exists won't retroactively see it (covered by
+`PropertiesControllerTests.GetAll_OnlyReturnsPropertiesCreatedWhileUserExisted`) — in practice
+this can't happen since `DbSeeder` creates both accounts on first startup, before any property
+can exist.
+
+### Frontend property routing
+
+Routes are property-scoped: `/properties` (picker — list your properties, or create one),
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,renovations,documents}`.
+`/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
+(`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's
+stale — the target route re-validates membership itself (via `useSelectedProperty`, which
+redirects to `/properties` on a 404/not-a-member), so a stale localStorage id is harmless, not
+a source of bugs. Every page under the property-scoped routes reads `propertyId` from
+`useParams()`, not from a hook that "picks the first property" — there is no such hook
+anymore. `NavBar` renders a property switcher (a `Menu` populated from `useProperties()`) that
+preserves the current sub-page when switching (e.g. switching properties while on Valuations
+stays on Valuations for the new property) by reusing the current path's suffix.
 
 ### UI language
 
