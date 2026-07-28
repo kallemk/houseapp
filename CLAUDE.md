@@ -366,7 +366,16 @@ choices, don't "fix" these without re-reading why:
 
 Three independent GitHub Actions workflows (`.github/workflows/`), each path-filtered to
 its own directory, using OIDC federated Azure login (no stored client secret):
-- `backend-ci-cd.yml` — build/test always; publish + deploy to App Service on push to `main`.
+- `backend-ci-cd.yml` — build/test always; publish + deploy to App Service on push to `main`,
+  **followed by an explicit `az webapp restart`**. That restart is load-bearing: zip deploy
+  overwrites the DLLs in `/home/site/wwwroot` (an Azure Files mount) while the old process still
+  has them memory-mapped, so the first method JIT'd after the swap reads the new file at stale
+  offsets and throws `BadImageFormatException: Bad binary signature`. It surfaces as a 500 from
+  whichever endpoint is called first after a deploy — with a stack that dies in
+  `ObjectMethodExecutor..ctor` *before* the controller is even constructed, so it looks nothing
+  like an application bug. Don't remove the restart step. (`WEBSITE_RUN_FROM_PACKAGE=1` would fix
+  this more fundamentally, and would also stop zip deploy leaving deleted files behind in
+  `wwwroot` — deliberately not adopted yet, the restart was the smaller change.)
 - `frontend-ci-cd.yml` — build/lint always; deploy to Static Web Apps on push to `main`.
 - `infra-deploy.yml` — `bicep build` + `what-if` always; `deployment group create` on push
   to `main`, gated behind the `production` GitHub Environment (manual approval required).

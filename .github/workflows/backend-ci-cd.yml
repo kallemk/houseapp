@@ -64,3 +64,15 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
           package: backend/publish
+
+      # Required, not hygiene. Zip deploy overwrites the DLLs in /home/site/wwwroot (an Azure
+      # Files mount) while the old process still has them memory-mapped. Methods already JIT'd
+      # keep working, but the first one compiled after the swap reads the new file at the old
+      # offsets and throws BadImageFormatException ("Bad binary signature") — a 500 on whichever
+      # endpoint happens to be called first post-deploy, until something restarts the app. Hit
+      # DELETE /api/properties/{id} in production on 2026-07-28.
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets.AZURE_APP_SERVICE_NAME }}"
