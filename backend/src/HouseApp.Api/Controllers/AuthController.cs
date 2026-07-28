@@ -56,6 +56,15 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
     [AllowAnonymous]
     public async Task<ActionResult<MeResponse>> GoogleLogin(GoogleLoginRequest request)
     {
+        if (!googleTokenValidator.IsConfigured)
+        {
+            // A deployment problem, not an auth failure — returning 401 here would send everyone
+            // hunting for a bad token when the real fix is setting the client ID app setting.
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { message = "Google sign-in is not configured on the server." });
+        }
+
         var googleUser = await googleTokenValidator.ValidateAsync(request.Credential);
         if (googleUser is null || !googleUser.EmailVerified)
         {

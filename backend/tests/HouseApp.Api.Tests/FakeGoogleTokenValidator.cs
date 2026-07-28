@@ -11,6 +11,8 @@ namespace HouseApp.Api.Tests;
 /// </summary>
 public class FakeGoogleTokenValidator : IGoogleTokenValidator
 {
+    public bool IsConfigured => true;
+
     public Task<GoogleUserInfo?> ValidateAsync(string credential)
     {
         if (credential == "invalid")

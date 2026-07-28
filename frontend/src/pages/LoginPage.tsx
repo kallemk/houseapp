@@ -73,13 +73,16 @@ export function LoginPage() {
       await loginWithGoogle(credential)
       navigate('/', { replace: true })
     } catch (err) {
-      // 403 means Google vouched for the account but it isn't on the allowlist — a genuinely
-      // different situation from a failed sign-in, and worth saying so plainly.
-      setError(
-        err instanceof ApiError && err.status === 403
-          ? 'Det här kontot har inte behörighet. Be någon lägga till din e-postadress.'
-          : 'Google-inloggningen misslyckades. Försök igen.',
-      )
+      // Three genuinely different situations, so say which one it is rather than one vague
+      // "it failed": not invited (403), server not set up (503), or a real auth failure (401).
+      const status = err instanceof ApiError ? err.status : undefined
+      if (status === 403) {
+        setError('Det här kontot har inte behörighet. Be någon lägga till din e-postadress.')
+      } else if (status === 503) {
+        setError('Google-inloggning är inte konfigurerad på servern. Kontakta administratören.')
+      } else {
+        setError('Google-inloggningen misslyckades. Försök igen.')
+      }
     }
   }
 

@@ -10,9 +10,13 @@ namespace HouseApp.Api.Services;
 public class GoogleTokenValidator(IConfiguration configuration, ILogger<GoogleTokenValidator> logger)
     : IGoogleTokenValidator
 {
+    private string? ClientId => configuration["Authentication:Google:ClientId"];
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId);
+
     public async Task<GoogleUserInfo?> ValidateAsync(string credential)
     {
-        var clientId = configuration["Authentication:Google:ClientId"];
+        var clientId = ClientId;
         if (string.IsNullOrWhiteSpace(clientId))
         {
             logger.LogWarning("Google sign-in attempted but Authentication:Google:ClientId is not configured.");
@@ -29,7 +33,9 @@ public class GoogleTokenValidator(IConfiguration configuration, ILogger<GoogleTo
         }
         catch (InvalidJwtException ex)
         {
-            // Expected for expired/tampered/wrong-audience tokens — not an error worth alarming about.
+            // Expected for expired/tampered tokens — but also for an audience mismatch, i.e. the
+            // backend's client ID differing from the one the frontend signed in with. Logged at
+            // Information with the message included so that case is identifiable in the log stream.
             logger.LogInformation(ex, "Rejected an invalid Google ID token.");
             return null;
         }
