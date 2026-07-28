@@ -18,6 +18,15 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    # Values are passed to az via env rather than interpolated straight into the command line, so
+    # secrets never appear in a rendered command. GOOGLE_CLIENT_ID accepts a variable or a secret:
+    # it belongs in a variable (it's public), but frontend-ci-cd tolerates both and these two must
+    # agree — the backend validates the token's audience against exactly this value.
+    env:
+      AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+      SEED_USER_1: ${{ secrets.SEED_USER_1 }}
+      SEED_USER_2: ${{ secrets.SEED_USER_2 }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,18 +40,31 @@ jobs:
       - name: Bicep build (lint/type-check)
         run: az bicep build --file infra/main.bicep
 
+      - name: Check Google client ID is available
+        run: |
+          if [ -z "$GOOGLE_CLIENT_ID" ]; then
+            echo "::warning::GOOGLE_CLIENT_ID is empty — Authentication__Google__ClientId will be blank and Google sign-in will return 503. Set it as a repo variable (Settings → Secrets and variables → Actions → Variables)."
+          else
+            echo "Google client ID is set (${#GOOGLE_CLIENT_ID} chars)."
+          fi
+
       - name: What-if
         run: |
           az deployment group what-if \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1='${{ secrets.SEED_USER_1 }}' seedUser2='${{ secrets.SEED_USER_2 }}' googleClientId='${{ vars.GOOGLE_CLIENT_ID }}'
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID"
 
   deploy:
     needs: validate
     runs-on: ubuntu-latest
     environment: production # requires manual approval — configure this as a protected environment in repo settings
+    env:
+      AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+      SEED_USER_1: ${{ secrets.SEED_USER_1 }}
+      SEED_USER_2: ${{ secrets.SEED_USER_2 }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +78,21 @@ jobs:
       - name: Deploy
         run: |
           az deployment group create \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1='${{ secrets.SEED_USER_1 }}' seedUser2='${{ secrets.SEED_USER_2 }}' googleClientId='${{ vars.GOOGLE_CLIENT_ID }}'
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID"
+
+      # Reads back what actually landed on the App Service, rather than trusting that the
+      # parameter made it through — this whole class of bug was a value silently arriving empty.
+      - name: Verify the client ID reached the App Service
+        run: |
+          SETTING=$(az webapp config appsettings list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "${{ secrets.AZURE_APP_SERVICE_NAME }}" \
+            --query "[?name=='Authentication__Google__ClientId'].value | [0]" -o tsv)
+          if [ -z "$SETTING" ]; then
+            echo "::warning::Authentication__Google__ClientId is empty on the App Service — Google sign-in will return 503."
+          else
+            echo "App Service has the Google client ID set (${#SETTING} chars)."
+          fi
