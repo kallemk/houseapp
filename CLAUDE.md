@@ -245,6 +245,21 @@ property already exists won't retroactively see it (covered by
 this can't happen since `DbSeeder` creates both accounts on first startup, before any property
 can exist.
 
+**Deleting a property cascades by hand.** Cosmos has no cascade delete and no cross-container
+foreign keys, so `PropertiesController.Delete` explicitly removes the property's
+`valuationEntries`, `renovationEntries` and `documents` (plus each document's blob, which lives
+outside Cosmos entirely and nothing else would ever clean up). This isn't just tidiness: entries
+are only ever reachable through their property, so orphans would sit in their containers
+permanently and invisibly. Each child lookup is a single-partition `Where(x => x.PropertyId == id)`
+query, since those three containers are partitioned by `/propertyId`. Blobs are deleted *before*
+the rows, so a failure mid-way leaves the still-reachable documents intact rather than dropping
+the only pointer to a leaked blob. Any new per-property container needs adding here too — see
+`PropertiesControllerTests.Delete_AlsoRemovesValuationsRenovationsAndDocuments`.
+
+Editing and deleting properties is driven from `pages/PropertyPickerPage.tsx` (the per-card `⋮`
+menu) rather than a settings page inside the property — that page is already the "manage your
+properties" surface both `NavBar` entry points link to.
+
 ### Renovation types (admin-managed, not an enum)
 
 What used to be a hardcoded `RenovationCategory` enum (Renovation/Maintenance/Furniture/Other)

@@ -15,6 +15,14 @@ export function useCreateProperty() {
   })
 }
 
+export function useUpdateProperty() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: CreatePropertyInput }) => propertiesApi.update(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
 export function useDeleteProperty() {
   const queryClient = useQueryClient()
   return useMutation({

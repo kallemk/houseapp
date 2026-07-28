@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Properties;
 using HouseApp.Api.Models;
+using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,7 @@ namespace HouseApp.Api.Controllers;
 [ApiController]
 [Route("api/properties")]
 [Authorize]
-public class PropertiesController(AppDbContext db) : ControllerBase
+public class PropertiesController(AppDbContext db, IBlobStorageService blobStorage) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<PropertyDto>>> GetAll()
@@ -88,6 +89,26 @@ public class PropertiesController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        // Cosmos has no cascade delete and no cross-container foreign keys, so everything hanging
+        // off this property has to be removed explicitly. Skipping it wouldn't just waste storage:
+        // the orphaned entries stay in their containers permanently and unreachable, since the UI
+        // only ever reaches them through a property that no longer exists. All three of these are
+        // single-partition queries — those containers are partitioned by /propertyId.
+        var valuations = await db.ValuationEntries.Where(v => v.PropertyId == id).ToListAsync();
+        var renovations = await db.RenovationEntries.Where(r => r.PropertyId == id).ToListAsync();
+        var documents = await db.Documents.Where(d => d.PropertyId == id).ToListAsync();
+
+        // Blobs live outside Cosmos entirely — nothing else would ever clean them up. Deleted
+        // before the rows so a failure here leaves the (still-reachable) documents intact rather
+        // than dropping the only pointer to a blob that then leaks silently.
+        foreach (var document in documents)
+        {
+            await blobStorage.DeleteAsync(document.BlobPath);
+        }
+
+        db.ValuationEntries.RemoveRange(valuations);
+        db.RenovationEntries.RemoveRange(renovations);
+        db.Documents.RemoveRange(documents);
         db.Properties.Remove(property);
         await db.SaveChangesAsync();
         return NoContent();
