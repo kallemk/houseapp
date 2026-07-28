@@ -21,6 +21,7 @@ import { IconAdjustments, IconEdit, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import type { RenovationTypeDto } from '../api/types'
+import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import {
   useCreateRenovationType,
@@ -90,6 +91,11 @@ function TypeForm({
 }
 
 export function RenovationTypesPage() {
+  // Regular users get a read-only view: types are worth seeing (they're the vocabulary the whole
+  // renovations page is built on), but renaming or deleting one changes what every existing entry
+  // displays for everyone. The API enforces this — GET is open, the mutations are admin-only.
+  const { user } = useAuth()
+  const isAdmin = user?.isAdmin ?? false
   const { data: types, isLoading } = useRenovationTypes()
   const createType = useCreateRenovationType()
   const updateType = useUpdateRenovationType()
@@ -144,12 +150,16 @@ export function RenovationTypesPage() {
         <Title order={2}>Renoveringstyper</Title>
       </Group>
       <Text c="dimmed" size="sm">
-        Hantera vilka typer av renoveringar/underhåll som är relevanta, och hur ofta de brukar behövas.
+        {isAdmin
+          ? 'Hantera vilka typer av renoveringar/underhåll som är relevanta, och hur ofta de brukar behövas.'
+          : 'Vilka typer av renoveringar/underhåll som är relevanta, och hur ofta de brukar behövas. Endast administratörer kan ändra dem.'}
       </Text>
 
-      <Card withBorder padding="md">
-        <TypeForm submitLabel="Lägg till" onSubmit={handleCreate} submitting={createType.isPending} />
-      </Card>
+      {isAdmin && (
+        <Card withBorder padding="md">
+          <TypeForm submitLabel="Lägg till" onSubmit={handleCreate} submitting={createType.isPending} />
+        </Card>
+      )}
 
       <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
         <Table striped highlightOnHover verticalSpacing="sm">
@@ -157,7 +167,7 @@ export function RenovationTypesPage() {
             <Table.Tr>
               <Table.Th>Namn</Table.Th>
               <Table.Th>Rekommenderat intervall</Table.Th>
-              <Table.Th />
+              {isAdmin && <Table.Th />}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -165,14 +175,16 @@ export function RenovationTypesPage() {
               <Table.Tr key={type.id}>
                 <Table.Td>{type.name}</Table.Td>
                 <Table.Td c="dimmed">{formatInterval(type.recommendedIntervalMonths)}</Table.Td>
-                <Table.Td>
-                  <ActionIcon variant="subtle" onClick={() => setEditing(type)} mr="xs">
-                    <IconEdit size={16} />
-                  </ActionIcon>
-                  <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(type.id)}>
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Table.Td>
+                {isAdmin && (
+                  <Table.Td>
+                    <ActionIcon variant="subtle" onClick={() => setEditing(type)} mr="xs">
+                      <IconEdit size={16} />
+                    </ActionIcon>
+                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(type.id)}>
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))}
           </Table.Tbody>

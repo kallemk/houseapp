@@ -43,7 +43,7 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
         }
 
         await SignInAsync(user);
-        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName));
+        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName, user.IsAdmin));
     }
 
     /// <summary>
@@ -93,7 +93,7 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
         }
 
         await SignInAsync(user);
-        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName));
+        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName, user.IsAdmin));
     }
 
     [HttpPost("logout")]
@@ -113,7 +113,7 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
             return Unauthorized();
         }
 
-        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName));
+        return Ok(new MeResponse(user.Id, user.Email, user.DisplayName, user.IsAdmin));
     }
 
     [HttpPost("change-password")]

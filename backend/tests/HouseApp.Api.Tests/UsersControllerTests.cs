@@ -21,7 +21,11 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
         _factory = factory;
     }
 
-    private async Task<(HttpClient Client, string UserId)> CreateAuthenticatedClientAsync()
+    /// <summary>
+    /// Admin by default, because every endpoint on this controller requires it — a regular client
+    /// would just assert 403 everywhere. Pass false for the tests that check the gate itself.
+    /// </summary>
+    private async Task<(HttpClient Client, string UserId)> CreateAuthenticatedClientAsync(bool isAdmin = true)
     {
         var email = $"{Guid.NewGuid()}@example.com";
         const string password = "Secret123!";
@@ -30,7 +34,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = new ApplicationUser { Email = email, DisplayName = "Test User" };
+            var user = new ApplicationUser { Email = email, DisplayName = "Test User", IsAdmin = isAdmin };
             user.PasswordHash = Hasher.HashPassword(user, password);
             db.Users.Add(user);
             await db.SaveChangesAsync();
@@ -149,5 +153,85 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
         var response = await client.GetAsync("/api/users");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The whole controller is admin-only, listing included — write access here is the power to
+    /// grant and revoke access to the app, so a regular user shouldn't even see who else exists.
+    /// </summary>
+    [Fact]
+    public async Task EveryEndpoint_ForRegularUser_ReturnsForbidden()
+    {
+        var (client, userId) = await CreateAuthenticatedClientAsync(isAdmin: false);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/users")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync("/api/users", new CreateUserRequest("x@example.com", "X", null))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("X", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync($"/api/users/{userId}")).StatusCode);
+    }
+
+    /// <summary>
+    /// Authorization reads IsAdmin from the database rather than a claim baked into the cookie, so a
+    /// promotion has to take effect on the promoted user's *existing* session — no re-login.
+    /// </summary>
+    [Fact]
+    public async Task Update_PromotingUser_GrantsAccessWithoutSigningInAgain()
+    {
+        var (regularClient, regularUserId) = await CreateAuthenticatedClientAsync(isAdmin: false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await regularClient.GetAsync("/api/users")).StatusCode);
+
+        var (adminClient, _) = await CreateAuthenticatedClientAsync();
+        var promote = await adminClient.PutAsJsonAsync(
+            $"/api/users/{regularUserId}",
+            new UpdateUserRequest("Test User", true));
+        Assert.Equal(HttpStatusCode.NoContent, promote.StatusCode);
+
+        // Same client, same cookie, no second login.
+        Assert.Equal(HttpStatusCode.OK, (await regularClient.GetAsync("/api/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_RemovingOwnAdminRights_IsBlocked()
+    {
+        // This is what makes "at least one admin always exists" hold: you can only ever demote
+        // someone else, and that requires still being an admin yourself.
+        var (client, userId) = await CreateAuthenticatedClientAsync();
+
+        var response = await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("Test User", false));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var stillAdmin = await (await client.GetAsync("/api/users")).Content.ReadFromJsonAsync<List<UserDto>>();
+        Assert.True(stillAdmin!.Single(u => u.Id == userId).IsAdmin);
+    }
+
+    [Fact]
+    public async Task Update_DemotingSomeoneElse_RevokesTheirAccess()
+    {
+        var (otherClient, otherUserId) = await CreateAuthenticatedClientAsync();
+        var (adminClient, _) = await CreateAuthenticatedClientAsync();
+
+        var demote = await adminClient.PutAsJsonAsync(
+            $"/api/users/{otherUserId}",
+            new UpdateUserRequest("Test User", false));
+        Assert.Equal(HttpStatusCode.NoContent, demote.StatusCode);
+
+        // Takes effect immediately rather than lasting until their 14-day cookie expires.
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherClient.GetAsync("/api/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_MakesARegularUser_NotAnAdmin()
+    {
+        var (client, _) = await CreateAuthenticatedClientAsync();
+
+        var create = await client.PostAsJsonAsync(
+            "/api/users",
+            new CreateUserRequest($"regular-{Guid.NewGuid()}@example.com", "Regular Person", null));
+
+        Assert.False((await create.Content.ReadFromJsonAsync<UserDto>())!.IsAdmin);
     }
 }

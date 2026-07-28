@@ -32,7 +32,15 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = new ApplicationUser { Email = email, DisplayName = "Test User", PasswordHash = string.Empty };
+            // Admin because Delete_AlsoRemoves... builds its fixture via POST /api/renovation-types,
+            // which is admin-only. Nothing on PropertiesController itself requires it.
+            var user = new ApplicationUser
+            {
+                Email = email,
+                DisplayName = "Test User",
+                PasswordHash = string.Empty,
+                IsAdmin = true,
+            };
             user.PasswordHash = Hasher.HashPassword(user, password);
             db.Users.Add(user);
             await db.SaveChangesAsync();

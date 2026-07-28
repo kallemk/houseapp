@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { usersApi, type CreateUserInput } from '../api/users'
+import { usersApi, type CreateUserInput, type UpdateUserInput } from '../api/users'
 
 const KEY = ['users']
 
@@ -23,7 +23,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, displayName }: { id: string; displayName: string }) => usersApi.update(id, displayName),
+    mutationFn: ({ id, input }: { id: string; input: UpdateUserInput }) => usersApi.update(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   })
 }

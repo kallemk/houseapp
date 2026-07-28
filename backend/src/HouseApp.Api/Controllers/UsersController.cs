@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Users;
 using HouseApp.Api.Models;
@@ -11,12 +12,13 @@ namespace HouseApp.Api.Controllers;
 
 /// <summary>
 /// Manages who may sign in: the users container doubles as the allowlist, so having a row here is
-/// exactly what makes a Google account acceptable at /api/auth/google. Any signed-in user can
-/// manage this — the app has no roles, and inventing one for two trusted people would be ceremony.
+/// exactly what makes a Google account acceptable at /api/auth/google. Admin-only in full —
+/// including the listing — because write access here is effectively the power to grant and revoke
+/// access to the whole app.
 /// </summary>
 [ApiController]
 [Route("api/users")]
-[Authorize]
+[Authorize(Policy = Policies.Admin)]
 public class UsersController(AppDbContext db) : ControllerBase
 {
     private static readonly PasswordHasher<ApplicationUser> Hasher = new();
@@ -90,7 +92,18 @@ public class UsersController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (id == currentUserId && !request.IsAdmin)
+        {
+            // Keeps "at least one admin exists" true for good: the only account you can demote is
+            // someone else's, and doing so requires you to still be an admin yourself. Combined
+            // with the self-deletion guard below, the app can't be locked out of its own
+            // administration.
+            return Conflict(new { message = "You can't remove your own admin rights." });
+        }
+
         user.DisplayName = request.DisplayName.Trim();
+        user.IsAdmin = request.IsAdmin;
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -121,5 +134,5 @@ public class UsersController(AppDbContext db) : ControllerBase
     }
 
     private static UserDto ToDto(ApplicationUser u) =>
-        new(u.Id, u.Email, u.DisplayName, !string.IsNullOrEmpty(u.PasswordHash), u.CreatedAt);
+        new(u.Id, u.Email, u.DisplayName, !string.IsNullOrEmpty(u.PasswordHash), u.IsAdmin, u.CreatedAt);
 }

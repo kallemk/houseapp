@@ -22,7 +22,11 @@ public class RenovationTypesControllerTests : IClassFixture<HouseAppWebApplicati
         _factory = factory;
     }
 
-    private async Task<HttpClient> CreateAuthenticatedClientAsync()
+    /// <summary>
+    /// Admin by default — creating/updating/deleting types requires it. Pass false to exercise the
+    /// gate, and to check that reading stays open.
+    /// </summary>
+    private async Task<HttpClient> CreateAuthenticatedClientAsync(bool isAdmin = true)
     {
         var email = $"{Guid.NewGuid()}@example.com";
         const string password = "Secret123!";
@@ -30,7 +34,13 @@ public class RenovationTypesControllerTests : IClassFixture<HouseAppWebApplicati
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = new ApplicationUser { Email = email, DisplayName = "Test User", PasswordHash = string.Empty };
+            var user = new ApplicationUser
+            {
+                Email = email,
+                DisplayName = "Test User",
+                PasswordHash = string.Empty,
+                IsAdmin = isAdmin,
+            };
             user.PasswordHash = Hasher.HashPassword(user, password);
             db.Users.Add(user);
             await db.SaveChangesAsync();
@@ -95,5 +105,49 @@ public class RenovationTypesControllerTests : IClassFixture<HouseAppWebApplicati
         var delete = await client.DeleteAsync($"/api/renovation-types/{type!.Id}");
 
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+    }
+
+    /// <summary>
+    /// GetAll is deliberately NOT admin-gated — it feeds the type dropdown on the renovations page
+    /// and in the dashboard quick-add modal, so gating it would stop regular users from creating
+    /// entries at all. This is the regression that would be silent from the backend's point of view.
+    /// </summary>
+    [Fact]
+    public async Task GetAll_IsAllowedForRegularUsers()
+    {
+        var admin = await CreateAuthenticatedClientAsync();
+        var createType = await admin.PostAsJsonAsync(
+            "/api/renovation-types",
+            new CreateRenovationTypeRequest($"Läsbar typ {Guid.NewGuid()}", 12));
+        var type = await createType.Content.ReadFromJsonAsync<RenovationTypeDto>();
+
+        var regular = await CreateAuthenticatedClientAsync(isAdmin: false);
+        var response = await regular.GetAsync("/api/renovation-types");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var list = await response.Content.ReadFromJsonAsync<List<RenovationTypeDto>>();
+        Assert.Contains(list!, t => t.Id == type!.Id);
+    }
+
+    [Fact]
+    public async Task Mutations_ForRegularUser_ReturnForbidden()
+    {
+        var admin = await CreateAuthenticatedClientAsync();
+        var createType = await admin.PostAsJsonAsync(
+            "/api/renovation-types",
+            new CreateRenovationTypeRequest($"Skyddad typ {Guid.NewGuid()}", null));
+        var type = await createType.Content.ReadFromJsonAsync<RenovationTypeDto>();
+
+        var regular = await CreateAuthenticatedClientAsync(isAdmin: false);
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await regular.PostAsJsonAsync("/api/renovation-types", new CreateRenovationTypeRequest("Ny", null))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await regular.PutAsJsonAsync($"/api/renovation-types/{type!.Id}", new UpdateRenovationTypeRequest("Ändrad", null))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await regular.DeleteAsync($"/api/renovation-types/{type.Id}")).StatusCode);
     }
 }

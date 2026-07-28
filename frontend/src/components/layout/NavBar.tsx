@@ -127,14 +127,18 @@ export function NavBar() {
         </Group>
 
         <Group gap="sm" visibleFrom="sm" wrap="nowrap">
-          <UnstyledButton
-            component={NavLink}
-            to={`/properties/${propertyId}/users`}
-            title="Användare"
-            style={{ display: 'flex', alignItems: 'center', color: 'var(--mantine-color-gray-6)' }}
-          >
-            <IconUsers size={16} />
-          </UnstyledButton>
+          {/* Admin-only, matching the API: every /api/users endpoint returns 403 for regular users,
+              so showing the link would only lead to a broken page. */}
+          {user?.isAdmin && (
+            <UnstyledButton
+              component={NavLink}
+              to={`/properties/${propertyId}/users`}
+              title="Användare"
+              style={{ display: 'flex', alignItems: 'center', color: 'var(--mantine-color-gray-6)' }}
+            >
+              <IconUsers size={16} />
+            </UnstyledButton>
+          )}
           <Text size="sm" c="dimmed">
             {user?.displayName}
           </Text>
@@ -207,15 +211,17 @@ export function NavBar() {
               {link.label}
             </UnstyledButton>
           ))}
-          <UnstyledButton
-            component={NavLink}
-            to={`/properties/${propertyId}/users`}
-            onClick={closeDrawer}
-            style={drawerLinkStyle}
-          >
-            <IconUsers size={18} />
-            Användare
-          </UnstyledButton>
+          {user?.isAdmin && (
+            <UnstyledButton
+              component={NavLink}
+              to={`/properties/${propertyId}/users`}
+              onClick={closeDrawer}
+              style={drawerLinkStyle}
+            >
+              <IconUsers size={18} />
+              Användare
+            </UnstyledButton>
+          )}
 
           <Divider mt="sm" />
           <UnstyledButton

@@ -32,7 +32,8 @@ A private app for tracking our house: value over time, renovation/investment spe
    `backend/src/HouseApp.Api/appsettings.Development.json` under `Seed:Users`
    (email + temp password). Log in and change the password via
    `POST /api/auth/change-password`. Everyone else is added in-app on the
-   **Användare** page.
+   **Användare** page. Seed accounts are admins; everyone added afterwards is a
+   regular user until an admin ticks their **Admin** switch.
 5. Google sign-in is optional locally — leave `Authentication:Google:ClientId`
    blank in `appsettings.Development.json` and the Google button simply doesn't
    render, leaving password login. To try it locally, set that value plus
@@ -48,7 +49,8 @@ a client ID, which is public because it ships inside the frontend bundle.
 
 Only people who already exist in the `users` container may sign in; an
 unrecognised Google account gets a 403. Manage that list on the **Användare**
-page (it is also where you revoke access, by removing someone).
+page (it is also where you revoke access, by removing someone). That page is
+admin-only, as is editing the renovation types table.
 
 One-time Google Cloud Console setup:
 

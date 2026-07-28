@@ -7,4 +7,4 @@ public record GoogleLoginRequest(string Credential);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public record MeResponse(string Id, string Email, string DisplayName);
+public record MeResponse(string Id, string Email, string DisplayName, bool IsAdmin);

@@ -2,6 +2,8 @@ export interface MeResponse {
   id: string
   email: string
   displayName: string
+  /** Admins additionally manage users and renovation types. The API enforces this — the UI only hides. */
+  isAdmin: boolean
 }
 
 export interface UserDto {
@@ -9,6 +11,7 @@ export interface UserDto {
   email: string
   displayName: string
   hasPassword: boolean
+  isAdmin: boolean
   createdAt: string
 }
 

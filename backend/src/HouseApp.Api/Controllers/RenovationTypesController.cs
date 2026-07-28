@@ -1,3 +1,4 @@
+using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.RenovationTypes;
 using HouseApp.Api.Models;
@@ -9,14 +10,19 @@ namespace HouseApp.Api.Controllers;
 
 /// <summary>
 /// Renovation types are shared, global reference data (not scoped to a property) — the admin
-/// interface for what used to be the hardcoded RenovationCategory enum. Both accounts can manage
-/// them equally; there's no separate admin role in this app (see CLAUDE.md).
+/// interface for what used to be the hardcoded RenovationCategory enum. Only admins may change
+/// them, since renaming or deleting a type changes what every existing entry displays for
+/// everyone. Reading stays open to all signed-in users — see GetAll.
 /// </summary>
 [ApiController]
 [Route("api/renovation-types")]
 [Authorize]
 public class RenovationTypesController(AppDbContext db) : ControllerBase
 {
+    /// <summary>
+    /// Deliberately NOT admin-gated: this feeds the type dropdown on the renovations page and in
+    /// the dashboard quick-add modal, so gating it would stop regular users creating entries at all.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<RenovationTypeDto>>> GetAll()
     {
@@ -25,6 +31,7 @@ public class RenovationTypesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.Admin)]
     public async Task<ActionResult<RenovationTypeDto>> Create(CreateRenovationTypeRequest request)
     {
         var type = new RenovationType
@@ -38,6 +45,7 @@ public class RenovationTypesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = Policies.Admin)]
     public async Task<IActionResult> Update(string id, UpdateRenovationTypeRequest request)
     {
         var type = await db.RenovationTypes.FindAsync(id);
@@ -53,6 +61,7 @@ public class RenovationTypesController(AppDbContext db) : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = Policies.Admin)]
     public async Task<IActionResult> Delete(string id)
     {
         var type = await db.RenovationTypes.FindAsync(id);

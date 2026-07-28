@@ -1,9 +1,11 @@
 using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
+using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,7 +52,13 @@ public static class ServiceCollectionExtensions
                     return Task.CompletedTask;
                 };
             });
-        services.AddAuthorization();
+        // Scoped, not singleton: the handler resolves AppDbContext from the request scope so it can
+        // check IsAdmin against the database rather than a claim (see AdminAuthorizationHandler).
+        // A failed policy lands on OnRedirectToAccessDenied above, so callers get a clean 403.
+        services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
+        services.AddAuthorizationBuilder()
+            .AddPolicy(Policies.Admin, policy => policy.AddRequirements(new AdminRequirement()));
+
         return services;
     }
 

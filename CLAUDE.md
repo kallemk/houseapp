@@ -85,6 +85,34 @@ user row with that email exists; otherwise `/api/auth/google` returns **403** (d
 401 — the frontend distinguishes "not invited" from "sign-in failed"). Deleting a user in the
 admin page is therefore how you revoke access.
 
+### Roles: one `IsAdmin` flag, checked against the database
+
+`ApplicationUser.IsAdmin` is the whole role model — regular is the default, admins additionally
+manage users and renovation types. Two things about it are load-bearing:
+
+**Enforcement reads the database, not a cookie claim.** `Authorization/AdminAuthorization.cs`
+defines the `Admin` policy via an `AuthorizationHandler` that point-reads the user by
+`ClaimTypes.NameIdentifier`. The conventional approach — adding a role claim in
+`AuthController.SignInAsync` and using `[Authorize(Roles = ...)]` — was rejected because the auth
+cookie lasts 14 days with sliding expiration: a demoted user would keep admin powers for up to two
+weeks, and a promotion wouldn't apply until they logged out and back in. The handler is registered
+**Scoped** (in `AddHouseAppCookieAuth`) so it can resolve the request-scoped `AppDbContext`. A
+failed policy lands on the existing `OnRedirectToAccessDenied` hook and returns a clean 403.
+
+**`DbSeeder` guarantees an admin exists, and that is not optional.** `IsAdmin` was added to an
+entity whose documents already existed; a missing JSON property deserializes to `false`, so
+deploying it makes *every* account regular and nothing in the UI can ever promote one — an
+unrecoverable lockout on a store with no migration step. `DbSeeder` therefore (a) creates seed
+accounts with `IsAdmin = true` and (b) **promotes every existing account if no admin exists at
+all**. (b) only fires at zero admins, so it's inert after the first successful startup, and it's
+the permanent recovery path if the admins are ever all lost. `UsersController.Update` refuses
+(409) to clear the caller's *own* admin flag, which is what keeps "at least one admin exists" true
+through the API: you can only demote someone else, and that requires still being one yourself.
+
+`GET /api/renovation-types` is deliberately **not** gated (only POST/PUT/DELETE are) — it feeds the
+type dropdown on the renovations page and the dashboard quick-add modal, so gating it would stop
+regular users creating entries at all. `UsersController` is gated in full, listing included.
+
 Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
 token from Google Identity Services and posts it to the API, which verifies it via
 `IGoogleTokenValidator` (`Google.Apis.Auth`). This is why there is **no client secret anywhere**
@@ -267,8 +295,9 @@ is now admin-manageable data: `RenovationType` (its own container, `renovationTy
 by `/id`) with a `Name` and an optional `RecommendedIntervalMonths`, managed via
 `RenovationTypesController` and `pages/RenovationTypesPage.tsx` (linked from a "Hantera typer"
 button on the Renovations page, not the main nav — it's admin-adjacent, not a primary
-destination). Both accounts can manage types equally; there's no separate admin role anywhere
-in this app.
+destination). Only admins can change them — regular users get the same page read-only (add form and
+row actions hidden), since renaming or deleting a type changes what every existing entry displays
+for everyone.
 
 `RenovationTypesController.Delete` refuses (409) to delete a type still referenced by any
 `RenovationEntry` — checked via the same full-scan-then-filter-in-memory pattern as everywhere

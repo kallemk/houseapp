@@ -8,9 +8,14 @@ export interface CreateUserInput {
   initialPassword?: string | null
 }
 
+export interface UpdateUserInput {
+  displayName: string
+  isAdmin: boolean
+}
+
 export const usersApi = {
   list: () => apiClient.get<UserDto[]>('/users'),
   create: (input: CreateUserInput) => apiClient.post<UserDto>('/users', input),
-  update: (id: string, displayName: string) => apiClient.put<void>(`/users/${id}`, { displayName }),
+  update: (id: string, input: UpdateUserInput) => apiClient.put<void>(`/users/${id}`, input),
   remove: (id: string) => apiClient.delete<void>(`/users/${id}`),
 }

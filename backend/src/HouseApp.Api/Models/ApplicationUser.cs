@@ -15,5 +15,12 @@ public class ApplicationUser
     public string? GoogleSubjectId { get; set; }
 
     public required string DisplayName { get; set; }
+
+    // Regular user is the default for everyone; admins additionally manage users and renovation
+    // types. Non-nullable bool is deliberate — unlike Property.MemberUserIds, "false" is exactly
+    // the right reading of a document that predates this field. DbSeeder handles the resulting
+    // bootstrap problem (a database where nobody is an admin yet, so nobody can promote anyone).
+    public bool IsAdmin { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

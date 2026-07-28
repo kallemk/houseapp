@@ -9,6 +9,7 @@ import {
   Modal,
   PasswordInput,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
@@ -79,8 +80,17 @@ export function UsersPage() {
   function handleUpdate(values: { displayName: string }) {
     if (!editing) return
     updateUser.mutate(
-      { id: editing.id, displayName: values.displayName },
+      { id: editing.id, input: { displayName: values.displayName, isAdmin: editing.isAdmin } },
       { onSuccess: () => setEditing(null), onError: (error) => showError(error, '') },
+    )
+  }
+
+  function handleToggleAdmin(user: UserDto) {
+    // displayName is sent along because the endpoint takes the whole record. It comes from the same
+    // query that renders this row, so there's nothing stale to clobber.
+    updateUser.mutate(
+      { id: user.id, input: { displayName: user.displayName, isAdmin: !user.isAdmin } },
+      { onError: (error) => showError(error, 'Du kan inte ta bort dina egna adminrättigheter.') },
     )
   }
 
@@ -108,6 +118,7 @@ export function UsersPage() {
       </Group>
       <Text c="dimmed" size="sm">
         Endast personer i den här listan kan logga in. Lämna lösenordet tomt om personen ska logga in med Google.
+        Administratörer kan hantera användare och renoveringstyper.
       </Text>
 
       <Card withBorder padding="md">
@@ -135,6 +146,7 @@ export function UsersPage() {
               <Table.Th>Namn</Table.Th>
               <Table.Th>E-post</Table.Th>
               <Table.Th>Inloggning</Table.Th>
+              <Table.Th>Admin</Table.Th>
               <Table.Th />
             </Table.Tr>
           </Table.Thead>
@@ -154,6 +166,16 @@ export function UsersPage() {
                   <Badge variant="light" color={user.hasPassword ? 'blue' : 'grape'}>
                     {user.hasPassword ? 'Lösenord + Google' : 'Endast Google'}
                   </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {/* Your own switch is disabled: the API returns 409 for self-demotion, which is
+                      what guarantees at least one admin always exists. */}
+                  <Switch
+                    checked={user.isAdmin}
+                    disabled={user.id === currentUser?.id}
+                    onChange={() => handleToggleAdmin(user)}
+                    aria-label={`Admin: ${user.displayName}`}
+                  />
                 </Table.Td>
                 <Table.Td>
                   <ActionIcon variant="subtle" onClick={() => startEditing(user)} mr="xs">

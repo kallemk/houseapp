@@ -2,6 +2,7 @@ import { MantineProvider } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AdminRoute } from './auth/AdminRoute'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
@@ -43,7 +44,9 @@ export default function App() {
                   <Route path="valuations" element={<ValuationsPage />} />
                   <Route path="renovations" element={<RenovationsPage />} />
                   <Route path="renovation-types" element={<RenovationTypesPage />} />
-                  <Route path="users" element={<UsersPage />} />
+                  <Route element={<AdminRoute />}>
+                    <Route path="users" element={<UsersPage />} />
+                  </Route>
                   <Route path="documents" element={<DocumentsPage />} />
                 </Route>
               </Route>
