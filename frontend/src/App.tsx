@@ -10,9 +10,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { ProjectsPage } from './pages/ProjectsPage'
+import { PropertyComponentsPage } from './pages/PropertyComponentsPage'
 import { PropertyPickerPage } from './pages/PropertyPickerPage'
-import { RenovationsPage } from './pages/RenovationsPage'
-import { RenovationTypesPage } from './pages/RenovationTypesPage'
 import { UsersPage } from './pages/UsersPage'
 import { ValuationsPage } from './pages/ValuationsPage'
 import { theme } from './theme'
@@ -42,8 +43,10 @@ export default function App() {
                 <Route path="properties/:propertyId" element={<AppLayout />}>
                   <Route index element={<DashboardPage />} />
                   <Route path="valuations" element={<ValuationsPage />} />
-                  <Route path="renovations" element={<RenovationsPage />} />
-                  <Route path="renovation-types" element={<RenovationTypesPage />} />
+                  <Route path="projects" element={<ProjectsPage />} />
+                  {/* "new" is handled by the same page in create mode. */}
+                  <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="components" element={<PropertyComponentsPage />} />
                   <Route element={<AdminRoute />}>
                     <Route path="users" element={<UsersPage />} />
                   </Route>

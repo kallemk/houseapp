@@ -4,8 +4,7 @@ using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Auth;
 using HouseApp.Api.Dtos.Documents;
 using HouseApp.Api.Dtos.Properties;
-using HouseApp.Api.Dtos.RenovationEntries;
-using HouseApp.Api.Dtos.RenovationTypes;
+using HouseApp.Api.Dtos.Projects;
 using HouseApp.Api.Dtos.Valuations;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Identity;
@@ -59,7 +58,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("Our House", "123 Main St", new DateOnly(2020, 6, 1), 350000m));
+            new CreatePropertyRequest("Our House", "123 Main St", "Lgh 1101", 1965, PropertyType.House, new DateOnly(2020, 6, 1), 350000m));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
 
         var created = await create.Content.ReadFromJsonAsync<PropertyDto>();
@@ -90,13 +89,13 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         var clientA = await CreateAuthenticatedClientAsync();
         var createP1 = await clientA.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("House A", "1 Main St", new DateOnly(2020, 1, 1), 100000m));
+            TestData.CreatePropertyRequest("House A", "1 Main St"));
         var p1 = await createP1.Content.ReadFromJsonAsync<PropertyDto>();
 
         var clientB = await CreateAuthenticatedClientAsync();
         var createP2 = await clientB.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("House B", "2 Main St", new DateOnly(2021, 1, 1), 200000m));
+            TestData.CreatePropertyRequest("House B", "2 Main St"));
         var p2 = await createP2.Content.ReadFromJsonAsync<PropertyDto>();
 
         var bList = await (await clientB.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
@@ -118,12 +117,12 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("Old Name", "1 Old St", new DateOnly(2020, 1, 1), 100000m));
+            TestData.CreatePropertyRequest("Old Name", "1 Old St"));
         var created = await create.Content.ReadFromJsonAsync<PropertyDto>();
 
         var update = await client.PutAsJsonAsync(
             $"/api/properties/{created!.Id}",
-            new UpdatePropertyRequest("New Name", "2 New St", new DateOnly(2021, 5, 5), 250000m));
+            new UpdatePropertyRequest("New Name", "2 New St", "Plan 2", 1972, PropertyType.Townhouse, new DateOnly(2021, 5, 5), 250000m));
         Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
 
         var fetched = await (await client.GetAsync($"/api/properties/{created.Id}")).Content
@@ -140,7 +139,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         var owner = await CreateAuthenticatedClientAsync();
         var create = await owner.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("Theirs", "1 Private Rd", new DateOnly(2020, 1, 1), 100000m));
+            TestData.CreatePropertyRequest("Theirs", "1 Private Rd"));
         var property = await create.Content.ReadFromJsonAsync<PropertyDto>();
 
         // Created before this user existed, so they're not in MemberUserIds.
@@ -148,7 +147,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var update = await outsider.PutAsJsonAsync(
             $"/api/properties/{property!.Id}",
-            new UpdatePropertyRequest("Hijacked", "x", new DateOnly(2020, 1, 1), 1m));
+            new UpdatePropertyRequest("Hijacked", "x", null, null, null, new DateOnly(2020, 1, 1), 1m));
         Assert.Equal(HttpStatusCode.NotFound, update.StatusCode);
 
         var delete = await outsider.DeleteAsync($"/api/properties/{property.Id}");
@@ -160,7 +159,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
     }
 
     [Fact]
-    public async Task Delete_AlsoRemovesValuationsRenovationsAndDocuments()
+    public async Task Delete_AlsoRemovesValuationsProjectsAndDocuments()
     {
         // Cosmos has no cascade delete, so this has to be done by hand in the controller. Without
         // it the child documents survive in their own containers permanently and unreachably —
@@ -169,7 +168,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("Doomed", "1 Gone St", new DateOnly(2020, 1, 1), 100000m));
+            TestData.CreatePropertyRequest("Doomed", "1 Gone St"));
         var property = await create.Content.ReadFromJsonAsync<PropertyDto>();
         var propertyId = property!.Id;
 
@@ -177,11 +176,9 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
             $"/api/properties/{propertyId}/valuations",
             new CreateValuationEntryRequest(new DateOnly(2022, 1, 1), 150000m, "Mäklare", null));
 
-        var type = await (await client.PostAsJsonAsync("/api/renovation-types", new CreateRenovationTypeRequest($"Typ {Guid.NewGuid()}", null)))
-            .Content.ReadFromJsonAsync<RenovationTypeDto>();
         await client.PostAsJsonAsync(
-            $"/api/properties/{propertyId}/renovation-entries",
-            new CreateRenovationEntryRequest(new DateOnly(2022, 2, 1), type!.Id, "Nytt tak", null, 50000m, null));
+            $"/api/properties/{propertyId}/projects",
+            TestData.SaveProject("Nytt tak", "Roof", completedDate: new DateOnly(2022, 2, 1)));
 
         await client.PostAsJsonAsync(
             "/api/documents",
@@ -193,7 +190,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Empty(db.ValuationEntries.Where(v => v.PropertyId == propertyId).ToList());
-        Assert.Empty(db.RenovationEntries.Where(r => r.PropertyId == propertyId).ToList());
+        Assert.Empty(db.Projects.Where(p => p.PropertyId == propertyId).ToList());
         Assert.Empty(db.Documents.Where(d => d.PropertyId == propertyId).ToList());
         Assert.Null(await db.Properties.FindAsync(propertyId));
     }

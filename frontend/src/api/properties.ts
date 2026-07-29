@@ -1,9 +1,12 @@
 import { apiClient } from './client'
-import type { PropertyDto } from './types'
+import type { PropertyDto, PropertyType } from './types'
 
 export interface CreatePropertyInput {
   nickname: string
   address: string
+  address2: string | null
+  yearBuilt: number | null
+  type: PropertyType | null
   purchaseDate: string
   purchasePrice: number
 }

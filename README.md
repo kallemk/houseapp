@@ -1,6 +1,7 @@
 # houseapp
 
-A private app for tracking our house: value over time, renovation/investment spend, and documents/photos.
+A private app for tracking our house: value over time, a log of projects (underhåll, renovering
+och nyinvestering) with costs and contractors, and documents/photos.
 
 ## Structure
 
@@ -50,7 +51,7 @@ a client ID, which is public because it ships inside the frontend bundle.
 Only people who already exist in the `users` container may sign in; an
 unrecognised Google account gets a 403. Manage that list on the **Användare**
 page (it is also where you revoke access, by removing someone). That page is
-admin-only, as is editing the renovation types table.
+admin-only, as is editing the list of property components.
 
 One-time Google Cloud Console setup:
 

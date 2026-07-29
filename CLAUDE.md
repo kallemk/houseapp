@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A private app for two people (a couple) to track their house: value over time, a
-renovation/investment log, and document/photo storage. Personal-use scale (2 accounts,
+A private app for two people (a couple) to track their house: value over time, a log of
+projects (maintenance, renovation and investment work), and document/photo storage. Personal-use scale (2 accounts,
 ever) — favor simplicity and low/no ongoing Azure cost over enterprise patterns when making
 decisions here.
 
@@ -75,7 +75,7 @@ same-origin design — is identical regardless of how you signed in.
 
 **`ClaimTypes.NameIdentifier` must always carry `ApplicationUser.Id` — never Google's `sub`.**
 That id is stored in `Property.MemberUserIds`, `ValuationEntry.CreatedByUserId`,
-`RenovationEntry.CreatedByUserId` and `Document.UploadedByUserId`, and there is no migration
+`Project.CreatedByUserId` and `Document.UploadedByUserId`, and there is no migration
 mechanism to rewrite them. Google sign-in therefore **matches an existing user by email
 (case-insensitively) and never creates one** — if it minted new rows, both users would silently
 lose sight of every existing property.
@@ -88,7 +88,7 @@ admin page is therefore how you revoke access.
 ### Roles: one `IsAdmin` flag, checked against the database
 
 `ApplicationUser.IsAdmin` is the whole role model — regular is the default, admins additionally
-manage users and renovation types. Two things about it are load-bearing:
+manage users and property components. Two things about it are load-bearing:
 
 **Enforcement reads the database, not a cookie claim.** `Authorization/AdminAuthorization.cs`
 defines the `Admin` policy via an `AuthorizationHandler` that point-reads the user by
@@ -109,8 +109,8 @@ the permanent recovery path if the admins are ever all lost. `UsersController.Up
 (409) to clear the caller's *own* admin flag, which is what keeps "at least one admin exists" true
 through the API: you can only demote someone else, and that requires still being one yourself.
 
-`GET /api/renovation-types` is deliberately **not** gated (only POST/PUT/DELETE are) — it feeds the
-type dropdown on the renovations page and the dashboard quick-add modal, so gating it would stop
+`GET /api/property-components` is deliberately **not** gated (only POST/PUT/DELETE are) — it feeds
+the component dropdown on the projects page and the dashboard quick-add modal, so gating it would stop
 regular users creating entries at all. `UsersController` is gated in full, listing included.
 
 Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
@@ -143,7 +143,10 @@ Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookie
 Cosmos provider. Each entity maps to its own container via `ToContainer(...)` +
 `HasPartitionKey(...)` in `OnModelCreating`:
 - `users`, `properties` — partitioned by `/id`
-- `valuationEntries`, `renovationEntries`, `documents` — partitioned by `/propertyId`
+- `valuationEntries`, `projects`, `documents` — partitioned by `/propertyId`
+- `propertyComponents` — partitioned by `/id`
+- `renovationEntries`, `renovationTypes` — the pre-project model, kept read-only as the migration's
+  rollback path (see "The renovation → project migration")
   (so "all entries for a property" queries stay single-partition)
 
 There are **no EF Core relational migrations**. Containers/partition keys are provisioned
@@ -152,7 +155,7 @@ by `infra/modules/cosmos.bicep` in Azure; locally, `Program.cs` calls
 application code (tolerant reads), not via a migration step.
 
 Controllers that update/delete a single item (`ValuationsController`,
-`RenovationEntriesController`, `DocumentsController`) require the `propertyId` (partition
+`ProjectsController`, `DocumentsController`) require the `propertyId` (partition
 key) as a query-string parameter on `PUT`/`DELETE` — this is required by the frontend API
 client (`frontend/src/api/*.ts`), not optional plumbing.
 
@@ -177,7 +180,7 @@ being caught — the test suite did not catch any of them):
   Cosmos extracts the partition key value from the document JSON server-side using that path
   (`infra/modules/cosmos.bicep`: `/propertyId`, lowercase); EF Core only special-cases the
   primary `Id`/`id` property to lowercase, so any other property used as a partition key (e.g.
-  `PropertyId` on `ValuationEntry`/`RenovationEntry`/`Document`) gets written under its literal
+  `PropertyId` on `ValuationEntry`/`Project`/`Document`) gets written under its literal
   PascalCase C# name unless told otherwise — every write then fails with `PartitionKeyMismatch`
   (extracted key doesn't match the one in the request header). Fixed via
   `.Property(x => x.PropertyId).ToJsonProperty("propertyId")` in `AppDbContext`. If you add a
@@ -275,48 +278,78 @@ can exist.
 
 **Deleting a property cascades by hand.** Cosmos has no cascade delete and no cross-container
 foreign keys, so `PropertiesController.Delete` explicitly removes the property's
-`valuationEntries`, `renovationEntries` and `documents` (plus each document's blob, which lives
+`valuationEntries`, `projects` and `documents` (plus each document's blob, which lives
 outside Cosmos entirely and nothing else would ever clean up). This isn't just tidiness: entries
 are only ever reachable through their property, so orphans would sit in their containers
 permanently and invisibly. Each child lookup is a single-partition `Where(x => x.PropertyId == id)`
 query, since those three containers are partitioned by `/propertyId`. Blobs are deleted *before*
 the rows, so a failure mid-way leaves the still-reachable documents intact rather than dropping
 the only pointer to a leaked blob. Any new per-property container needs adding here too — see
-`PropertiesControllerTests.Delete_AlsoRemovesValuationsRenovationsAndDocuments`.
+`PropertiesControllerTests.Delete_AlsoRemovesValuationsProjectsAndDocuments`.
 
 Editing and deleting properties is driven from `pages/PropertyPickerPage.tsx` (the per-card `⋮`
 menu) rather than a settings page inside the property — that page is already the "manage your
 properties" surface both `NavBar` entry points link to.
 
-### Renovation types (admin-managed, not an enum)
+### Projects (the core domain model)
 
-What used to be a hardcoded `RenovationCategory` enum (Renovation/Maintenance/Furniture/Other)
-is now admin-manageable data: `RenovationType` (its own container, `renovationTypes`, partitioned
-by `/id`) with a `Name` and an optional `RecommendedIntervalMonths`, managed via
-`RenovationTypesController` and `pages/RenovationTypesPage.tsx` (linked from a "Hantera typer"
-button on the Renovations page, not the main nav — it's admin-adjacent, not a primary
-destination). Only admins can change them — regular users get the same page read-only (add form and
-row actions hidden), since renaming or deleting a type changes what every existing entry displays
-for everyone.
+A `Project` is a piece of work on the house — planned, ongoing or finished. It replaced
+`RenovationEntry`, which could only say "on this date we spent this much". Two classifications:
 
-`RenovationTypesController.Delete` refuses (409) to delete a type still referenced by any
-`RenovationEntry` — checked via the same full-scan-then-filter-in-memory pattern as everywhere
-else, not a Cosmos query predicate.
+- **`WorkType`** (`Maintenance` / `Renovation` / `Investment`) — a hardcoded enum. This is what
+  `DashboardPage` splits its totals on; before it existed, "Totalt investerat" summed every entry
+  including routine upkeep and furniture.
+- **`ComponentId`** → `PropertyComponent` — *which part of the house*. Admin-managed data in its own
+  `propertyComponents` container (Tak, Fasad, VVS, …), deliberately not an enum so the list is
+  editable in-app. `PropertyComponentsController` mirrors the old renovation-types shape exactly:
+  `GET` open to every signed-in user (it feeds the dropdown when creating a project — gating it
+  would stop regular users logging work at all), mutations admin-only, and `Delete` refusing (409)
+  to remove a component any project still references.
 
-**How the enum-to-dynamic-data migration avoided a data migration**: `RenovationEntry`'s field
-was renamed from `Category` (enum) to `RenovationTypeId` (string), but is still mapped to the
-JSON property `"Category"` (`ToJsonProperty("Category")` in `AppDbContext`) — so existing
-entries' enum string values (`"Renovation"`, `"Maintenance"`, ...) are read unchanged as the new
-field's value. This only works because `RenovationTypeSeeder` seeds the four default types using
-those exact strings as their `Id` (not random GUIDs) — so old entries' references resolve to a
-real, renamed-and-editable type with zero backfill. Unlike `DbSeeder`, this seeder runs once
-ever (skips entirely if the container already has anything), not per-missing-item — re-adding a
-type the admin deliberately deleted would be a bug, not idempotent seeding.
+**Costs and contractor are EF owned types, stored as nested JSON inside the project document** —
+`OwnsOne(p => p.Contractor)` / `OwnsMany(p => p.Costs)` in `AppDbContext`. They are never read
+without their project, so nesting means one read per project and no cross-container joins (which
+the Cosmos provider doesn't do anyway). Consequences worth knowing:
+- A project is read and written **whole**. `ProjectsController` has no sub-resource endpoints for
+  costs; `Update` replaces the whole cost list. Don't add `POST /projects/{id}/costs`.
+- There is no way to query costs across projects without reading the projects.
+- `ContractorInfo` is per project — the same firm on two jobs is stored twice. A reusable contractor
+  register would need its own container.
+
+**`Project.ActualCost` is computed, not stored** (`Costs.Sum(...)`, with `Ignore()` in the model
+configuration). One source of truth; a stored total would drift from the rows. The UI shows the
+estimate until there's at least one cost row.
+
+### The renovation → project migration
+
+`Data/Migration/ProjectMigrator.cs` runs on every startup (App Service has no separate migration
+step, same as `DbSeeder`) and copies the old `renovationEntries` into `projects` as completed
+projects. Things that are load-bearing:
+
+- **It copies, it doesn't move.** `renovationEntries` and `renovationTypes` are still provisioned in
+  `infra/modules/cosmos.bicep` and still hold every original document. That is the rollback path —
+  **don't delete those containers, or `Data/Migration/LegacyModels.cs`, until reverting is off the
+  table.** `PropertiesController.Delete` deliberately doesn't cascade into them.
+- **Ids are preserved.** `Document.ProjectId` is the old `RenovationEntryId` field (mapped via
+  `ToJsonProperty("RenovationEntryId")`, since the `documents` container isn't migrated), so
+  regenerating ids would orphan every document attached to a renovation.
+- **The guard is "copy what's missing", not "skip if the target is non-empty".** EF Cosmos writes
+  items individually and non-transactionally, so a crash partway through leaves a partial copy that
+  an emptiness check would skip forever. As written it's idempotent *and* resumable.
+- **Old types map onto `WorkType`, not onto components** — they classified the work, not the part of
+  the house. The four seeded ids map explicitly; an admin-created type can't be inferred, so it
+  becomes `Renovation` with its original name appended to `Notes` rather than being silently lost.
+
+**New containers must be deployed before the code that reads them.** The app can't create them:
+production authenticates with a managed identity holding only a data-plane role. `backend-ci-cd` and
+`infra-deploy` are path-filtered and independent, so a single push touching both runs them *in
+parallel* — push the Bicep change and let `infra-deploy` finish first.
 
 ### Frontend property routing
 
 Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,renovations,documents,renovation-types}`.
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,documents,components}`,
+plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode).
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
 (`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's
 stale — the target route re-validates membership itself (via `useSelectedProperty`, which
@@ -343,7 +376,8 @@ under a `.js`/`.css` URL (which surfaces as a confusing MIME-type error, not an 
 All user-facing frontend text (labels, buttons, headings, messages, empty states) is in
 **Swedish** — the two users are Swedish-only. Code, comments, identifiers, API contracts, and
 backend text stay in English (standard practice). Backend enum values
-(`RenovationCategory`, `DocumentCategory`) are English strings by design — never rename them
+(`WorkType`, `ProjectStatus`, `ProjectPriority`, `CostType`, `PropertyType`, `DocumentCategory`)
+are English strings by design — never rename them
 to Swedish, since that's the wire contract — but their display labels are Swedish, defined in
 `frontend/src/utils/labels.ts` (`RENOVATION_CATEGORY_LABELS`/`_OPTIONS`,
 `DOCUMENT_CATEGORY_LABELS`/`_OPTIONS`). Use these maps for any new UI that displays or selects

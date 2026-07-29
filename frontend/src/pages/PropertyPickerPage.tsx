@@ -8,6 +8,8 @@ import {
   Loader,
   Menu,
   Modal,
+  NumberInput,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -21,8 +23,9 @@ import { notifications } from '@mantine/notifications'
 import { IconDotsVertical, IconEdit, IconHome2, IconHomeStar, IconLogout, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { PropertyDto } from '../api/types'
+import type { PropertyDto, PropertyType } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
+import { PROPERTY_TYPE_OPTIONS } from '../utils/labels'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
@@ -30,11 +33,22 @@ import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
 interface PropertyFormValues {
   nickname: string
   address: string
+  address2: string
+  yearBuilt: number | string
+  type: PropertyType | ''
   purchaseDate: string
   purchasePrice: number | string
 }
 
-const EMPTY_FORM: PropertyFormValues = { nickname: '', address: '', purchaseDate: '', purchasePrice: '' }
+const EMPTY_FORM: PropertyFormValues = {
+  nickname: '',
+  address: '',
+  address2: '',
+  yearBuilt: '',
+  type: '',
+  purchaseDate: '',
+  purchasePrice: '',
+}
 
 function PropertyForm({
   initial,
@@ -54,6 +68,17 @@ function PropertyForm({
       <Stack maw={420}>
         <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
         <TextInput label="Adress" required {...form.getInputProps('address')} />
+        <TextInput label="Adressrad 2" placeholder="valfritt" {...form.getInputProps('address2')} />
+        <Group grow>
+          <Select
+            label="Bostadstyp"
+            placeholder="valfritt"
+            data={PROPERTY_TYPE_OPTIONS}
+            clearable
+            {...form.getInputProps('type')}
+          />
+          <NumberInput label="Byggår" placeholder="valfritt" min={1500} max={2100} {...form.getInputProps('yearBuilt')} />
+        </Group>
         <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
         <TextInput label="Köpeskilling (kr)" type="number" required {...form.getInputProps('purchasePrice')} />
         <Button type="submit" loading={submitting}>
@@ -80,7 +105,15 @@ export function PropertyPickerPage() {
   }
 
   function toInput(values: PropertyFormValues) {
-    return { ...values, purchasePrice: Number(values.purchasePrice) }
+    return {
+      nickname: values.nickname,
+      address: values.address,
+      address2: values.address2.trim() || null,
+      yearBuilt: values.yearBuilt === '' ? null : Number(values.yearBuilt),
+      type: values.type === '' ? null : values.type,
+      purchaseDate: values.purchaseDate,
+      purchasePrice: Number(values.purchasePrice),
+    }
   }
 
   function handleCreate(values: PropertyFormValues) {
@@ -191,6 +224,9 @@ export function PropertyPickerPage() {
             initial={{
               nickname: editing.nickname,
               address: editing.address,
+              address2: editing.address2 ?? '',
+              yearBuilt: editing.yearBuilt ?? '',
+              type: editing.type ?? '',
               purchaseDate: editing.purchaseDate,
               purchasePrice: editing.purchasePrice,
             }}

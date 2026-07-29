@@ -20,15 +20,15 @@ import { notifications } from '@mantine/notifications'
 import { IconAdjustments, IconEdit, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
-import type { RenovationTypeDto } from '../api/types'
+import type { PropertyComponentDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import {
-  useCreateRenovationType,
-  useDeleteRenovationType,
-  useRenovationTypes,
-  useUpdateRenovationType,
-} from '../hooks/useRenovationTypes'
+  useCreatePropertyComponent,
+  useDeletePropertyComponent,
+  usePropertyComponents,
+  useUpdatePropertyComponent,
+} from '../hooks/usePropertyComponents'
 import { formatInterval, splitMonths, toMonths, type IntervalUnit } from '../utils/interval'
 
 const INTERVAL_UNIT_OPTIONS: { value: IntervalUnit; label: string }[] = [
@@ -36,31 +36,31 @@ const INTERVAL_UNIT_OPTIONS: { value: IntervalUnit; label: string }[] = [
   { value: 'months', label: 'månader' },
 ]
 
-interface TypeFormValues {
+interface ComponentFormValues {
   name: string
   intervalValue: number | ''
   intervalUnit: IntervalUnit
 }
 
-function toFormValues(type: RenovationTypeDto): TypeFormValues {
-  const { value, unit } = type.recommendedIntervalMonths
-    ? splitMonths(type.recommendedIntervalMonths)
+function toFormValues(component: PropertyComponentDto): ComponentFormValues {
+  const { value, unit } = component.recommendedIntervalMonths
+    ? splitMonths(component.recommendedIntervalMonths)
     : { value: '' as const, unit: 'years' as IntervalUnit }
-  return { name: type.name, intervalValue: value, intervalUnit: unit }
+  return { name: component.name, intervalValue: value, intervalUnit: unit }
 }
 
-function TypeForm({
+function ComponentForm({
   initial,
   submitLabel,
   onSubmit,
   submitting,
 }: {
-  initial?: TypeFormValues
+  initial?: ComponentFormValues
   submitLabel: string
-  onSubmit: (values: TypeFormValues) => void
+  onSubmit: (values: ComponentFormValues) => void
   submitting: boolean
 }) {
-  const form = useForm<TypeFormValues>({
+  const form = useForm<ComponentFormValues>({
     initialValues: initial ?? { name: '', intervalValue: '', intervalUnit: 'years' },
   })
 
@@ -90,41 +90,42 @@ function TypeForm({
   )
 }
 
-export function RenovationTypesPage() {
-  // Regular users get a read-only view: types are worth seeing (they're the vocabulary the whole
-  // renovations page is built on), but renaming or deleting one changes what every existing entry
-  // displays for everyone. The API enforces this — GET is open, the mutations are admin-only.
+export function PropertyComponentsPage() {
+  // Regular users get a read-only view: the list is worth seeing (it's the vocabulary the projects
+  // page is built on), but renaming or deleting one changes what every existing project displays.
+  // The API enforces this — GET is open, the mutations are admin-only.
   const { user } = useAuth()
   const isAdmin = user?.isAdmin ?? false
-  const { data: types, isLoading } = useRenovationTypes()
-  const createType = useCreateRenovationType()
-  const updateType = useUpdateRenovationType()
-  const deleteType = useDeleteRenovationType()
-  const [editing, setEditing] = useState<RenovationTypeDto | null>(null)
+  const { data: components, isLoading } = usePropertyComponents()
+  const createComponent = useCreatePropertyComponent()
+  const updateComponent = useUpdatePropertyComponent()
+  const deleteComponent = useDeletePropertyComponent()
+  const [editing, setEditing] = useState<PropertyComponentDto | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
-  function toRequest(values: TypeFormValues) {
+  function toRequest(values: ComponentFormValues) {
     return {
       name: values.name,
-      recommendedIntervalMonths: values.intervalValue === '' ? null : toMonths(Number(values.intervalValue), values.intervalUnit),
+      recommendedIntervalMonths:
+        values.intervalValue === '' ? null : toMonths(Number(values.intervalValue), values.intervalUnit),
     }
   }
 
-  function handleCreate(values: TypeFormValues) {
-    createType.mutate(toRequest(values))
+  function handleCreate(values: ComponentFormValues) {
+    createComponent.mutate(toRequest(values))
   }
 
-  function handleUpdate(values: TypeFormValues) {
+  function handleUpdate(values: ComponentFormValues) {
     if (!editing) return
-    updateType.mutate({ id: editing.id, input: toRequest(values) }, { onSuccess: () => setEditing(null) })
+    updateComponent.mutate({ id: editing.id, input: toRequest(values) }, { onSuccess: () => setEditing(null) })
   }
 
   function handleDelete(id: string) {
-    deleteType.mutate(id, {
+    deleteComponent.mutate(id, {
       onError: (error) => {
         const message =
           error instanceof ApiError && error.status === 409
-            ? 'Typen används av minst en post och kan inte tas bort.'
+            ? 'Komponenten används av minst ett projekt och kan inte tas bort.'
             : 'Något gick fel. Försök igen.'
         notifications.show({ color: 'red', message })
       },
@@ -147,17 +148,17 @@ export function RenovationTypesPage() {
         <ThemeIcon variant="light" size={36} radius="md">
           <IconAdjustments size={20} />
         </ThemeIcon>
-        <Title order={2}>Renoveringstyper</Title>
+        <Title order={2}>Komponenter</Title>
       </Group>
       <Text c="dimmed" size="sm">
         {isAdmin
-          ? 'Hantera vilka typer av renoveringar/underhåll som är relevanta, och hur ofta de brukar behövas.'
-          : 'Vilka typer av renoveringar/underhåll som är relevanta, och hur ofta de brukar behövas. Endast administratörer kan ändra dem.'}
+          ? 'Hantera vilka delar av bostaden som projekt kan höra till, och hur ofta de brukar behöva ses över.'
+          : 'Vilka delar av bostaden som projekt kan höra till, och hur ofta de brukar behöva ses över. Endast administratörer kan ändra dem.'}
       </Text>
 
       {isAdmin && (
         <Card withBorder padding="md">
-          <TypeForm submitLabel="Lägg till" onSubmit={handleCreate} submitting={createType.isPending} />
+          <ComponentForm submitLabel="Lägg till" onSubmit={handleCreate} submitting={createComponent.isPending} />
         </Card>
       )}
 
@@ -171,16 +172,16 @@ export function RenovationTypesPage() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {types?.map((type) => (
-              <Table.Tr key={type.id}>
-                <Table.Td>{type.name}</Table.Td>
-                <Table.Td c="dimmed">{formatInterval(type.recommendedIntervalMonths)}</Table.Td>
+            {components?.map((component) => (
+              <Table.Tr key={component.id}>
+                <Table.Td>{component.name}</Table.Td>
+                <Table.Td c="dimmed">{formatInterval(component.recommendedIntervalMonths)}</Table.Td>
                 {isAdmin && (
                   <Table.Td>
-                    <ActionIcon variant="subtle" onClick={() => setEditing(type)} mr="xs">
+                    <ActionIcon variant="subtle" onClick={() => setEditing(component)} mr="xs">
                       <IconEdit size={16} />
                     </ActionIcon>
-                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(type.id)}>
+                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(component.id)}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Table.Td>
@@ -191,21 +192,21 @@ export function RenovationTypesPage() {
         </Table>
       </Card>
 
-      <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera typ" centered>
+      <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera komponent" centered>
         {editingFormValues && (
-          <TypeForm
+          <ComponentForm
             key={editing?.id}
             initial={editingFormValues}
             submitLabel="Spara"
             onSubmit={handleUpdate}
-            submitting={updateType.isPending}
+            submitting={updateComponent.isPending}
           />
         )}
       </Modal>
 
       <ConfirmDialog
         opened={pendingDeleteId !== null}
-        title="Ta bort typ"
+        title="Ta bort komponent"
         message="Detta kan inte ångras."
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {

@@ -1,6 +1,6 @@
 import { ActionIcon, Group, Menu, Stack, Text, Timeline, ThemeIcon } from '@mantine/core'
 import { IconChartLine, IconFiles, IconHammer, IconPlus } from '@tabler/icons-react'
-import type { DocumentDto, RenovationEntryDto, ValuationEntryDto } from '../../api/types'
+import type { DocumentDto, ProjectDto, ValuationEntryDto } from '../../api/types'
 import {
   compareQuarterKeys,
   currentQuarterKey,
@@ -23,12 +23,17 @@ interface TimelineEvent {
 interface PropertyTimelineProps {
   purchaseDate: string
   valuations: ValuationEntryDto[]
-  renovations: RenovationEntryDto[]
+  projects: ProjectDto[]
   documents: DocumentDto[]
   onQuickAdd: (request: QuickAddRequest) => void
 }
 
-export function PropertyTimeline({ purchaseDate, valuations, renovations, documents, onQuickAdd }: PropertyTimelineProps) {
+/** A project sits where it happened, or where it's planned to — created-at is a fallback, not a date. */
+function projectDate(project: ProjectDto): string | null {
+  return project.completedDate ?? project.plannedStartDate ?? project.actualStartDate
+}
+
+export function PropertyTimeline({ purchaseDate, valuations, projects, documents, onQuickAdd }: PropertyTimelineProps) {
   const events: TimelineEvent[] = [
     ...valuations.map((v) => ({
       id: `valuation-${v.id}`,
@@ -37,13 +42,22 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
       color: 'terracotta',
       label: `Värdering: ${formatCurrency(v.value)}`,
     })),
-    ...renovations.map((r) => ({
-      id: `renovation-${r.id}`,
-      date: r.date,
-      icon: IconHammer,
-      color: 'blue',
-      label: `${r.title}: ${formatCurrency(r.amount)}`,
-    })),
+    ...projects.flatMap((p) => {
+      const date = projectDate(p)
+      if (!date) {
+        return []
+      }
+      const amount = p.actualCost > 0 ? p.actualCost : p.estimatedCost
+      return [
+        {
+          id: `project-${p.id}`,
+          date,
+          icon: IconHammer,
+          color: 'blue',
+          label: `${p.name}: ${formatCurrency(amount)}`,
+        },
+      ]
+    }),
     ...documents.map((d) => ({
       id: `document-${d.id}`,
       date: d.date,
@@ -95,9 +109,9 @@ export function PropertyTimeline({ purchaseDate, valuations, renovations, docume
                   </Menu.Item>
                   <Menu.Item
                     leftSection={<IconHammer size={14} />}
-                    onClick={() => onQuickAdd({ type: 'renovation', defaultDate: defaultDateForQuarter(quarter) })}
+                    onClick={() => onQuickAdd({ type: 'project', defaultDate: defaultDateForQuarter(quarter) })}
                   >
-                    Lägg till renovering
+                    Lägg till projekt
                   </Menu.Item>
                   <Menu.Item
                     leftSection={<IconFiles size={14} />}

@@ -2,12 +2,13 @@ import { Button, Center, Group, Loader, Modal, Select, Stack, TextInput } from '
 import { useForm } from '@mantine/form'
 import { FileUpload } from '../common/FileUpload'
 import { useCreateValuation } from '../../hooks/useValuations'
-import { useCreateRenovationEntry } from '../../hooks/useRenovationEntries'
-import { useRenovationTypes } from '../../hooks/useRenovationTypes'
+import { useCreateProject } from '../../hooks/useProjects'
+import { usePropertyComponents } from '../../hooks/usePropertyComponents'
 import { useUploadDocument } from '../../hooks/useDocuments'
-import type { DocumentCategory } from '../../api/types'
+import type { DocumentCategory, WorkType } from '../../api/types'
+import { WORK_TYPE_OPTIONS } from '../../utils/labels'
 
-export type QuickAddType = 'valuation' | 'renovation' | 'document'
+export type QuickAddType = 'valuation' | 'project' | 'document'
 
 export interface QuickAddRequest {
   type: QuickAddType
@@ -22,7 +23,7 @@ interface QuickAddModalProps {
 
 const TITLES: Record<QuickAddType, string> = {
   valuation: 'Lägg till värdering',
-  renovation: 'Lägg till renovering',
+  project: 'Lägg till projekt',
   document: 'Lägg till dokument',
 }
 
@@ -61,7 +62,12 @@ function QuickAddValuationForm({
   )
 }
 
-function QuickAddRenovationForm({
+/**
+ * Deliberately a fraction of the full project form: this is for logging something that has already
+ * happened, straight from the timeline. Everything else (contractor, itemised costs, impact) is
+ * filled in afterwards on the project page.
+ */
+function QuickAddProjectForm({
   propertyId,
   defaultDate,
   onDone,
@@ -70,29 +76,50 @@ function QuickAddRenovationForm({
   defaultDate: string
   onDone: () => void
 }) {
-  const createEntry = useCreateRenovationEntry(propertyId)
-  const { data: types, isLoading: loadingTypes } = useRenovationTypes()
+  const createProject = useCreateProject(propertyId)
+  const { data: components, isLoading: loadingComponents } = usePropertyComponents()
   const form = useForm({
-    initialValues: { date: defaultDate, renovationTypeId: '', title: '', amount: 0, vendor: '' },
+    initialValues: {
+      date: defaultDate,
+      name: '',
+      workType: 'Maintenance' as WorkType,
+      componentId: '',
+      amount: 0,
+      vendor: '',
+    },
     validate: {
-      renovationTypeId: (value) => (value ? null : 'Välj en typ'),
+      componentId: (value) => (value ? null : 'Välj en komponent'),
     },
   })
 
   function handleSubmit(values: typeof form.values) {
-    createEntry.mutate(
+    const amount = Number(values.amount) || 0
+    createProject.mutate(
       {
-        date: values.date,
-        renovationTypeId: values.renovationTypeId,
-        title: values.title,
-        amount: Number(values.amount),
-        vendor: values.vendor || null,
+        name: values.name,
+        description: null,
+        notes: null,
+        workType: values.workType,
+        componentId: values.componentId,
+        status: 'Completed',
+        priority: 'Medium',
+        isUrgent: false,
+        plannedStartDate: null,
+        actualStartDate: values.date,
+        completedDate: values.date,
+        estimatedDurationDays: null,
+        estimatedCost: amount,
+        estimatedValueIncrease: null,
+        expectedLifespanYears: null,
+        energyEfficiencyGainPercent: null,
+        contractor: values.vendor ? { name: values.vendor, phone: null, email: null, website: null, quotedPrice: null, quotedDate: null, notes: null } : null,
+        costs: amount > 0 ? [{ type: 'Other', description: null, amount, dateIncurred: values.date, isBudgeted: false }] : [],
       },
       { onSuccess: onDone },
     )
   }
 
-  if (loadingTypes) {
+  if (loadingComponents) {
     return (
       <Center py="md">
         <Loader size="sm" />
@@ -104,17 +131,23 @@ function QuickAddRenovationForm({
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
+        <TextInput label="Namn" required {...form.getInputProps('name')} />
         <Select
-          label="Typ"
-          placeholder="Välj typ"
-          data={(types ?? []).map((t) => ({ value: t.id, label: t.name }))}
-          {...form.getInputProps('renovationTypeId')}
+          label="Typ av arbete"
+          data={WORK_TYPE_OPTIONS}
+          allowDeselect={false}
+          {...form.getInputProps('workType')}
         />
-        <TextInput label="Titel" required {...form.getInputProps('title')} />
-        <TextInput label="Belopp (kr)" type="number" required {...form.getInputProps('amount')} />
-        <TextInput label="Leverantör" {...form.getInputProps('vendor')} />
+        <Select
+          label="Komponent"
+          placeholder="Välj komponent"
+          data={(components ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          {...form.getInputProps('componentId')}
+        />
+        <TextInput label="Kostnad (kr)" type="number" {...form.getInputProps('amount')} />
+        <TextInput label="Entreprenör" {...form.getInputProps('vendor')} />
         <Group justify="flex-end">
-          <Button type="submit" loading={createEntry.isPending}>
+          <Button type="submit" loading={createProject.isPending}>
             Spara
           </Button>
         </Group>
@@ -147,8 +180,8 @@ export function QuickAddModal({ propertyId, request, onClose }: QuickAddModalPro
       {request?.type === 'valuation' && (
         <QuickAddValuationForm key={request.defaultDate} propertyId={propertyId} defaultDate={request.defaultDate} onDone={onClose} />
       )}
-      {request?.type === 'renovation' && (
-        <QuickAddRenovationForm key={request.defaultDate} propertyId={propertyId} defaultDate={request.defaultDate} onDone={onClose} />
+      {request?.type === 'project' && (
+        <QuickAddProjectForm key={request.defaultDate} propertyId={propertyId} defaultDate={request.defaultDate} onDone={onClose} />
       )}
       {request?.type === 'document' && (
         <QuickAddDocumentForm key={request.defaultDate} propertyId={propertyId} defaultDate={request.defaultDate} onDone={onClose} />

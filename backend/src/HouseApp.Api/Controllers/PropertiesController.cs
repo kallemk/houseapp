@@ -52,6 +52,9 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         {
             Nickname = request.Nickname,
             Address = request.Address,
+            Address2 = request.Address2,
+            YearBuilt = request.YearBuilt,
+            Type = request.Type,
             PurchaseDate = request.PurchaseDate,
             PurchasePrice = request.PurchasePrice,
             MemberUserIds = allUserIds,
@@ -73,6 +76,9 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
 
         property.Nickname = request.Nickname;
         property.Address = request.Address;
+        property.Address2 = request.Address2;
+        property.YearBuilt = request.YearBuilt;
+        property.Type = request.Type;
         property.PurchaseDate = request.PurchaseDate;
         property.PurchasePrice = request.PurchasePrice;
         await db.SaveChangesAsync();
@@ -95,7 +101,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         // only ever reaches them through a property that no longer exists. All three of these are
         // single-partition queries — those containers are partitioned by /propertyId.
         var valuations = await db.ValuationEntries.Where(v => v.PropertyId == id).ToListAsync();
-        var renovations = await db.RenovationEntries.Where(r => r.PropertyId == id).ToListAsync();
+        var projects = await db.Projects.Where(p => p.PropertyId == id).ToListAsync();
         var documents = await db.Documents.Where(d => d.PropertyId == id).ToListAsync();
 
         // Blobs live outside Cosmos entirely — nothing else would ever clean them up. Deleted
@@ -106,8 +112,10 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
             await blobStorage.DeleteAsync(document.BlobPath);
         }
 
+        // The legacy renovationEntries container is deliberately not cascaded — it's a frozen
+        // backup of the pre-project model, kept as the rollback path.
         db.ValuationEntries.RemoveRange(valuations);
-        db.RenovationEntries.RemoveRange(renovations);
+        db.Projects.RemoveRange(projects);
         db.Documents.RemoveRange(documents);
         db.Properties.Remove(property);
         await db.SaveChangesAsync();
@@ -121,5 +129,5 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         property.MemberUserIds?.Contains(userId) == true;
 
     private static PropertyDto ToDto(Property p) =>
-        new(p.Id, p.Nickname, p.Address, p.PurchaseDate, p.PurchasePrice, p.CreatedAt);
+        new(p.Id, p.Nickname, p.Address, p.Address2, p.YearBuilt, p.Type, p.PurchaseDate, p.PurchasePrice, p.CreatedAt);
 }

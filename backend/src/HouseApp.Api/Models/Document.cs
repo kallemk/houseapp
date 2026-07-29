@@ -7,7 +7,10 @@ public class Document
     // Partition key — groups all documents for a property together.
     public required string PropertyId { get; set; }
 
-    public string? RenovationEntryId { get; set; }
+    // Mapped to the JSON property "RenovationEntryId" (see AppDbContext) — the documents container
+    // isn't migrated, and the ProjectMigrator preserves entry ids as project ids, so the values
+    // already stored still resolve.
+    public string? ProjectId { get; set; }
 
     // The date this document represents/is dated (e.g. a receipt's purchase date), for timeline
     // placement — distinct from UploadedAt, which is when the file was actually uploaded.

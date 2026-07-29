@@ -51,7 +51,7 @@ export function NavBar() {
   const links = [
     { to: `/properties/${propertyId}`, label: 'Översikt', icon: IconHome2, end: true },
     { to: `/properties/${propertyId}/valuations`, label: 'Värderingar', icon: IconChartLine, end: false },
-    { to: `/properties/${propertyId}/renovations`, label: 'Renoveringar', icon: IconHammer, end: false },
+    { to: `/properties/${propertyId}/projects`, label: 'Projekt', icon: IconHammer, end: false },
     { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
   ]
 

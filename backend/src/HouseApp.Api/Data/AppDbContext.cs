@@ -1,3 +1,4 @@
+using HouseApp.Api.Data.Migration;
 using HouseApp.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,9 +9,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<ValuationEntry> ValuationEntries => Set<ValuationEntry>();
-    public DbSet<RenovationEntry> RenovationEntries => Set<RenovationEntry>();
     public DbSet<Document> Documents => Set<Document>();
-    public DbSet<RenovationType> RenovationTypes => Set<RenovationType>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<PropertyComponent> PropertyComponents => Set<PropertyComponent>();
+
+    // Superseded by Projects/PropertyComponents and read only by ProjectMigrator — see LegacyModels.
+    public DbSet<LegacyRenovationEntry> LegacyRenovationEntries => Set<LegacyRenovationEntry>();
+    public DbSet<LegacyRenovationType> LegacyRenovationTypes => Set<LegacyRenovationType>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,26 +48,48 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.Property(v => v.PropertyId).ToJsonProperty("propertyId");
         });
 
-        modelBuilder.Entity<RenovationEntry>(b =>
-        {
-            b.ToContainer("renovationEntries");
-            b.HasPartitionKey(r => r.PropertyId);
-            b.HasNoDiscriminator();
-            b.Property(r => r.PropertyId).ToJsonProperty("propertyId");
-            // Keeps reading old enum values ("Renovation", "Maintenance", ...) as the new
-            // RenovationTypeId string — see the comment on RenovationEntry.RenovationTypeId.
-            b.Property(r => r.RenovationTypeId).ToJsonProperty("Category");
-        });
-
         modelBuilder.Entity<Document>(b =>
         {
             b.ToContainer("documents");
             b.HasPartitionKey(d => d.PropertyId);
             b.HasNoDiscriminator();
             b.Property(d => d.PropertyId).ToJsonProperty("propertyId");
+            // The documents container is not migrated, so this keeps reading the field under its
+            // original name. Safe because ProjectMigrator preserves entry ids as project ids.
+            b.Property(d => d.ProjectId).ToJsonProperty("RenovationEntryId");
         });
 
-        modelBuilder.Entity<RenovationType>(b =>
+        modelBuilder.Entity<Project>(b =>
+        {
+            b.ToContainer("projects");
+            b.HasPartitionKey(p => p.PropertyId);
+            b.HasNoDiscriminator();
+            b.Property(p => p.PropertyId).ToJsonProperty("propertyId");
+            // Owned types => nested JSON inside the project document, not separate containers.
+            b.OwnsOne(p => p.Contractor);
+            b.OwnsMany(p => p.Costs);
+            // ActualCost is computed from Costs; nothing to store.
+            b.Ignore(p => p.ActualCost);
+        });
+
+        modelBuilder.Entity<PropertyComponent>(b =>
+        {
+            b.ToContainer("propertyComponents");
+            b.HasPartitionKey(c => c.Id);
+            b.HasNoDiscriminator();
+        });
+
+        // Legacy containers — read-only, for ProjectMigrator. Delete along with LegacyModels.cs.
+        modelBuilder.Entity<LegacyRenovationEntry>(b =>
+        {
+            b.ToContainer("renovationEntries");
+            b.HasPartitionKey(r => r.PropertyId);
+            b.HasNoDiscriminator();
+            b.Property(r => r.PropertyId).ToJsonProperty("propertyId");
+            b.Property(r => r.RenovationTypeId).ToJsonProperty("Category");
+        });
+
+        modelBuilder.Entity<LegacyRenovationType>(b =>
         {
             b.ToContainer("renovationTypes");
             b.HasPartitionKey(t => t.Id);

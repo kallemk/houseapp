@@ -5,6 +5,14 @@ public class Property
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public required string Nickname { get; set; }
     public required string Address { get; set; }
+
+    // All three nullable on purpose: properties created before these fields existed have no such
+    // JSON property, which deserializes to the CLR default. A nullable Type shows as "—" in the UI
+    // rather than silently claiming every pre-existing property is a House.
+    public string? Address2 { get; set; }
+    public int? YearBuilt { get; set; }
+    public PropertyType? Type { get; set; }
+
     public DateOnly PurchaseDate { get; set; }
     public decimal PurchasePrice { get; set; }
 

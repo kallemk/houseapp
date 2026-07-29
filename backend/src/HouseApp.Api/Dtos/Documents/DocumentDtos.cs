@@ -5,7 +5,7 @@ namespace HouseApp.Api.Dtos.Documents;
 public record DocumentDto(
     string Id,
     string PropertyId,
-    string? RenovationEntryId,
+    string? ProjectId,
     DateOnly Date,
     string FileName,
     string ContentType,
@@ -22,7 +22,7 @@ public record UploadUrlResponse(string UploadUrl, string BlobPath);
 /// <summary>Step 2 of upload: after the client PUTs the file to Blob Storage, save its metadata.</summary>
 public record CreateDocumentRequest(
     string PropertyId,
-    string? RenovationEntryId,
+    string? ProjectId,
     DateOnly Date,
     string FileName,
     string ContentType,

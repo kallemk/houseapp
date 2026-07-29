@@ -37,7 +37,7 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
         var document = new Document
         {
             PropertyId = request.PropertyId,
-            RenovationEntryId = request.RenovationEntryId,
+            ProjectId = request.ProjectId,
             Date = request.Date,
             FileName = request.FileName,
             ContentType = request.ContentType,
@@ -84,5 +84,5 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     }
 
     private static DocumentDto ToDto(Document d) =>
-        new(d.Id, d.PropertyId, d.RenovationEntryId, d.Date, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
+        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
 }
