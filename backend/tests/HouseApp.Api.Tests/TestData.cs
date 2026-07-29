@@ -21,7 +21,8 @@ public static class TestData
         DateOnly? completedDate = null,
         decimal estimatedCost = 0m,
         ContractorInfoDto? contractor = null,
-        List<ProjectCostRequest>? costs = null) =>
+        List<ProjectCostRequest>? costs = null,
+        List<ProjectMilestoneRequest>? milestones = null) =>
         new(
             Name: name,
             Description: null,
@@ -40,7 +41,8 @@ public static class TestData
             ExpectedLifespanYears: null,
             EnergyEfficiencyGainPercent: null,
             Contractor: contractor,
-            Costs: costs);
+            Costs: costs,
+            Milestones: milestones);
 
     public static CreatePropertyRequest CreatePropertyRequest(
         string nickname = "Test House",

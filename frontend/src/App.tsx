@@ -10,6 +10,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { BudgetPage } from './pages/BudgetPage'
+import { MaintenancePage } from './pages/MaintenancePage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { PropertyComponentsPage } from './pages/PropertyComponentsPage'
@@ -46,6 +48,8 @@ export default function App() {
                   <Route path="projects" element={<ProjectsPage />} />
                   {/* "new" is handled by the same page in create mode. */}
                   <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="maintenance" element={<MaintenancePage />} />
+                  <Route path="budget" element={<BudgetPage />} />
                   <Route path="components" element={<PropertyComponentsPage />} />
                   <Route element={<AdminRoute />}>
                     <Route path="users" element={<UsersPage />} />

@@ -174,6 +174,71 @@ public class ProjectsControllerTests : IClassFixture<HouseAppWebApplicationFacto
     }
 
     [Fact]
+    public async Task Milestones_RoundTripAndAreReplacedOnUpdate()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        var create = await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Takbyte", "Roof", milestones:
+            [
+                new ProjectMilestoneRequest("Avslutad planering", new DateOnly(2026, 1, 15), new DateOnly(2026, 1, 20)),
+                new ProjectMilestoneRequest("Material levererat", new DateOnly(2026, 2, 1), null),
+            ]));
+        var created = await create.Content.ReadFromJsonAsync<ProjectDto>();
+
+        Assert.Equal(2, created!.Milestones.Count);
+        var planning = created.Milestones.Single(m => m.Description == "Avslutad planering");
+        Assert.Equal(new DateOnly(2026, 1, 20), planning.CompletedDate);
+        Assert.Null(created.Milestones.Single(m => m.Description == "Material levererat").CompletedDate);
+
+        await client.PutAsJsonAsync(
+            $"/api/projects/{created.Id}?propertyId={property.Id}",
+            TestData.SaveProject("Takbyte", "Roof", milestones:
+                [new ProjectMilestoneRequest("Klart", null, new DateOnly(2026, 3, 1))]));
+
+        var fetched = await (await client.GetAsync($"/api/projects/{created.Id}?propertyId={property.Id}"))
+            .Content.ReadFromJsonAsync<ProjectDto>();
+        var milestone = Assert.Single(fetched!.Milestones);
+        Assert.Equal("Klart", milestone.Description);
+    }
+
+    /// <summary>
+    /// Milestones were added after projects already existed, so a stored document can have no such
+    /// property at all — which deserializes to null, not an empty list (the trap that crashed GetAll
+    /// on Property.MemberUserIds). Reading such a project must not throw.
+    /// </summary>
+    [Fact]
+    public async Task Project_WithNullMilestones_IsReadableAndReportsAnEmptyList()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var project = new Project
+            {
+                PropertyId = property.Id,
+                Name = "Äldre projekt",
+                ComponentId = "Other",
+                CreatedByUserId = "someone",
+                Milestones = null,
+            };
+            db.Projects.Add(project);
+            await db.SaveChangesAsync();
+            projectId = project.Id;
+        }
+
+        var response = await client.GetAsync($"/api/projects/{projectId}?propertyId={property.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty((await response.Content.ReadFromJsonAsync<ProjectDto>())!.Milestones);
+    }
+
+    [Fact]
     public async Task GetForProperty_WithoutAuth_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient();

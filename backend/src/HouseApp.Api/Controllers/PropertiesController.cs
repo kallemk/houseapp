@@ -103,6 +103,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         var valuations = await db.ValuationEntries.Where(v => v.PropertyId == id).ToListAsync();
         var projects = await db.Projects.Where(p => p.PropertyId == id).ToListAsync();
         var documents = await db.Documents.Where(d => d.PropertyId == id).ToListAsync();
+        var budgets = await db.Budgets.Where(b => b.PropertyId == id).ToListAsync();
 
         // Blobs live outside Cosmos entirely — nothing else would ever clean them up. Deleted
         // before the rows so a failure here leaves the (still-reachable) documents intact rather
@@ -117,6 +118,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         db.ValuationEntries.RemoveRange(valuations);
         db.Projects.RemoveRange(projects);
         db.Documents.RemoveRange(documents);
+        db.Budgets.RemoveRange(budgets);
         db.Properties.Remove(property);
         await db.SaveChangesAsync();
         return NoContent();

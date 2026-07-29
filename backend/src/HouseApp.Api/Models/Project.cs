@@ -46,6 +46,14 @@ public class Project
     public ContractorInfo? Contractor { get; set; }
     public List<ProjectCost> Costs { get; set; } = [];
 
+    /// <summary>
+    /// Nullable rather than defaulted to []: this was added after projects already existed, and a
+    /// missing JSON property deserializes to the CLR default rather than running the initializer —
+    /// the trap that crashed GetAll on Property.MemberUserIds. Always read it as `?? []`.
+    /// Unlike Costs (written by every create/update since day one), this one can genuinely be absent.
+    /// </summary>
+    public List<ProjectMilestone>? Milestones { get; set; }
+
     public required string CreatedByUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -71,6 +79,19 @@ public class ContractorInfo
     public decimal? QuotedPrice { get; set; }
     public DateOnly? QuotedDate { get; set; }
     public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Owned by Project — nested JSON, no container of its own. Purely a schedule: money stays in
+/// ProjectCost. The original sketch carried estimated/actual cost per stage too, which would have
+/// recreated exactly the two-sources-of-truth problem that makes Project.ActualCost computed.
+/// </summary>
+public class ProjectMilestone
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public required string Description { get; set; }
+    public DateOnly? PlannedDate { get; set; }
+    public DateOnly? CompletedDate { get; set; }
 }
 
 /// <summary>Owned by Project — nested JSON, no container of its own.</summary>

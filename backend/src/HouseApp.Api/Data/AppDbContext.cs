@@ -12,6 +12,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<PropertyComponent> PropertyComponents => Set<PropertyComponent>();
+    public DbSet<Budget> Budgets => Set<Budget>();
+    // No DbSet for the maintenance schedule — it's derived, see MaintenanceScheduleController.
 
     // Superseded by Projects/PropertyComponents and read only by ProjectMigrator — see LegacyModels.
     public DbSet<LegacyRenovationEntry> LegacyRenovationEntries => Set<LegacyRenovationEntry>();
@@ -68,8 +70,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Owned types => nested JSON inside the project document, not separate containers.
             b.OwnsOne(p => p.Contractor);
             b.OwnsMany(p => p.Costs);
+            b.OwnsMany(p => p.Milestones);
             // ActualCost is computed from Costs; nothing to store.
             b.Ignore(p => p.ActualCost);
+        });
+
+        modelBuilder.Entity<Budget>(b =>
+        {
+            b.ToContainer("budgets");
+            b.HasPartitionKey(x => x.PropertyId);
+            b.HasNoDiscriminator();
+            b.Property(x => x.PropertyId).ToJsonProperty("propertyId");
         });
 
         modelBuilder.Entity<PropertyComponent>(b =>

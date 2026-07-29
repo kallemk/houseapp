@@ -1,7 +1,8 @@
 # houseapp
 
 A private app for tracking our house: value over time, a log of projects (underhåll, renovering
-och nyinvestering) with costs and contractors, and documents/photos.
+och nyinvestering) with costs and contractors, a derived underhållsplan, yearly budgets, and
+documents/photos.
 
 ## Structure
 

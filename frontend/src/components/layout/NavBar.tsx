@@ -1,6 +1,7 @@
 import { Burger, Divider, Drawer, Group, Menu, Stack, Text, ThemeIcon, UnstyledButton } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
+  IconCalendarClock,
   IconChartLine,
   IconChevronDown,
   IconFiles,
@@ -10,6 +11,7 @@ import {
   IconLogout,
   IconPlus,
   IconUsers,
+  IconWallet,
 } from '@tabler/icons-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
@@ -52,6 +54,8 @@ export function NavBar() {
     { to: `/properties/${propertyId}`, label: 'Översikt', icon: IconHome2, end: true },
     { to: `/properties/${propertyId}/valuations`, label: 'Värderingar', icon: IconChartLine, end: false },
     { to: `/properties/${propertyId}/projects`, label: 'Projekt', icon: IconHammer, end: false },
+    { to: `/properties/${propertyId}/maintenance`, label: 'Underhållsplan', icon: IconCalendarClock, end: false },
+    { to: `/properties/${propertyId}/budget`, label: 'Budget', icon: IconWallet, end: false },
     { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
   ]
 

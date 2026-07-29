@@ -46,6 +46,12 @@ interface CostFormValues {
   isBudgeted: boolean
 }
 
+interface MilestoneFormValues {
+  description: string
+  plannedDate: string
+  completedDate: string
+}
+
 interface ProjectFormValues {
   name: string
   description: string
@@ -72,6 +78,7 @@ interface ProjectFormValues {
   contractorQuotedDate: string
   contractorNotes: string
   costs: CostFormValues[]
+  milestones: MilestoneFormValues[]
 }
 
 const EMPTY_FORM: ProjectFormValues = {
@@ -100,6 +107,7 @@ const EMPTY_FORM: ProjectFormValues = {
   contractorQuotedDate: '',
   contractorNotes: '',
   costs: [],
+  milestones: [],
 }
 
 const text = (value: string) => (value.trim() === '' ? null : value.trim())
@@ -137,6 +145,11 @@ function toFormValues(project: ProjectDto): ProjectFormValues {
       amount: c.amount,
       dateIncurred: c.dateIncurred,
       isBudgeted: c.isBudgeted,
+    })),
+    milestones: project.milestones.map((m) => ({
+      description: m.description,
+      plannedDate: m.plannedDate ?? '',
+      completedDate: m.completedDate ?? '',
     })),
   }
 }
@@ -177,6 +190,14 @@ function toInput(values: ProjectFormValues): SaveProjectInput {
       dateIncurred: c.dateIncurred,
       isBudgeted: c.isBudgeted,
     })),
+    milestones: values.milestones
+      // A row with no description is an empty row the user added and didn't fill in.
+      .filter((m) => m.description.trim() !== '')
+      .map((m) => ({
+        description: m.description.trim(),
+        plannedDate: text(m.plannedDate),
+        completedDate: text(m.completedDate),
+      })),
   }
 }
 
@@ -423,6 +444,64 @@ export function ProjectDetailPage() {
                   }
                 >
                   Lägg till kostnadspost
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
+
+          <Card withBorder padding="lg">
+            <Stack>
+              <Title order={5}>Milstolpar</Title>
+              <Text size="xs" c="dimmed">
+                Endast tidsplan — kostnader hör hemma bland kostnadsposterna ovan.
+              </Text>
+
+              {form.values.milestones.length > 0 && (
+                <Table verticalSpacing="xs">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Beskrivning</Table.Th>
+                      <Table.Th w={170}>Planerat</Table.Th>
+                      <Table.Th w={170}>Klart</Table.Th>
+                      <Table.Th w={50} />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {form.values.milestones.map((_, index) => (
+                      <Table.Tr key={index}>
+                        <Table.Td>
+                          <TextInput {...form.getInputProps(`milestones.${index}.description`)} />
+                        </Table.Td>
+                        <Table.Td>
+                          <TextInput type="date" {...form.getInputProps(`milestones.${index}.plannedDate`)} />
+                        </Table.Td>
+                        <Table.Td>
+                          <TextInput type="date" {...form.getInputProps(`milestones.${index}.completedDate`)} />
+                        </Table.Td>
+                        <Table.Td>
+                          <ActionIcon
+                            color="red"
+                            variant="subtle"
+                            onClick={() => form.removeListItem('milestones', index)}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              )}
+
+              <Group>
+                <Button
+                  variant="light"
+                  leftSection={<IconPlus size={16} />}
+                  onClick={() =>
+                    form.insertListItem('milestones', { description: '', plannedDate: '', completedDate: '' })
+                  }
+                >
+                  Lägg till milstolpe
                 </Button>
               </Group>
             </Stack>

@@ -10,6 +10,12 @@ public record ProjectCostDto(
     DateOnly DateIncurred,
     bool IsBudgeted);
 
+public record ProjectMilestoneDto(
+    string Id,
+    string Description,
+    DateOnly? PlannedDate,
+    DateOnly? CompletedDate);
+
 public record ContractorInfoDto(
     string Name,
     string? Phone,
@@ -42,8 +48,14 @@ public record ProjectDto(
     decimal? EnergyEfficiencyGainPercent,
     ContractorInfoDto? Contractor,
     List<ProjectCostDto> Costs,
+    List<ProjectMilestoneDto> Milestones,
     string CreatedByUserId,
     DateTimeOffset CreatedAt);
+
+public record ProjectMilestoneRequest(
+    string Description,
+    DateOnly? PlannedDate,
+    DateOnly? CompletedDate);
 
 /// <summary>Costs carry no id — they're nested in the project document and nothing references them individually.</summary>
 public record ProjectCostRequest(
@@ -75,4 +87,5 @@ public record SaveProjectRequest(
     int? ExpectedLifespanYears,
     decimal? EnergyEfficiencyGainPercent,
     ContractorInfoDto? Contractor,
-    List<ProjectCostRequest>? Costs);
+    List<ProjectCostRequest>? Costs,
+    List<ProjectMilestoneRequest>? Milestones);

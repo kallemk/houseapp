@@ -130,6 +130,15 @@ public class ProjectsController(AppDbContext db) : ControllerBase
                 IsBudgeted = c.IsBudgeted,
             })
             .ToList();
+
+        project.Milestones = (request.Milestones ?? [])
+            .Select(m => new ProjectMilestone
+            {
+                Description = m.Description,
+                PlannedDate = m.PlannedDate,
+                CompletedDate = m.CompletedDate,
+            })
+            .ToList();
     }
 
     private static DateOnly SortDate(Project p) =>
@@ -168,6 +177,10 @@ public class ProjectsController(AppDbContext db) : ControllerBase
                     p.Contractor.Notes),
             p.Costs
                 .Select(c => new ProjectCostDto(c.Id, c.Type, c.Description, c.Amount, c.DateIncurred, c.IsBudgeted))
+                .ToList(),
+            // ?? [] because projects written before milestones existed have no such property.
+            (p.Milestones ?? [])
+                .Select(m => new ProjectMilestoneDto(m.Id, m.Description, m.PlannedDate, m.CompletedDate))
                 .ToList(),
             p.CreatedByUserId,
             p.CreatedAt);

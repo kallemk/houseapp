@@ -16,6 +16,12 @@ export interface ProjectCostInput {
   isBudgeted: boolean
 }
 
+export interface ProjectMilestoneInput {
+  description: string
+  plannedDate: string | null
+  completedDate: string | null
+}
+
 /**
  * One shape for create and update: a project is a single Cosmos document, written whole — costs and
  * contractor included. There are deliberately no sub-resource endpoints for them.
@@ -39,6 +45,7 @@ export interface SaveProjectInput {
   energyEfficiencyGainPercent: number | null
   contractor: ContractorInfoDto | null
   costs: ProjectCostInput[]
+  milestones: ProjectMilestoneInput[]
 }
 
 export const projectsApi = {

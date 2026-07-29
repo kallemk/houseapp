@@ -114,6 +114,7 @@ function QuickAddProjectForm({
         energyEfficiencyGainPercent: null,
         contractor: values.vendor ? { name: values.vendor, phone: null, email: null, website: null, quotedPrice: null, quotedDate: null, notes: null } : null,
         costs: amount > 0 ? [{ type: 'Other', description: null, amount, dateIncurred: values.date, isBudgeted: false }] : [],
+        milestones: [],
       },
       { onSuccess: onDone },
     )

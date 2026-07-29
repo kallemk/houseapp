@@ -6,6 +6,7 @@
 import type {
   CostType,
   DocumentCategory,
+  MaintenanceUrgency,
   ProjectPriority,
   ProjectStatus,
   PropertyType,
@@ -93,3 +94,19 @@ export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
 }
 
 export const PROPERTY_TYPE_OPTIONS = toOptions(PROPERTY_TYPE_LABELS)
+
+export const MAINTENANCE_URGENCY_LABELS: Record<MaintenanceUrgency, string> = {
+  Overdue: 'Försenat',
+  DueSoon: 'Snart',
+  Ok: 'Ok',
+  Unknown: 'Aldrig loggat',
+  NotScheduled: 'Inget intervall',
+}
+
+export const MAINTENANCE_URGENCY_COLORS: Record<MaintenanceUrgency, string> = {
+  Overdue: 'red',
+  DueSoon: 'orange',
+  Ok: 'green',
+  Unknown: 'gray',
+  NotScheduled: 'gray',
+}

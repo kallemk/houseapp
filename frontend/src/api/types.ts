@@ -64,6 +64,13 @@ export interface ProjectCostDto {
   isBudgeted: boolean
 }
 
+export interface ProjectMilestoneDto {
+  id: string
+  description: string
+  plannedDate: string | null
+  completedDate: string | null
+}
+
 export interface ContractorInfoDto {
   name: string
   phone: string | null
@@ -97,8 +104,41 @@ export interface ProjectDto {
   energyEfficiencyGainPercent: number | null
   contractor: ContractorInfoDto | null
   costs: ProjectCostDto[]
+  milestones: ProjectMilestoneDto[]
   createdByUserId: string
   createdAt: string
+}
+
+export type MaintenanceUrgency = 'NotScheduled' | 'Unknown' | 'Ok' | 'DueSoon' | 'Overdue'
+
+/** Entirely derived server-side from component intervals and completed maintenance projects. */
+export interface MaintenanceScheduleItemDto {
+  componentId: string
+  componentName: string
+  recommendedIntervalMonths: number | null
+  lastCompletedDate: string | null
+  lastProjectId: string | null
+  lastProjectName: string | null
+  nextDueDate: string | null
+  monthsUntilDue: number | null
+  urgency: MaintenanceUrgency
+  hasUpcomingProject: boolean
+}
+
+export interface BudgetLineDto {
+  workType: WorkType
+  budgeted: number
+  spent: number
+  remaining: number
+}
+
+export interface BudgetDto {
+  id: string | null
+  propertyId: string
+  year: number
+  lines: BudgetLineDto[]
+  totalBudgeted: number
+  totalSpent: number
 }
 
 export interface DocumentDto {

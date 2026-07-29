@@ -143,7 +143,7 @@ Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookie
 Cosmos provider. Each entity maps to its own container via `ToContainer(...)` +
 `HasPartitionKey(...)` in `OnModelCreating`:
 - `users`, `properties` — partitioned by `/id`
-- `valuationEntries`, `projects`, `documents` — partitioned by `/propertyId`
+- `valuationEntries`, `projects`, `documents`, `budgets` — partitioned by `/propertyId`
 - `propertyComponents` — partitioned by `/id`
 - `renovationEntries`, `renovationTypes` — the pre-project model, kept read-only as the migration's
   rollback path (see "The renovation → project migration")
@@ -320,6 +320,37 @@ the Cosmos provider doesn't do anyway). Consequences worth knowing:
 configuration). One source of truth; a stored total would drift from the rows. The UI shows the
 estimate until there's at least one cost row.
 
+### Derived data: the maintenance schedule and budget actuals
+
+Two features deliberately store less than they display, for the same reason `Project.ActualCost`
+isn't stored — a second copy of something is a copy that goes stale.
+
+**The maintenance schedule has no container at all.** `MaintenanceScheduleController` computes
+`GET /api/properties/{id}/maintenance-schedule` from `PropertyComponent.RecommendedIntervalMonths`
+plus the newest **completed Maintenance** project for each component. Every field the original
+sketch wanted to store (`LastCompletedDate`, `NextDueDate`, `IsCompleted`) is derivable, so storing
+them would mean editing a project's date silently left the schedule wrong. Rules worth keeping:
+- No interval on the component → `NotScheduled`. An interval but nothing logged → `Unknown`,
+  **not** overdue: the work may predate the app, and guessing would present a guess as a fact.
+- Only `WorkType.Maintenance` projects with `Status.Completed` count. A renovation of the same
+  component isn't maintenance, and a planned job hasn't happened.
+- The endpoint takes an optional `asOf` date purely so tests can assert Overdue/DueSoon against a
+  fixed point rather than whenever the suite runs.
+
+**`Budget` stores only the three budgeted amounts.** The sketch also had
+`ActualMaintenanceSpent`/`ActualRenovationSpent`/`ActualInvestmentSpent`; those are summed from
+`ProjectCost` rows on read instead. A cost belongs to the year of its own `DateIncurred`, **not**
+the project's completion date, so a job spanning New Year splits across both years the way the
+money did. `GetAll` returns every year with a budget *or* any spend, so money spent without a plan
+is visible rather than hidden behind a missing row.
+
+**`Project.Milestones` is `List<ProjectMilestone>?`, genuinely nullable** — it was added after
+projects already existed, and a missing JSON property deserializes to null rather than running the
+`= []` initializer (the same trap as `Property.MemberUserIds`). Always read it as `?? []`. `Costs`
+does *not* need this: every create/update has written it since the container existed. Milestones
+carry no money — the sketch had cost-per-stage fields, which would have recreated exactly the
+two-sources-of-truth problem `ActualCost` avoids.
+
 ### The renovation → project migration
 
 `Data/Migration/ProjectMigrator.cs` runs on every startup (App Service has no separate migration
@@ -348,7 +379,7 @@ parallel* — push the Bicep change and let `infra-deploy` finish first.
 ### Frontend property routing
 
 Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,documents,components}`,
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents,components}`,
 plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode).
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
 (`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's

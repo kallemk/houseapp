@@ -1,0 +1,128 @@
+using HouseApp.Api.Data;
+using HouseApp.Api.Dtos.Maintenance;
+using HouseApp.Api.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace HouseApp.Api.Controllers;
+
+/// <summary>
+/// When each part of the house is next due for maintenance. Read-only and fully derived: there is no
+/// maintenanceSchedule container, because every field would be a copy of something already stored —
+/// the interval lives on PropertyComponent, and "last completed" is the newest completed Maintenance
+/// project for that component. A stored copy would go stale the moment a project's date was edited.
+/// </summary>
+[ApiController]
+[Authorize]
+public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
+{
+    /// <summary>How close to the due date counts as "due soon" rather than "ok".</summary>
+    private const int DueSoonWindowMonths = 3;
+
+    [HttpGet("api/properties/{propertyId}/maintenance-schedule")]
+    public async Task<ActionResult<List<MaintenanceScheduleItemDto>>> GetForProperty(
+        string propertyId,
+        [FromQuery] DateOnly? asOf = null)
+    {
+        var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var components = await db.PropertyComponents.ToListAsync();
+        var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
+
+        var items = components
+            .Select(component => Build(component, projects, today))
+            // Most urgent first, then by how soon it's due; unschedulable components sink to the
+            // bottom rather than cluttering the top of the list.
+            .OrderByDescending(i => i.Urgency)
+            .ThenBy(i => i.NextDueDate ?? DateOnly.MaxValue)
+            .ThenBy(i => i.ComponentName)
+            .ToList();
+
+        return Ok(items);
+    }
+
+    private static MaintenanceScheduleItemDto Build(
+        PropertyComponent component,
+        List<Project> projects,
+        DateOnly today)
+    {
+        var forComponent = projects.Where(p => p.ComponentId == component.Id).ToList();
+
+        var lastCompleted = forComponent
+            .Where(p => p.WorkType == WorkType.Maintenance && p.Status == ProjectStatus.Completed && p.CompletedDate is not null)
+            .OrderByDescending(p => p.CompletedDate)
+            .FirstOrDefault();
+
+        var hasUpcoming = forComponent.Any(p =>
+            p.WorkType == WorkType.Maintenance &&
+            p.Status is ProjectStatus.Planned or ProjectStatus.InProgress);
+
+        var interval = component.RecommendedIntervalMonths;
+        if (interval is null or <= 0)
+        {
+            return new MaintenanceScheduleItemDto(
+                component.Id,
+                component.Name,
+                component.RecommendedIntervalMonths,
+                lastCompleted?.CompletedDate,
+                lastCompleted?.Id,
+                lastCompleted?.Name,
+                NextDueDate: null,
+                MonthsUntilDue: null,
+                MaintenanceUrgency.NotScheduled,
+                hasUpcoming);
+        }
+
+        if (lastCompleted?.CompletedDate is not { } completedDate)
+        {
+            // An interval is known but nothing has been logged yet, so there's no anchor to count
+            // from. Deliberately not treated as overdue — the work may predate the app.
+            return new MaintenanceScheduleItemDto(
+                component.Id,
+                component.Name,
+                interval,
+                LastCompletedDate: null,
+                LastProjectId: null,
+                LastProjectName: null,
+                NextDueDate: null,
+                MonthsUntilDue: null,
+                MaintenanceUrgency.Unknown,
+                hasUpcoming);
+        }
+
+        var nextDue = completedDate.AddMonths(interval.Value);
+        var monthsUntilDue = MonthsBetween(today, nextDue);
+
+        var urgency = nextDue <= today
+            ? MaintenanceUrgency.Overdue
+            : monthsUntilDue <= DueSoonWindowMonths
+                ? MaintenanceUrgency.DueSoon
+                : MaintenanceUrgency.Ok;
+
+        return new MaintenanceScheduleItemDto(
+            component.Id,
+            component.Name,
+            interval,
+            completedDate,
+            lastCompleted.Id,
+            lastCompleted.Name,
+            nextDue,
+            monthsUntilDue,
+            urgency,
+            hasUpcoming);
+    }
+
+    /// <summary>Whole months from <paramref name="from"/> to <paramref name="to"/>, negative when past due.</summary>
+    private static int MonthsBetween(DateOnly from, DateOnly to)
+    {
+        var months = ((to.Year - from.Year) * 12) + to.Month - from.Month;
+        // Don't count a month that hasn't fully elapsed: 31 Jan → 1 Feb is 0 months, not 1.
+        if (to.Day < from.Day)
+        {
+            months--;
+        }
+
+        return months;
+    }
+}
