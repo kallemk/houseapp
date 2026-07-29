@@ -11,6 +11,8 @@ export interface CreatePropertyInput {
   propertyDesignation: string | null
   yearBuilt: number | null
   type: PropertyType | null
+  latitude: number | null
+  longitude: number | null
   purchaseDate: string
   purchasePrice: number
 }

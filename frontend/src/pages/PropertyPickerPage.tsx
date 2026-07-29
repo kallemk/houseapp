@@ -20,12 +20,13 @@ import {
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconDotsVertical, IconEdit, IconHome2, IconHomeStar, IconLogout, IconTrash } from '@tabler/icons-react'
+import { IconDotsVertical, IconEdit, IconHome2, IconHomeStar, IconLogout, IconMapPin, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { PropertyDto, PropertyType } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { PROPERTY_TYPE_OPTIONS } from '../utils/labels'
+import { geocodeAddress } from '../utils/geocode'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
@@ -40,6 +41,8 @@ interface PropertyFormValues {
   propertyDesignation: string
   yearBuilt: number | string
   type: PropertyType | ''
+  latitude: number | string
+  longitude: number | string
   purchaseDate: string
   purchasePrice: number | string
 }
@@ -54,6 +57,8 @@ const EMPTY_FORM: PropertyFormValues = {
   propertyDesignation: '',
   yearBuilt: '',
   type: '',
+  latitude: '',
+  longitude: '',
   purchaseDate: '',
   purchasePrice: '',
 }
@@ -70,6 +75,33 @@ function PropertyForm({
   submitting: boolean
 }) {
   const form = useForm<PropertyFormValues>({ initialValues: initial ?? EMPTY_FORM })
+  const [locating, setLocating] = useState(false)
+
+  async function lookUpCoordinates() {
+    const query = [form.values.address, form.values.postalCode, form.values.city, form.values.country]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ')
+    if (!query) {
+      return
+    }
+
+    setLocating(true)
+    try {
+      const result = await geocodeAddress(query)
+      if (result) {
+        form.setFieldValue('latitude', result.latitude)
+        form.setFieldValue('longitude', result.longitude)
+        notifications.show({ color: 'green', message: `Hittade: ${result.displayName}` })
+      } else {
+        notifications.show({ color: 'yellow', message: 'Hittade ingen plats för adressen. Fyll i koordinaterna manuellt.' })
+      }
+    } catch {
+      notifications.show({ color: 'red', message: 'Kunde inte slå upp adressen just nu. Fyll i koordinaterna manuellt.' })
+    } finally {
+      setLocating(false)
+    }
+  }
 
   return (
     <form onSubmit={form.onSubmit(onSubmit)}>
@@ -97,6 +129,30 @@ function PropertyForm({
           />
           <NumberInput label="Byggår" placeholder="valfritt" min={1500} max={2100} {...form.getInputProps('yearBuilt')} />
         </Group>
+        <Group grow>
+          <NumberInput
+            label="Latitud"
+            placeholder="valfritt"
+            decimalScale={6}
+            {...form.getInputProps('latitude')}
+          />
+          <NumberInput
+            label="Longitud"
+            placeholder="valfritt"
+            decimalScale={6}
+            {...form.getInputProps('longitude')}
+          />
+        </Group>
+        {/* Fills the two fields above from the address; they stay editable and are what's stored. */}
+        <Button
+          variant="light"
+          leftSection={<IconMapPin size={16} />}
+          onClick={lookUpCoordinates}
+          loading={locating}
+          disabled={!form.values.address.trim()}
+        >
+          Hämta koordinater från adressen
+        </Button>
         <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
         <TextInput label="Köpeskilling (kr)" type="number" required {...form.getInputProps('purchasePrice')} />
         <Button type="submit" loading={submitting}>
@@ -133,6 +189,8 @@ export function PropertyPickerPage() {
       propertyDesignation: values.propertyDesignation.trim() || null,
       yearBuilt: values.yearBuilt === '' ? null : Number(values.yearBuilt),
       type: values.type === '' ? null : values.type,
+      latitude: values.latitude === '' ? null : Number(values.latitude),
+      longitude: values.longitude === '' ? null : Number(values.longitude),
       purchaseDate: values.purchaseDate,
       purchasePrice: Number(values.purchasePrice),
     }
@@ -253,6 +311,8 @@ export function PropertyPickerPage() {
               propertyDesignation: editing.propertyDesignation ?? '',
               yearBuilt: editing.yearBuilt ?? '',
               type: editing.type ?? '',
+              latitude: editing.latitude ?? '',
+              longitude: editing.longitude ?? '',
               purchaseDate: editing.purchaseDate,
               purchasePrice: editing.purchasePrice,
             }}

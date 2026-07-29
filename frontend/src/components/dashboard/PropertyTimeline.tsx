@@ -1,15 +1,25 @@
-import { ActionIcon, Anchor, Group, Menu, Stack, Text, Timeline, ThemeIcon } from '@mantine/core'
-import { IconChartLine, IconFiles, IconHammer, IconPlus } from '@tabler/icons-react'
+import { ActionIcon, Anchor, Badge, Group, Menu, Stack, Text, Timeline, ThemeIcon, UnstyledButton } from '@mantine/core'
+import {
+  IconChartLine,
+  IconChevronDown,
+  IconChevronRight,
+  IconFiles,
+  IconHammer,
+  IconPlus,
+} from '@tabler/icons-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { documentsApi } from '../../api/documents'
 import type { DocumentDto, ProjectDto, ValuationEntryDto } from '../../api/types'
 import {
-  compareQuarterKeys,
-  currentQuarterKey,
+  currentYear,
   defaultDateForQuarter,
-  enumerateQuarters,
+  defaultDateForYear,
+  enumerateYears,
   quarterKeyFromDate,
   quarterLabel,
+  quartersOfYear,
+  yearFromDate,
 } from '../../utils/quarters'
 import type { QuickAddRequest } from './QuickAddModal'
 import { formatCurrency } from '../../utils/currency'
@@ -40,6 +50,66 @@ function projectDate(project: ProjectDto): string | null {
   return project.completedDate ?? project.plannedStartDate ?? project.actualStartDate
 }
 
+function EventList({ events }: { events: TimelineEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <Text size="xs" c="dimmed">
+        Ingen aktivitet
+      </Text>
+    )
+  }
+
+  return (
+    <Stack gap={4}>
+      {events.map((event) => (
+        <Group key={event.id} gap="xs" wrap="nowrap">
+          <ThemeIcon size={20} radius="xl" variant="light" color={event.color}>
+            <event.icon size={12} />
+          </ThemeIcon>
+          {event.to && (
+            <Anchor component={Link} to={event.to} size="sm">
+              {event.label}
+            </Anchor>
+          )}
+          {event.onClick && (
+            <Anchor size="sm" onClick={event.onClick}>
+              {event.label}
+            </Anchor>
+          )}
+          {!event.to && !event.onClick && <Text size="sm">{event.label}</Text>}
+        </Group>
+      ))}
+    </Stack>
+  )
+}
+
+/** The +-menu, identical at year and quarter level — only the date it seeds differs. */
+function QuickAddMenu({ defaultDate, onQuickAdd }: { defaultDate: string; onQuickAdd: (r: QuickAddRequest) => void }) {
+  return (
+    <Menu position="bottom-end" withArrow shadow="md">
+      <Menu.Target>
+        <ActionIcon size="sm" variant="light" radius="xl">
+          <IconPlus size={14} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item
+          leftSection={<IconChartLine size={14} />}
+          onClick={() => onQuickAdd({ type: 'valuation', defaultDate })}
+        >
+          Lägg till värdering
+        </Menu.Item>
+        <Menu.Item leftSection={<IconHammer size={14} />} onClick={() => onQuickAdd({ type: 'project', defaultDate })}>
+          Lägg till projekt
+        </Menu.Item>
+        <Menu.Item leftSection={<IconFiles size={14} />} onClick={() => onQuickAdd({ type: 'document', defaultDate })}>
+          Lägg till dokument
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  )
+}
+
 export function PropertyTimeline({
   propertyId,
   purchaseDate,
@@ -48,6 +118,20 @@ export function PropertyTimeline({
   documents,
   onQuickAdd,
 }: PropertyTimelineProps) {
+  // Years default to collapsed: a house owned for 20 years is 80 quarter rows, nearly all empty.
+  // Expanding one year at a time is the only place quarter granularity actually earns its space.
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
+
+  function toggleYear(year: string) {
+    setExpandedYears((previous) => {
+      const next = new Set(previous)
+      if (!next.delete(year)) {
+        next.add(year)
+      }
+      return next
+    })
+  }
+
   const events: TimelineEvent[] = [
     ...valuations.map((v) => ({
       id: `valuation-${v.id}`,
@@ -87,87 +171,63 @@ export function PropertyTimeline({
     })),
   ]
 
-  const eventsByQuarter = new Map<string, TimelineEvent[]>()
+  const byQuarter = new Map<string, TimelineEvent[]>()
+  const byYear = new Map<string, TimelineEvent[]>()
   for (const event of events) {
-    const key = quarterKeyFromDate(event.date)
-    const list = eventsByQuarter.get(key) ?? []
-    list.push(event)
-    eventsByQuarter.set(key, list)
+    const quarter = quarterKeyFromDate(event.date)
+    byQuarter.set(quarter, [...(byQuarter.get(quarter) ?? []), event])
+    const year = yearFromDate(event.date)
+    byYear.set(year, [...(byYear.get(year) ?? []), event])
   }
-  for (const list of eventsByQuarter.values()) {
+  for (const list of [...byQuarter.values(), ...byYear.values()]) {
     list.sort((a, b) => b.date.localeCompare(a.date))
   }
 
-  const purchaseQuarter = quarterKeyFromDate(purchaseDate)
-  const current = currentQuarterKey()
-  const from = compareQuarterKeys(purchaseQuarter, current) <= 0 ? purchaseQuarter : current
-  const quarters = enumerateQuarters(from, current).reverse() // newest first
+  const purchaseYear = yearFromDate(purchaseDate)
+  const thisYear = currentYear()
+  const from = purchaseYear <= thisYear ? purchaseYear : thisYear
+  const years = enumerateYears(from, thisYear).reverse() // newest first
 
   return (
     <Timeline bulletSize={16} lineWidth={2}>
-      {quarters.map((quarter) => {
-        const quarterEvents = eventsByQuarter.get(quarter) ?? []
-        const hasEvents = quarterEvents.length > 0
+      {years.map((year) => {
+        const yearEvents = byYear.get(year) ?? []
+        const expanded = expandedYears.has(year)
         return (
-          <Timeline.Item key={quarter}>
+          <Timeline.Item key={year}>
             <Group justify="space-between" wrap="nowrap" mb={4}>
-              <Text fw={600} size="sm" c={hasEvents ? undefined : 'dimmed'}>
-                {quarterLabel(quarter)}
-              </Text>
-              <Menu position="bottom-end" withArrow shadow="md">
-                <Menu.Target>
-                  <ActionIcon size="sm" variant="light" radius="xl">
-                    <IconPlus size={14} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<IconChartLine size={14} />}
-                    onClick={() => onQuickAdd({ type: 'valuation', defaultDate: defaultDateForQuarter(quarter) })}
-                  >
-                    Lägg till värdering
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconHammer size={14} />}
-                    onClick={() => onQuickAdd({ type: 'project', defaultDate: defaultDateForQuarter(quarter) })}
-                  >
-                    Lägg till projekt
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconFiles size={14} />}
-                    onClick={() => onQuickAdd({ type: 'document', defaultDate: defaultDateForQuarter(quarter) })}
-                  >
-                    Lägg till dokument
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+              <UnstyledButton onClick={() => toggleYear(year)}>
+                <Group gap={6} wrap="nowrap">
+                  {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                  <Text fw={600} size="sm" c={yearEvents.length > 0 ? undefined : 'dimmed'}>
+                    {year}
+                  </Text>
+                  {yearEvents.length > 0 && (
+                    <Badge size="xs" variant="light" circle>
+                      {yearEvents.length}
+                    </Badge>
+                  )}
+                </Group>
+              </UnstyledButton>
+              <QuickAddMenu defaultDate={defaultDateForYear(year)} onQuickAdd={onQuickAdd} />
             </Group>
 
-            {hasEvents ? (
-              <Stack gap={4}>
-                {quarterEvents.map((event) => (
-                  <Group key={event.id} gap="xs" wrap="nowrap">
-                    <ThemeIcon size={20} radius="xl" variant="light" color={event.color}>
-                      <event.icon size={12} />
-                    </ThemeIcon>
-                    {event.to && (
-                      <Anchor component={Link} to={event.to} size="sm">
-                        {event.label}
-                      </Anchor>
-                    )}
-                    {event.onClick && (
-                      <Anchor size="sm" onClick={event.onClick}>
-                        {event.label}
-                      </Anchor>
-                    )}
-                    {!event.to && !event.onClick && <Text size="sm">{event.label}</Text>}
-                  </Group>
+            {expanded ? (
+              <Stack gap="xs" mt="xs" pl="xs" style={{ borderLeft: '2px solid var(--mantine-color-gray-2)' }}>
+                {quartersOfYear(year).map((quarter) => (
+                  <div key={quarter}>
+                    <Group justify="space-between" wrap="nowrap" mb={2}>
+                      <Text size="xs" fw={600} c="dimmed">
+                        {quarterLabel(quarter)}
+                      </Text>
+                      <QuickAddMenu defaultDate={defaultDateForQuarter(quarter)} onQuickAdd={onQuickAdd} />
+                    </Group>
+                    <EventList events={byQuarter.get(quarter) ?? []} />
+                  </div>
                 ))}
               </Stack>
             ) : (
-              <Text size="xs" c="dimmed">
-                Ingen aktivitet
-              </Text>
+              <EventList events={yearEvents} />
             )}
           </Timeline.Item>
         )

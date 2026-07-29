@@ -58,7 +58,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            new SavePropertyRequest("Our House", "123 Main St", "Lgh 1101", "434 33", "Kungsbacka", "Sverige", "Kungsbacka Tulebo 1:23", 1965, PropertyType.House, new DateOnly(2020, 6, 1), 350000m));
+            new SavePropertyRequest("Our House", "123 Main St", "Lgh 1101", "434 33", "Kungsbacka", "Sverige", "Kungsbacka Tulebo 1:23", 1965, PropertyType.House, 57.4523, 12.0761, new DateOnly(2020, 6, 1), 350000m));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
 
         var created = await create.Content.ReadFromJsonAsync<PropertyDto>();
@@ -74,6 +74,8 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         Assert.Equal("Sverige", fetched.Country);
         Assert.Equal("Kungsbacka Tulebo 1:23", fetched.PropertyDesignation);
         Assert.Equal(1965, fetched.YearBuilt);
+        Assert.Equal(57.4523, fetched.Latitude);
+        Assert.Equal(12.0761, fetched.Longitude);
     }
 
     [Fact]
@@ -91,6 +93,8 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         Assert.Null(property.PropertyDesignation);
         Assert.Null(property.YearBuilt);
         Assert.Null(property.Type);
+        Assert.Null(property.Latitude);
+        Assert.Null(property.Longitude);
     }
 
     [Fact]
@@ -144,7 +148,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var update = await client.PutAsJsonAsync(
             $"/api/properties/{created!.Id}",
-            new SavePropertyRequest("New Name", "2 New St", "Plan 2", "111 22", "Stockholm", "Sverige", "Stockholm Söder 4:5", 1972, PropertyType.Townhouse, new DateOnly(2021, 5, 5), 250000m));
+            new SavePropertyRequest("New Name", "2 New St", "Plan 2", "111 22", "Stockholm", "Sverige", "Stockholm Söder 4:5", 1972, PropertyType.Townhouse, 59.3293, 18.0686, new DateOnly(2021, 5, 5), 250000m));
         Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
 
         var fetched = await (await client.GetAsync($"/api/properties/{created.Id}")).Content
@@ -171,7 +175,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var update = await outsider.PutAsJsonAsync(
             $"/api/properties/{property!.Id}",
-            new SavePropertyRequest("Hijacked", "x", null, null, null, null, null, null, null, new DateOnly(2020, 1, 1), 1m));
+            new SavePropertyRequest("Hijacked", "x", null, null, null, null, null, null, null, null, null, new DateOnly(2020, 1, 1), 1m));
         Assert.Equal(HttpStatusCode.NotFound, update.StatusCode);
 
         var delete = await outsider.DeleteAsync($"/api/properties/{property.Id}");

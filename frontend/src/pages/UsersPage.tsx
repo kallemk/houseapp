@@ -118,7 +118,6 @@ export function UsersPage() {
       </Group>
       <Text c="dimmed" size="sm">
         Endast personer i den här listan kan logga in. Lämna lösenordet tomt om personen ska logga in med Google.
-        Administratörer kan hantera användare och renoveringstyper.
       </Text>
 
       <Card withBorder padding="md">

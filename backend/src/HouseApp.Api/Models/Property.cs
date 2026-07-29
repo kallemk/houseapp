@@ -20,6 +20,12 @@ public class Property
     public int? YearBuilt { get; set; }
     public PropertyType? Type { get; set; }
 
+    // WGS84, for the map on the dashboard. Stored rather than geocoded on every render: geocoding
+    // is a third-party call that can fail, rate-limit or drift, and the answer never changes once
+    // it's right. Both null => no map is shown.
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
     public DateOnly PurchaseDate { get; set; }
     public decimal PurchasePrice { get; set; }
 

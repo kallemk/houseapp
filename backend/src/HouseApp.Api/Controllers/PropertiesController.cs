@@ -131,6 +131,8 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         property.PropertyDesignation = request.PropertyDesignation;
         property.YearBuilt = request.YearBuilt;
         property.Type = request.Type;
+        property.Latitude = request.Latitude;
+        property.Longitude = request.Longitude;
         property.PurchaseDate = request.PurchaseDate;
         property.PurchasePrice = request.PurchasePrice;
     }
@@ -147,6 +149,8 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
             p.PropertyDesignation,
             p.YearBuilt,
             p.Type,
+            p.Latitude,
+            p.Longitude,
             p.PurchaseDate,
             p.PurchasePrice,
             p.CreatedAt);

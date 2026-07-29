@@ -3,3 +3,11 @@
 export function formatCurrency(value: number): string {
   return `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(value)} kr`
 }
+
+/** Plain number, sv-SE formatted (space thousands, comma decimal) — for percentages and counts. */
+export function formatNumber(value: number, decimals = 0): string {
+  return new Intl.NumberFormat('sv-SE', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value)
+}

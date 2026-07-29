@@ -13,6 +13,8 @@ public record PropertyDto(
     string? PropertyDesignation,
     int? YearBuilt,
     PropertyType? Type,
+    double? Latitude,
+    double? Longitude,
     DateOnly PurchaseDate,
     decimal PurchasePrice,
     DateTimeOffset CreatedAt);
@@ -28,5 +30,7 @@ public record SavePropertyRequest(
     string? PropertyDesignation,
     int? YearBuilt,
     PropertyType? Type,
+    double? Latitude,
+    double? Longitude,
     DateOnly PurchaseDate,
     decimal PurchasePrice);

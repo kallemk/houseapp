@@ -30,6 +30,9 @@ export interface PropertyDto {
   propertyDesignation: string | null
   yearBuilt: number | null
   type: PropertyType | null
+  /** WGS84. Both null means no map is shown. */
+  latitude: number | null
+  longitude: number | null
   purchaseDate: string
   purchasePrice: number
   createdAt: string

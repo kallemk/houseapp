@@ -58,6 +58,8 @@ public static class TestData
             PropertyDesignation: null,
             YearBuilt: yearBuilt,
             Type: null,
+            Latitude: null,
+            Longitude: null,
             PurchaseDate: new DateOnly(2020, 1, 1),
             PurchasePrice: 100000m);
 

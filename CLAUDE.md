@@ -381,6 +381,20 @@ now by `DocumentsControllerTests.Create_WithProjectId_KeepsTheLink`.
 table horizontally instead of squashing or clipping it. New tables need the same treatment — the
 mobile layout has no other way to show a wide table.
 
+**The dashboard map is a keyless OpenStreetMap iframe** (`components/dashboard/PropertyMap.tsx`),
+driven by `Property.Latitude`/`Longitude`. No map library and no provider key: Leaflet would be a
+dependency for one static pin, and Google/Azure Maps/Mapbox each need a billing account and another
+secret to deploy. Coordinates are **stored, not geocoded on render** — geocoding is a third-party
+call that can fail or rate-limit, and the answer never changes once it's right.
+`utils/geocode.ts` fills the fields from the address via Nominatim behind an explicit button; it is
+a convenience, and the stored values remain the source of truth and stay editable. Both null ⇒ no
+map is rendered.
+
+**The dashboard timeline groups by year and expands to quarters on click.** A house owned for 20
+years is 80 quarter rows, nearly all empty. `utils/quarters.ts` keeps both groupings; the year is
+the default and the quarter view is opt-in per year. Both levels carry the same quick-add menu, just
+seeding a different default date.
+
 ### The renovation → project migration (done, and removed — don't re-add it)
 
 **`ProjectMigrator` no longer exists, and nothing should replace it.** It copied `renovationEntries`
