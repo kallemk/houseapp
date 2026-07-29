@@ -11,7 +11,8 @@ namespace HouseApp.Api.Controllers;
 /// When each part of the house is next due for maintenance. Read-only and fully derived: there is no
 /// maintenanceSchedule container, because every field would be a copy of something already stored —
 /// the interval lives on PropertyComponent, and "last completed" is the newest completed Maintenance
-/// project for that component. A stored copy would go stale the moment a project's date was edited.
+/// or Renovation project for that component. A stored copy would go stale the moment a project's
+/// date was edited.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -19,6 +20,14 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
 {
     /// <summary>How close to the due date counts as "due soon" rather than "ok".</summary>
     private const int DueSoonWindowMonths = 3;
+
+    /// <summary>
+    /// Work that resets the clock on a component. Renovation counts alongside Maintenance because
+    /// replacing or renovating a part extends its life at least as much as servicing it — a roof
+    /// redone last year isn't due for maintenance just because it was logged as a renovation.
+    /// Investment does not: it's new capital work, not upkeep of the existing part.
+    /// </summary>
+    private static readonly WorkType[] LifeExtendingWork = [WorkType.Maintenance, WorkType.Renovation];
 
     [HttpGet("api/properties/{propertyId}/maintenance-schedule")]
     public async Task<ActionResult<List<MaintenanceScheduleItemDto>>> GetForProperty(
@@ -57,12 +66,12 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
         var forComponent = projects.Where(p => p.ComponentId == component.Id).ToList();
 
         var lastCompleted = forComponent
-            .Where(p => p.WorkType == WorkType.Maintenance && p.Status == ProjectStatus.Completed && p.CompletedDate is not null)
+            .Where(p => LifeExtendingWork.Contains(p.WorkType) && p.Status == ProjectStatus.Completed && p.CompletedDate is not null)
             .OrderByDescending(p => p.CompletedDate)
             .FirstOrDefault();
 
         var hasUpcoming = forComponent.Any(p =>
-            p.WorkType == WorkType.Maintenance &&
+            LifeExtendingWork.Contains(p.WorkType) &&
             p.Status is ProjectStatus.Planned or ProjectStatus.InProgress);
 
         // With nothing logged, the house's build year stands in: the component is assumed to date

@@ -196,10 +196,13 @@ public class MaintenanceScheduleControllerTests : IClassFixture<HouseAppWebAppli
         Assert.Equal(new DateOnly(2025, 6, 1), item.LastCompletedDate);
     }
 
+    /// <summary>
+    /// A renovation extends a component's life at least as much as servicing it does — a roof redone
+    /// last year isn't due for maintenance just because it was logged as a renovation.
+    /// </summary>
     [Fact]
-    public async Task OnlyCompletedMaintenanceProjectsCount()
+    public async Task ACompletedRenovationAlsoResetsTheClock()
     {
-        // A renovation of the same component isn't maintenance, and a planned job hasn't happened yet.
         var client = await CreateAuthenticatedClientAsync();
         var property = await TestData.CreatePropertyAsync(client);
         var componentId = await CreateComponentAsync(client, intervalMonths: 12);
@@ -208,6 +211,42 @@ public class MaintenanceScheduleControllerTests : IClassFixture<HouseAppWebAppli
             $"/api/properties/{property.Id}/projects",
             TestData.SaveProject("Renovering", componentId, workType: WorkType.Renovation,
                 status: ProjectStatus.Completed, completedDate: new DateOnly(2025, 6, 1)));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2025, 7, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.Project, item.Baseline);
+        Assert.Equal(new DateOnly(2025, 6, 1), item.LastCompletedDate);
+        Assert.Equal(new DateOnly(2026, 6, 1), item.NextDueDate);
+    }
+
+    [Fact]
+    public async Task InvestmentWorkDoesNotResetTheClock()
+    {
+        // New capital work on the house, not upkeep of the existing part.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Tillbyggnad", componentId, workType: WorkType.Investment,
+                status: ProjectStatus.Completed, completedDate: new DateOnly(2025, 6, 1)));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.None, item.Baseline);
+        Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
+    }
+
+    [Fact]
+    public async Task PlannedWorkCountsAsUpcomingButNotAsCompleted()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
         await client.PostAsJsonAsync(
             $"/api/properties/{property.Id}/projects",
             TestData.SaveProject("Planerad service", componentId, workType: WorkType.Maintenance,

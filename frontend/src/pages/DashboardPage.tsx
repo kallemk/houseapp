@@ -151,6 +151,7 @@ export function DashboardPage() {
       </Title>
       <Card withBorder padding="lg">
         <PropertyTimeline
+          propertyId={property.id}
           purchaseDate={property.purchaseDate}
           valuations={valuations ?? []}
           projects={projects ?? []}

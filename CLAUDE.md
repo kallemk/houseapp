@@ -339,8 +339,11 @@ them would mean editing a project's date silently left the schedule wrong. Rules
   overdue, because calling it overdue would state a guess as a fact.
 - Expect the `YearBuilt` baseline to make an old house look comprehensively overdue on day one.
   That's intended: it's the backlog, and it shrinks as real work gets logged.
-- Only `WorkType.Maintenance` projects with `Status.Completed` count. A renovation of the same
-  component isn't maintenance, and a planned job hasn't happened.
+- **`Maintenance` and `Renovation` both reset the clock** (`LifeExtendingWork`), with
+  `Status.Completed`. Renovating or replacing a part extends its life at least as much as servicing
+  it, so a roof redone last year isn't due just because it was logged as a renovation. `Investment`
+  does not count — that's new capital work, not upkeep of the existing part. A planned job hasn't
+  happened, so it only sets `HasUpcomingProject`.
 - The endpoint takes an optional `asOf` date purely so tests can assert Overdue/DueSoon against a
   fixed point rather than whenever the suite runs.
 

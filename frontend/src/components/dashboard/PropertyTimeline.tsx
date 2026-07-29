@@ -1,5 +1,6 @@
-import { ActionIcon, Group, Menu, Stack, Text, Timeline, ThemeIcon } from '@mantine/core'
+import { ActionIcon, Anchor, Group, Menu, Stack, Text, Timeline, ThemeIcon } from '@mantine/core'
 import { IconChartLine, IconFiles, IconHammer, IconPlus } from '@tabler/icons-react'
+import { Link } from 'react-router-dom'
 import type { DocumentDto, ProjectDto, ValuationEntryDto } from '../../api/types'
 import {
   compareQuarterKeys,
@@ -18,9 +19,12 @@ interface TimelineEvent {
   icon: typeof IconChartLine
   color: string
   label: string
+  /** Set for events that have somewhere to go — currently projects. */
+  to?: string
 }
 
 interface PropertyTimelineProps {
+  propertyId: string
   purchaseDate: string
   valuations: ValuationEntryDto[]
   projects: ProjectDto[]
@@ -33,7 +37,14 @@ function projectDate(project: ProjectDto): string | null {
   return project.completedDate ?? project.plannedStartDate ?? project.actualStartDate
 }
 
-export function PropertyTimeline({ purchaseDate, valuations, projects, documents, onQuickAdd }: PropertyTimelineProps) {
+export function PropertyTimeline({
+  propertyId,
+  purchaseDate,
+  valuations,
+  projects,
+  documents,
+  onQuickAdd,
+}: PropertyTimelineProps) {
   const events: TimelineEvent[] = [
     ...valuations.map((v) => ({
       id: `valuation-${v.id}`,
@@ -55,6 +66,7 @@ export function PropertyTimeline({ purchaseDate, valuations, projects, documents
           icon: IconHammer,
           color: 'blue',
           label: `${p.name}: ${formatCurrency(amount)}`,
+          to: `/properties/${propertyId}/projects/${p.id}`,
         },
       ]
     }),
@@ -130,7 +142,13 @@ export function PropertyTimeline({ purchaseDate, valuations, projects, documents
                     <ThemeIcon size={20} radius="xl" variant="light" color={event.color}>
                       <event.icon size={12} />
                     </ThemeIcon>
-                    <Text size="sm">{event.label}</Text>
+                    {event.to ? (
+                      <Anchor component={Link} to={event.to} size="sm">
+                        {event.label}
+                      </Anchor>
+                    ) : (
+                      <Text size="sm">{event.label}</Text>
+                    )}
                   </Group>
                 ))}
               </Stack>

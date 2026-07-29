@@ -19,6 +19,15 @@ export function useCreateValuation(propertyId: string) {
   })
 }
 
+export function useUpdateValuation(propertyId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ValuationEntryInput }) =>
+      valuationsApi.update(id, propertyId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
+  })
+}
+
 export function useDeleteValuation(propertyId: string) {
   const queryClient = useQueryClient()
   return useMutation({
