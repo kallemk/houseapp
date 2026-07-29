@@ -8,12 +8,28 @@ public enum MaintenanceUrgency
     /// <summary>The component has no recommended interval, so nothing can be predicted.</summary>
     NotScheduled,
 
-    /// <summary>Has an interval but no completed maintenance project to count from.</summary>
+    /// <summary>Has an interval, but neither a completed maintenance project nor a build year to count from.</summary>
     Unknown,
 
     Ok,
     DueSoon,
     Overdue,
+}
+
+/// <summary>Where LastCompletedDate came from — the UI says so, because the two mean different things.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum MaintenanceBaseline
+{
+    None,
+
+    /// <summary>An actual completed maintenance project.</summary>
+    Project,
+
+    /// <summary>
+    /// Nothing has been logged, so the property's build year stands in — the component is assumed to
+    /// date from when the house was built. A starting point to correct, not a record of work done.
+    /// </summary>
+    YearBuilt,
 }
 
 /// <summary>
@@ -26,7 +42,8 @@ public record MaintenanceScheduleItemDto(
     string ComponentName,
     int? RecommendedIntervalMonths,
     DateOnly? LastCompletedDate,
-    /// <summary>Id of the project LastCompletedDate came from, so the UI can link to it.</summary>
+    MaintenanceBaseline Baseline,
+    /// <summary>Id of the project LastCompletedDate came from — null when the baseline is the build year.</summary>
     string? LastProjectId,
     string? LastProjectName,
     DateOnly? NextDueDate,

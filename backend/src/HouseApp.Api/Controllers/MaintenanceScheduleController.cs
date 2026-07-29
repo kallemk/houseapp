@@ -27,11 +27,17 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
     {
         var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
+        var property = await db.Properties.FindAsync(propertyId);
+        if (property is null)
+        {
+            return NotFound();
+        }
+
         var components = await db.PropertyComponents.ToListAsync();
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
 
         var items = components
-            .Select(component => Build(component, projects, today))
+            .Select(component => Build(component, projects, property.YearBuilt, today))
             // Most urgent first, then by how soon it's due; unschedulable components sink to the
             // bottom rather than cluttering the top of the list.
             .OrderByDescending(i => i.Urgency)
@@ -45,6 +51,7 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
     private static MaintenanceScheduleItemDto Build(
         PropertyComponent component,
         List<Project> projects,
+        int? yearBuilt,
         DateOnly today)
     {
         var forComponent = projects.Where(p => p.ComponentId == component.Id).ToList();
@@ -58,6 +65,15 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
             p.WorkType == WorkType.Maintenance &&
             p.Status is ProjectStatus.Planned or ProjectStatus.InProgress);
 
+        // With nothing logged, the house's build year stands in: the component is assumed to date
+        // from when the house was built. It's a starting point to correct by logging real work, not
+        // a claim that anything was done — which is why the baseline is reported alongside it.
+        var (baselineDate, baseline) = lastCompleted?.CompletedDate is { } completedDate
+            ? (completedDate, MaintenanceBaseline.Project)
+            : yearBuilt is { } year
+                ? (new DateOnly(year, 1, 1), MaintenanceBaseline.YearBuilt)
+                : ((DateOnly?)null, MaintenanceBaseline.None);
+
         var interval = component.RecommendedIntervalMonths;
         if (interval is null or <= 0)
         {
@@ -65,7 +81,8 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
                 component.Id,
                 component.Name,
                 component.RecommendedIntervalMonths,
-                lastCompleted?.CompletedDate,
+                baselineDate,
+                baseline,
                 lastCompleted?.Id,
                 lastCompleted?.Name,
                 NextDueDate: null,
@@ -74,15 +91,16 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
                 hasUpcoming);
         }
 
-        if (lastCompleted?.CompletedDate is not { } completedDate)
+        if (baselineDate is not { } anchor)
         {
-            // An interval is known but nothing has been logged yet, so there's no anchor to count
-            // from. Deliberately not treated as overdue — the work may predate the app.
+            // An interval is known but there's nothing at all to count from — no logged work and no
+            // build year. Deliberately not treated as overdue: that would be a guess stated as fact.
             return new MaintenanceScheduleItemDto(
                 component.Id,
                 component.Name,
                 interval,
                 LastCompletedDate: null,
+                MaintenanceBaseline.None,
                 LastProjectId: null,
                 LastProjectName: null,
                 NextDueDate: null,
@@ -91,7 +109,7 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
                 hasUpcoming);
         }
 
-        var nextDue = completedDate.AddMonths(interval.Value);
+        var nextDue = anchor.AddMonths(interval.Value);
         var monthsUntilDue = MonthsBetween(today, nextDue);
 
         var urgency = nextDue <= today
@@ -104,9 +122,10 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
             component.Id,
             component.Name,
             interval,
-            completedDate,
-            lastCompleted.Id,
-            lastCompleted.Name,
+            anchor,
+            baseline,
+            lastCompleted?.Id,
+            lastCompleted?.Name,
             nextDue,
             monthsUntilDue,
             urgency,

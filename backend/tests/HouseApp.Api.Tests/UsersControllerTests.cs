@@ -92,7 +92,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
 
         var createProperty = await client.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("Pre-existing House", "1 Old St"));
+            TestData.SaveProperty("Pre-existing House", "1 Old St"));
         var property = await createProperty.Content.ReadFromJsonAsync<PropertyDto>();
 
         var newEmail = $"backfill-{Guid.NewGuid()}@example.com";

@@ -49,67 +49,77 @@ export function MaintenancePage() {
       </Group>
       <Text c="dimmed" size="sm">
         Räknas fram från komponenternas rekommenderade intervall och det senaste slutförda
-        underhållsprojektet för varje del — inget som behöver hållas uppdaterat för hand.
+        underhållsprojektet för varje del — inget som behöver hållas uppdaterat för hand. Finns inget
+        loggat används bostadens byggår som utgångspunkt, tills du registrerar ett riktigt projekt.
       </Text>
 
       {!schedule || schedule.length === 0 ? (
         <EmptyState icon={IconCalendarClock} message="Inga komponenter att planera underhåll för." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table striped highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Komponent</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Intervall</Table.Th>
-                <Table.Th>Senast utfört</Table.Th>
-                <Table.Th>Nästa gång</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {schedule.map((item) => (
-                <Table.Tr key={item.componentId}>
-                  <Table.Td>
-                    {item.componentName}
-                    {item.hasUpcomingProject && (
-                      <Badge ml="xs" size="sm" variant="light" color="blue">
-                        Projekt planerat
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={MAINTENANCE_URGENCY_COLORS[item.urgency]} variant="light">
-                      {MAINTENANCE_URGENCY_LABELS[item.urgency]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td c="dimmed">{formatInterval(item.recommendedIntervalMonths)}</Table.Td>
-                  <Table.Td c="dimmed">
-                    {item.lastCompletedDate ? (
-                      <>
-                        {item.lastCompletedDate}
-                        {item.lastProjectId && (
-                          <>
-                            {' — '}
-                            <Text
-                              span
-                              component={Link}
-                              to={`/properties/${propertyId}/projects/${item.lastProjectId}`}
-                              c="terracotta"
-                            >
-                              {item.lastProjectName}
-                            </Text>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </Table.Td>
-                  <Table.Td>{dueText(item)}</Table.Td>
+          <Table.ScrollContainer minWidth={780}>
+            <Table striped highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Komponent</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Intervall</Table.Th>
+                  <Table.Th>Senast utfört</Table.Th>
+                  <Table.Th>Nästa gång</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {schedule.map((item) => (
+                  <Table.Tr key={item.componentId}>
+                    <Table.Td>
+                      {item.componentName}
+                      {item.hasUpcomingProject && (
+                        <Badge ml="xs" size="sm" variant="light" color="blue">
+                          Projekt planerat
+                        </Badge>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={MAINTENANCE_URGENCY_COLORS[item.urgency]} variant="light">
+                        {MAINTENANCE_URGENCY_LABELS[item.urgency]}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td c="dimmed">{formatInterval(item.recommendedIntervalMonths)}</Table.Td>
+                    <Table.Td c="dimmed">
+                      {item.baseline === 'Project' && (
+                        <>
+                          {item.lastCompletedDate}
+                          {' — '}
+                          <Text
+                            span
+                            component={Link}
+                            to={`/properties/${propertyId}/projects/${item.lastProjectId}`}
+                            c="terracotta"
+                          >
+                            {item.lastProjectName}
+                          </Text>
+                        </>
+                      )}
+                      {/* Not a record of work done — the house's build year standing in until
+                          something real is logged, so it mustn't read like a completed job. */}
+                      {item.baseline === 'YearBuilt' && (
+                        <Group gap={6} wrap="nowrap">
+                          <Text span size="sm" fs="italic">
+                            {item.lastCompletedDate}
+                          </Text>
+                          <Badge size="xs" variant="outline" color="gray">
+                            Antaget byggår
+                          </Badge>
+                        </Group>
+                      )}
+                      {item.baseline === 'None' && '—'}
+                    </Table.Td>
+                    <Table.Td>{dueText(item)}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </Card>
       )}
     </Stack>

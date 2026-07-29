@@ -21,8 +21,13 @@ export interface PropertyDto {
   id: string
   nickname: string
   address: string
-  /** All three are null on properties created before these fields existed. */
+  /** All of these are null on properties created before the field existed. */
   address2: string | null
+  postalCode: string | null
+  city: string | null
+  country: string | null
+  /** Fastighetsbeteckning. */
+  propertyDesignation: string | null
   yearBuilt: number | null
   type: PropertyType | null
   purchaseDate: string
@@ -111,12 +116,16 @@ export interface ProjectDto {
 
 export type MaintenanceUrgency = 'NotScheduled' | 'Unknown' | 'Ok' | 'DueSoon' | 'Overdue'
 
+/** Where lastCompletedDate came from — YearBuilt means "assumed, correct it by logging real work". */
+export type MaintenanceBaseline = 'None' | 'Project' | 'YearBuilt'
+
 /** Entirely derived server-side from component intervals and completed maintenance projects. */
 export interface MaintenanceScheduleItemDto {
   componentId: string
   componentName: string
   recommendedIntervalMonths: number | null
   lastCompletedDate: string | null
+  baseline: MaintenanceBaseline
   lastProjectId: string | null
   lastProjectName: string | null
   nextDueDate: string | null

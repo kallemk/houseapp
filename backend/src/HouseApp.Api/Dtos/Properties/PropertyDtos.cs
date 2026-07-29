@@ -7,25 +7,25 @@ public record PropertyDto(
     string Nickname,
     string Address,
     string? Address2,
+    string? PostalCode,
+    string? City,
+    string? Country,
+    string? PropertyDesignation,
     int? YearBuilt,
     PropertyType? Type,
     DateOnly PurchaseDate,
     decimal PurchasePrice,
     DateTimeOffset CreatedAt);
 
-public record CreatePropertyRequest(
+/// <summary>Same shape for create and update — a property is small enough to write whole.</summary>
+public record SavePropertyRequest(
     string Nickname,
     string Address,
     string? Address2,
-    int? YearBuilt,
-    PropertyType? Type,
-    DateOnly PurchaseDate,
-    decimal PurchasePrice);
-
-public record UpdatePropertyRequest(
-    string Nickname,
-    string Address,
-    string? Address2,
+    string? PostalCode,
+    string? City,
+    string? Country,
+    string? PropertyDesignation,
     int? YearBuilt,
     PropertyType? Type,
     DateOnly PurchaseDate,

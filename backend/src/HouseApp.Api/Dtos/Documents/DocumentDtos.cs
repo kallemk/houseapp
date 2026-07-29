@@ -31,3 +31,6 @@ public record CreateDocumentRequest(
     DocumentCategory Category);
 
 public record DownloadUrlResponse(string DownloadUrl);
+
+/// <summary>Null detaches the document from whatever project it was on.</summary>
+public record SetDocumentProjectRequest(string? ProjectId);

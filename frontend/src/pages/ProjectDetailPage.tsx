@@ -27,6 +27,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { SaveProjectInput } from '../api/projects'
 import type { CostType, ProjectDto, ProjectPriority, ProjectStatus, WorkType } from '../api/types'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { ProjectDocuments } from '../components/projects/ProjectDocuments'
 import { useCreateProject, useDeleteProject, useProject, useUpdateProject } from '../hooks/useProjects'
 import { usePropertyComponents } from '../hooks/usePropertyComponents'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
@@ -378,55 +379,57 @@ export function ProjectDetailPage() {
               </Text>
 
               {form.values.costs.length > 0 && (
-                <Table verticalSpacing="xs">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th w={150}>Typ</Table.Th>
-                      <Table.Th>Beskrivning</Table.Th>
-                      <Table.Th w={140}>Belopp (kr)</Table.Th>
-                      <Table.Th w={160}>Datum</Table.Th>
-                      <Table.Th w={100}>Budgeterad</Table.Th>
-                      <Table.Th w={50} />
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {form.values.costs.map((_, index) => (
-                      // Index keys are safe here: rows are only ever appended or removed, never reordered.
-                      <Table.Tr key={index}>
-                        <Table.Td>
-                          <Select
-                            data={COST_TYPE_OPTIONS}
-                            allowDeselect={false}
-                            {...form.getInputProps(`costs.${index}.type`)}
-                          />
-                        </Table.Td>
-                        <Table.Td>
-                          <TextInput {...form.getInputProps(`costs.${index}.description`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <NumberInput min={0} {...form.getInputProps(`costs.${index}.amount`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <TextInput type="date" {...form.getInputProps(`costs.${index}.dateIncurred`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <Checkbox
-                            {...form.getInputProps(`costs.${index}.isBudgeted`, { type: 'checkbox' })}
-                          />
-                        </Table.Td>
-                        <Table.Td>
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            onClick={() => form.removeListItem('costs', index)}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Table.Td>
+                <Table.ScrollContainer minWidth={720}>
+                  <Table verticalSpacing="xs">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th w={150}>Typ</Table.Th>
+                        <Table.Th>Beskrivning</Table.Th>
+                        <Table.Th w={140}>Belopp (kr)</Table.Th>
+                        <Table.Th w={160}>Datum</Table.Th>
+                        <Table.Th w={100}>Budgeterad</Table.Th>
+                        <Table.Th w={50} />
                       </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {form.values.costs.map((_, index) => (
+                        // Index keys are safe here: rows are only ever appended or removed, never reordered.
+                        <Table.Tr key={index}>
+                          <Table.Td>
+                            <Select
+                              data={COST_TYPE_OPTIONS}
+                              allowDeselect={false}
+                              {...form.getInputProps(`costs.${index}.type`)}
+                            />
+                          </Table.Td>
+                          <Table.Td>
+                            <TextInput {...form.getInputProps(`costs.${index}.description`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <NumberInput min={0} {...form.getInputProps(`costs.${index}.amount`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <TextInput type="date" {...form.getInputProps(`costs.${index}.dateIncurred`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <Checkbox
+                              {...form.getInputProps(`costs.${index}.isBudgeted`, { type: 'checkbox' })}
+                            />
+                          </Table.Td>
+                          <Table.Td>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => form.removeListItem('costs', index)}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
               )}
 
               <Group>
@@ -457,40 +460,42 @@ export function ProjectDetailPage() {
               </Text>
 
               {form.values.milestones.length > 0 && (
-                <Table verticalSpacing="xs">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Beskrivning</Table.Th>
-                      <Table.Th w={170}>Planerat</Table.Th>
-                      <Table.Th w={170}>Klart</Table.Th>
-                      <Table.Th w={50} />
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {form.values.milestones.map((_, index) => (
-                      <Table.Tr key={index}>
-                        <Table.Td>
-                          <TextInput {...form.getInputProps(`milestones.${index}.description`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <TextInput type="date" {...form.getInputProps(`milestones.${index}.plannedDate`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <TextInput type="date" {...form.getInputProps(`milestones.${index}.completedDate`)} />
-                        </Table.Td>
-                        <Table.Td>
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            onClick={() => form.removeListItem('milestones', index)}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Table.Td>
+                <Table.ScrollContainer minWidth={620}>
+                  <Table verticalSpacing="xs">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Beskrivning</Table.Th>
+                        <Table.Th w={170}>Planerat</Table.Th>
+                        <Table.Th w={170}>Klart</Table.Th>
+                        <Table.Th w={50} />
                       </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {form.values.milestones.map((_, index) => (
+                        <Table.Tr key={index}>
+                          <Table.Td>
+                            <TextInput {...form.getInputProps(`milestones.${index}.description`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <TextInput type="date" {...form.getInputProps(`milestones.${index}.plannedDate`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <TextInput type="date" {...form.getInputProps(`milestones.${index}.completedDate`)} />
+                          </Table.Td>
+                          <Table.Td>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => form.removeListItem('milestones', index)}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
               )}
 
               <Group>
@@ -570,6 +575,9 @@ export function ProjectDetailPage() {
               <Textarea label="Anteckningar" autosize minRows={2} {...form.getInputProps('notes')} />
             </Stack>
           </Card>
+
+          {/* Only once the project exists — attachments are saved against its id, not with the form. */}
+          {!isNew && projectId && <ProjectDocuments propertyId={propertyId ?? ''} projectId={projectId} />}
 
           <Group justify="space-between">
             <Button type="submit" loading={saving}>

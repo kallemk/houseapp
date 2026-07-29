@@ -73,30 +73,32 @@ export function ValuationsPage() {
         <EmptyState icon={IconChartLine} message="Inga värderingar registrerade ännu." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table striped highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Datum</Table.Th>
-                <Table.Th>Värde</Table.Th>
-                <Table.Th>Källa</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {valuations.map((v) => (
-                <Table.Tr key={v.id}>
-                  <Table.Td>{v.date}</Table.Td>
-                  <Table.Td fw={600}>{formatCurrency(v.value)}</Table.Td>
-                  <Table.Td c="dimmed">{v.source ?? '—'}</Table.Td>
-                  <Table.Td>
-                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(v.id)}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Table.Td>
+          <Table.ScrollContainer minWidth={600}>
+            <Table striped highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Datum</Table.Th>
+                  <Table.Th>Värde</Table.Th>
+                  <Table.Th>Källa</Table.Th>
+                  <Table.Th />
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {valuations.map((v) => (
+                  <Table.Tr key={v.id}>
+                    <Table.Td>{v.date}</Table.Td>
+                    <Table.Td fw={600}>{formatCurrency(v.value)}</Table.Td>
+                    <Table.Td c="dimmed">{v.source ?? '—'}</Table.Td>
+                    <Table.Td>
+                      <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(v.id)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </Card>
       )}
 

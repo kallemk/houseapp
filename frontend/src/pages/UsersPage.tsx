@@ -140,60 +140,62 @@ export function UsersPage() {
       </Card>
 
       <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-        <Table striped highlightOnHover verticalSpacing="sm">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Namn</Table.Th>
-              <Table.Th>E-post</Table.Th>
-              <Table.Th>Inloggning</Table.Th>
-              <Table.Th>Admin</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {users?.map((user) => (
-              <Table.Tr key={user.id}>
-                <Table.Td>
-                  {user.displayName}
-                  {user.id === currentUser?.id && (
-                    <Badge ml="xs" size="sm" variant="light">
-                      Du
-                    </Badge>
-                  )}
-                </Table.Td>
-                <Table.Td c="dimmed">{user.email}</Table.Td>
-                <Table.Td>
-                  <Badge variant="light" color={user.hasPassword ? 'blue' : 'grape'}>
-                    {user.hasPassword ? 'Lösenord + Google' : 'Endast Google'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  {/* Your own switch is disabled: the API returns 409 for self-demotion, which is
-                      what guarantees at least one admin always exists. */}
-                  <Switch
-                    checked={user.isAdmin}
-                    disabled={user.id === currentUser?.id}
-                    onChange={() => handleToggleAdmin(user)}
-                    aria-label={`Admin: ${user.displayName}`}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <ActionIcon variant="subtle" onClick={() => startEditing(user)} mr="xs">
-                    <IconEdit size={16} />
-                  </ActionIcon>
-                  <ActionIcon
-                    color="red"
-                    variant="subtle"
-                    disabled={user.id === currentUser?.id}
-                    onClick={() => setPendingDeleteId(user.id)}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Table.Td>
+        <Table.ScrollContainer minWidth={640}>
+          <Table striped highlightOnHover verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Namn</Table.Th>
+                <Table.Th>E-post</Table.Th>
+                <Table.Th>Inloggning</Table.Th>
+                <Table.Th>Admin</Table.Th>
+                <Table.Th />
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {users?.map((user) => (
+                <Table.Tr key={user.id}>
+                  <Table.Td>
+                    {user.displayName}
+                    {user.id === currentUser?.id && (
+                      <Badge ml="xs" size="sm" variant="light">
+                        Du
+                      </Badge>
+                    )}
+                  </Table.Td>
+                  <Table.Td c="dimmed">{user.email}</Table.Td>
+                  <Table.Td>
+                    <Badge variant="light" color={user.hasPassword ? 'blue' : 'grape'}>
+                      {user.hasPassword ? 'Lösenord + Google' : 'Endast Google'}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    {/* Your own switch is disabled: the API returns 409 for self-demotion, which is
+                        what guarantees at least one admin always exists. */}
+                    <Switch
+                      checked={user.isAdmin}
+                      disabled={user.id === currentUser?.id}
+                      onChange={() => handleToggleAdmin(user)}
+                      aria-label={`Admin: ${user.displayName}`}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <ActionIcon variant="subtle" onClick={() => startEditing(user)} mr="xs">
+                      <IconEdit size={16} />
+                    </ActionIcon>
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      disabled={user.id === currentUser?.id}
+                      onClick={() => setPendingDeleteId(user.id)}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Card>
 
       <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera användare" centered>

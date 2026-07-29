@@ -330,8 +330,15 @@ isn't stored — a second copy of something is a copy that goes stale.
 plus the newest **completed Maintenance** project for each component. Every field the original
 sketch wanted to store (`LastCompletedDate`, `NextDueDate`, `IsCompleted`) is derivable, so storing
 them would mean editing a project's date silently left the schedule wrong. Rules worth keeping:
-- No interval on the component → `NotScheduled`. An interval but nothing logged → `Unknown`,
-  **not** overdue: the work may predate the app, and guessing would present a guess as a fact.
+- No interval on the component → `NotScheduled`.
+- **`MaintenanceBaseline` says where `LastCompletedDate` came from, and the UI must keep them
+  distinct.** `Project` = real logged work. `YearBuilt` = nothing logged, so the property's build
+  year stands in (the component is assumed to date from the house). That's a starting point to
+  correct by logging work, *not* a record that anything was done — the maintenance page marks it
+  "Antaget byggår" for exactly that reason. `None` = neither, which stays `Unknown` rather than
+  overdue, because calling it overdue would state a guess as a fact.
+- Expect the `YearBuilt` baseline to make an old house look comprehensively overdue on day one.
+  That's intended: it's the backlog, and it shrinks as real work gets logged.
 - Only `WorkType.Maintenance` projects with `Status.Completed` count. A renovation of the same
   component isn't maintenance, and a planned job hasn't happened.
 - The endpoint takes an optional `asOf` date purely so tests can assert Overdue/DueSoon against a
@@ -350,6 +357,21 @@ projects already existed, and a missing JSON property deserializes to null rathe
 does *not* need this: every create/update has written it since the container existed. Milestones
 carry no money — the sketch had cost-per-stage fields, which would have recreated exactly the
 two-sources-of-truth problem `ActualCost` avoids.
+
+**Documents attach to projects by `Document.ProjectId`, saved immediately — not with the project
+form.** Documents live in their own container, so `components/projects/ProjectDocuments.tsx` uploads
+and attaches straight away rather than waiting for the surrounding form to be submitted; that's also
+why it only renders for a saved project, never while creating one. `PUT /api/documents/{id}/project`
+attaches or (with null) detaches an existing document.
+
+That field is still stored as JSON `"RenovationEntryId"` (`ToJsonProperty` in `AppDbContext`), since
+the `documents` container was never migrated. **The frontend kept posting `renovationEntryId` after
+the rename, so it never bound to `ProjectId` and every attachment silently became null** — covered
+now by `DocumentsControllerTests.Create_WithProjectId_KeepsTheLink`.
+
+**Every table is wrapped in `Table.ScrollContainer`** with a `minWidth`, so narrow screens scroll the
+table horizontally instead of squashing or clipping it. New tables need the same treatment — the
+mobile layout has no other way to show a wide table.
 
 ### The renovation → project migration (done, and removed — don't re-add it)
 

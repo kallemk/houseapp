@@ -41,7 +41,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
     }
 
     [HttpPost]
-    public async Task<ActionResult<PropertyDto>> Create(CreatePropertyRequest request)
+    public async Task<ActionResult<PropertyDto>> Create(SavePropertyRequest request)
     {
         // Every account gets connected automatically — there are only ever 2 (admin-seeded), and
         // this app is about a couple sharing visibility into the same house(s), not private
@@ -52,20 +52,16 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         {
             Nickname = request.Nickname,
             Address = request.Address,
-            Address2 = request.Address2,
-            YearBuilt = request.YearBuilt,
-            Type = request.Type,
-            PurchaseDate = request.PurchaseDate,
-            PurchasePrice = request.PurchasePrice,
             MemberUserIds = allUserIds,
         };
+        Apply(property, request);
         db.Properties.Add(property);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = property.Id }, ToDto(property));
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, UpdatePropertyRequest request)
+    public async Task<IActionResult> Update(string id, SavePropertyRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var property = await db.Properties.FindAsync(id);
@@ -74,13 +70,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
             return NotFound();
         }
 
-        property.Nickname = request.Nickname;
-        property.Address = request.Address;
-        property.Address2 = request.Address2;
-        property.YearBuilt = request.YearBuilt;
-        property.Type = request.Type;
-        property.PurchaseDate = request.PurchaseDate;
-        property.PurchasePrice = request.PurchasePrice;
+        Apply(property, request);
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -130,6 +120,34 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
     private static bool IsMember(Property property, string userId) =>
         property.MemberUserIds?.Contains(userId) == true;
 
+    private static void Apply(Property property, SavePropertyRequest request)
+    {
+        property.Nickname = request.Nickname;
+        property.Address = request.Address;
+        property.Address2 = request.Address2;
+        property.PostalCode = request.PostalCode;
+        property.City = request.City;
+        property.Country = request.Country;
+        property.PropertyDesignation = request.PropertyDesignation;
+        property.YearBuilt = request.YearBuilt;
+        property.Type = request.Type;
+        property.PurchaseDate = request.PurchaseDate;
+        property.PurchasePrice = request.PurchasePrice;
+    }
+
     private static PropertyDto ToDto(Property p) =>
-        new(p.Id, p.Nickname, p.Address, p.Address2, p.YearBuilt, p.Type, p.PurchaseDate, p.PurchasePrice, p.CreatedAt);
+        new(
+            p.Id,
+            p.Nickname,
+            p.Address,
+            p.Address2,
+            p.PostalCode,
+            p.City,
+            p.Country,
+            p.PropertyDesignation,
+            p.YearBuilt,
+            p.Type,
+            p.PurchaseDate,
+            p.PurchasePrice,
+            p.CreatedAt);
 }

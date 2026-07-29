@@ -134,56 +134,58 @@ export function ProjectsPage() {
         />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table striped highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Namn</Table.Th>
-                <Table.Th>Typ</Table.Th>
-                <Table.Th>Komponent</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Datum</Table.Th>
-                <Table.Th>Kostnad</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filtered.map((project) => (
-                <Table.Tr
-                  key={project.id}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/properties/${propertyId}/projects/${project.id}`)}
-                >
-                  <Table.Td>
-                    {project.name}
-                    {project.isUrgent && (
-                      <Badge ml="xs" size="sm" color="red" variant="light">
-                        Brådskande
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={WORK_TYPE_COLORS[project.workType as WorkType]} variant="light">
-                      {WORK_TYPE_LABELS[project.workType as WorkType]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td c="dimmed">{componentsById.get(project.componentId)?.name ?? 'Okänd'}</Table.Td>
-                  <Table.Td>
-                    <Badge color={PROJECT_STATUS_COLORS[project.status as ProjectStatus]} variant="light">
-                      {PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td c="dimmed">
-                    {project.completedDate ?? project.plannedStartDate ?? '—'}
-                  </Table.Td>
-                  <Table.Td fw={600}>
-                    {/* Actual once there's anything itemised, otherwise what it's expected to cost. */}
-                    {project.actualCost > 0
-                      ? formatCurrency(project.actualCost)
-                      : `≈ ${formatCurrency(project.estimatedCost)}`}
-                  </Table.Td>
+          <Table.ScrollContainer minWidth={780}>
+            <Table striped highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Namn</Table.Th>
+                  <Table.Th>Typ</Table.Th>
+                  <Table.Th>Komponent</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Datum</Table.Th>
+                  <Table.Th>Kostnad</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {filtered.map((project) => (
+                  <Table.Tr
+                    key={project.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/properties/${propertyId}/projects/${project.id}`)}
+                  >
+                    <Table.Td>
+                      {project.name}
+                      {project.isUrgent && (
+                        <Badge ml="xs" size="sm" color="red" variant="light">
+                          Brådskande
+                        </Badge>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={WORK_TYPE_COLORS[project.workType as WorkType]} variant="light">
+                        {WORK_TYPE_LABELS[project.workType as WorkType]}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td c="dimmed">{componentsById.get(project.componentId)?.name ?? 'Okänd'}</Table.Td>
+                    <Table.Td>
+                      <Badge color={PROJECT_STATUS_COLORS[project.status as ProjectStatus]} variant="light">
+                        {PROJECT_STATUS_LABELS[project.status as ProjectStatus]}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td c="dimmed">
+                      {project.completedDate ?? project.plannedStartDate ?? '—'}
+                    </Table.Td>
+                    <Table.Td fw={600}>
+                      {/* Actual once there's anything itemised, otherwise what it's expected to cost. */}
+                      {project.actualCost > 0
+                        ? formatCurrency(project.actualCost)
+                        : `≈ ${formatCurrency(project.estimatedCost)}`}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </Card>
       )}
     </Stack>

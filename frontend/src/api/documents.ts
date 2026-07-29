@@ -19,7 +19,7 @@ export const documentsApi = {
     file: File,
     category: DocumentCategory,
     date: string,
-    renovationEntryId?: string | null,
+    projectId?: string | null,
   ): Promise<DocumentDto> {
     const { uploadUrl, blobPath } = await apiClient.post<UploadUrlResponse>('/documents/upload-url', {
       propertyId,
@@ -41,7 +41,9 @@ export const documentsApi = {
 
     return apiClient.post<DocumentDto>('/documents', {
       propertyId,
-      renovationEntryId: renovationEntryId ?? null,
+      // Was still named renovationEntryId after the project rename, so it never bound to the
+      // renamed ProjectId and every attachment was silently dropped.
+      projectId: projectId ?? null,
       date,
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
@@ -57,6 +59,10 @@ export const documentsApi = {
     )
     window.open(downloadUrl, '_blank')
   },
+
+  /** Attaches an existing document to a project, or detaches it with null. */
+  setProject: (id: string, propertyId: string, projectId: string | null) =>
+    apiClient.put<void>(`/documents/${id}/project?propertyId=${encodeURIComponent(propertyId)}`, { projectId }),
 
   remove: (id: string, propertyId: string) =>
     apiClient.delete<void>(`/documents/${id}?propertyId=${encodeURIComponent(propertyId)}`),

@@ -23,6 +23,27 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
         return Ok(documents.Select(ToDto));
     }
 
+    /// <summary>
+    /// Attaches an already-uploaded document to a project, or detaches it when projectId is null.
+    /// Separate from the project itself because documents live in their own container — a project is
+    /// written whole, but its attachments aren't part of that document.
+    /// </summary>
+    [HttpPut("api/documents/{id}/project")]
+    public async Task<IActionResult> SetProject(string id, [FromQuery] string propertyId, SetDocumentProjectRequest request)
+    {
+        var document = await db.Documents
+            .Where(d => d.PropertyId == propertyId && d.Id == id)
+            .FirstOrDefaultAsync();
+        if (document is null)
+        {
+            return NotFound();
+        }
+
+        document.ProjectId = request.ProjectId;
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost("api/documents/upload-url")]
     public async Task<ActionResult<UploadUrlResponse>> GetUploadUrl(UploadUrlRequest request)
     {

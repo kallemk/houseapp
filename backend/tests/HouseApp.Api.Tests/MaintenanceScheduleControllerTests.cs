@@ -138,19 +138,62 @@ public class MaintenanceScheduleControllerTests : IClassFixture<HouseAppWebAppli
     }
 
     [Fact]
-    public async Task IntervalButNothingLogged_IsUnknownRatherThanOverdue()
+    public async Task IntervalButNoLoggedWorkAndNoBuildYear_IsUnknownRatherThanOverdue()
     {
-        // The work may well predate the app — claiming it's overdue would be a guess presented as a fact.
+        // Nothing at all to count from — claiming it's overdue would be a guess presented as a fact.
         var client = await CreateAuthenticatedClientAsync();
-        var property = await TestData.CreatePropertyAsync(client);
+        var property = await TestData.CreatePropertyAsync(client, yearBuilt: null);
         var componentId = await CreateComponentAsync(client, intervalMonths: 12);
 
         var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
             .Single(i => i.ComponentId == componentId);
 
         Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
+        Assert.Equal(MaintenanceBaseline.None, item.Baseline);
         Assert.Null(item.LastCompletedDate);
         Assert.Null(item.NextDueDate);
+    }
+
+    /// <summary>
+    /// With nothing logged, the build year stands in — the component is assumed to date from when
+    /// the house was built. Reported as a distinct baseline so the UI doesn't present an assumption
+    /// as a record of work done.
+    /// </summary>
+    [Fact]
+    public async Task WithNothingLogged_TheBuildYearIsTheBaseline()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, yearBuilt: 2010);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 120);
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.YearBuilt, item.Baseline);
+        Assert.Equal(new DateOnly(2010, 1, 1), item.LastCompletedDate);
+        Assert.Equal(new DateOnly(2020, 1, 1), item.NextDueDate);
+        Assert.Equal(MaintenanceUrgency.Overdue, item.Urgency);
+        // No project to link to — the date didn't come from one.
+        Assert.Null(item.LastProjectId);
+    }
+
+    [Fact]
+    public async Task ALoggedProjectTakesPrecedenceOverTheBuildYear()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, yearBuilt: 1965);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Servad", componentId, workType: WorkType.Maintenance,
+                status: ProjectStatus.Completed, completedDate: new DateOnly(2025, 6, 1)));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2025, 7, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.Project, item.Baseline);
+        Assert.Equal(new DateOnly(2025, 6, 1), item.LastCompletedDate);
     }
 
     [Fact]

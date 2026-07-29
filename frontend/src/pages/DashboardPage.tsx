@@ -15,6 +15,7 @@ import { useValuations } from '../hooks/useValuations'
 import { useProjects } from '../hooks/useProjects'
 import { useDocuments } from '../hooks/useDocuments'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
+import { formatAddress } from '../utils/address'
 import { MAINTENANCE_URGENCY_COLORS, MAINTENANCE_URGENCY_LABELS } from '../utils/labels'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
@@ -91,10 +92,12 @@ export function DashboardPage() {
           </Badge>
         )}
       </Group>
-      <Text c="dimmed">
-        {property.address}
-        {property.address2 ? `, ${property.address2}` : ''}
-      </Text>
+      <Text c="dimmed">{formatAddress(property)}</Text>
+      {property.propertyDesignation && (
+        <Text c="dimmed" size="sm">
+          Fastighetsbeteckning: {property.propertyDesignation}
+        </Text>
+      )}
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mt="md">
         <StatCard icon={IconHome2} label="Nuvarande värde" value={formatCurrency(currentValue)} />

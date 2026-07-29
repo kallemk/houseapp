@@ -6,10 +6,17 @@ public class Property
     public required string Nickname { get; set; }
     public required string Address { get; set; }
 
-    // All three nullable on purpose: properties created before these fields existed have no such
-    // JSON property, which deserializes to the CLR default. A nullable Type shows as "—" in the UI
+    // All nullable on purpose: properties created before these fields existed have no such JSON
+    // property, which deserializes to the CLR default. A nullable Type shows as "—" in the UI
     // rather than silently claiming every pre-existing property is a House.
     public string? Address2 { get; set; }
+    public string? PostalCode { get; set; }
+    public string? City { get; set; }
+    public string? Country { get; set; }
+
+    /// <summary>Fastighetsbeteckning — the official Swedish property designation.</summary>
+    public string? PropertyDesignation { get; set; }
+
     public int? YearBuilt { get; set; }
     public PropertyType? Type { get; set; }
 

@@ -44,17 +44,30 @@ public static class TestData
             Costs: costs,
             Milestones: milestones);
 
-    public static CreatePropertyRequest CreatePropertyRequest(
+    public static SavePropertyRequest SaveProperty(
         string nickname = "Test House",
-        string address = "1 Test St") =>
-        new(nickname, address, null, null, null, new DateOnly(2020, 1, 1), 100000m);
+        string address = "1 Test St",
+        int? yearBuilt = null) =>
+        new(
+            Nickname: nickname,
+            Address: address,
+            Address2: null,
+            PostalCode: null,
+            City: null,
+            Country: null,
+            PropertyDesignation: null,
+            YearBuilt: yearBuilt,
+            Type: null,
+            PurchaseDate: new DateOnly(2020, 1, 1),
+            PurchasePrice: 100000m);
 
     public static async Task<PropertyDto> CreatePropertyAsync(
         HttpClient client,
         string nickname = "Test House",
-        string address = "1 Test St")
+        string address = "1 Test St",
+        int? yearBuilt = null)
     {
-        var response = await client.PostAsJsonAsync("/api/properties", CreatePropertyRequest(nickname, address));
+        var response = await client.PostAsJsonAsync("/api/properties", SaveProperty(nickname, address, yearBuilt));
         var property = await response.Content.ReadFromJsonAsync<PropertyDto>();
         Assert.NotNull(property);
         return property!;

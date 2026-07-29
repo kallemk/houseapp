@@ -137,56 +137,58 @@ export function BudgetPage() {
         </Card>
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Typ av arbete</Table.Th>
-                <Table.Th>Budget</Table.Th>
-                <Table.Th>Utfall</Table.Th>
-                <Table.Th>Kvar</Table.Th>
-                <Table.Th w={200} />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {(budget?.lines ?? []).map((line) => {
-                const overspent = line.remaining < 0
-                const percent = line.budgeted > 0 ? Math.min((line.spent / line.budgeted) * 100, 100) : 0
-                return (
-                  <Table.Tr key={line.workType}>
-                    <Table.Td>{WORK_TYPE_LABELS[line.workType]}</Table.Td>
-                    <Table.Td c="dimmed">{formatCurrency(line.budgeted)}</Table.Td>
-                    <Table.Td fw={600}>{formatCurrency(line.spent)}</Table.Td>
-                    <Table.Td c={overspent ? 'red' : undefined} fw={overspent ? 600 : undefined}>
-                      {formatCurrency(line.remaining)}
-                    </Table.Td>
-                    <Table.Td>
-                      {line.budgeted > 0 ? (
-                        <Progress
-                          value={percent}
-                          color={overspent ? 'red' : WORK_TYPE_COLORS[line.workType]}
-                          size="lg"
-                          radius="sm"
-                        />
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          Ingen budget satt
-                        </Text>
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                )
-              })}
-            </Table.Tbody>
-            <Table.Tfoot>
-              <Table.Tr>
-                <Table.Th>Totalt</Table.Th>
-                <Table.Th>{formatCurrency(budget?.totalBudgeted ?? 0)}</Table.Th>
-                <Table.Th>{formatCurrency(budget?.totalSpent ?? 0)}</Table.Th>
-                <Table.Th>{formatCurrency((budget?.totalBudgeted ?? 0) - (budget?.totalSpent ?? 0))}</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Tfoot>
-          </Table>
+          <Table.ScrollContainer minWidth={700}>
+            <Table verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Typ av arbete</Table.Th>
+                  <Table.Th>Budget</Table.Th>
+                  <Table.Th>Utfall</Table.Th>
+                  <Table.Th>Kvar</Table.Th>
+                  <Table.Th w={200} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {(budget?.lines ?? []).map((line) => {
+                  const overspent = line.remaining < 0
+                  const percent = line.budgeted > 0 ? Math.min((line.spent / line.budgeted) * 100, 100) : 0
+                  return (
+                    <Table.Tr key={line.workType}>
+                      <Table.Td>{WORK_TYPE_LABELS[line.workType]}</Table.Td>
+                      <Table.Td c="dimmed">{formatCurrency(line.budgeted)}</Table.Td>
+                      <Table.Td fw={600}>{formatCurrency(line.spent)}</Table.Td>
+                      <Table.Td c={overspent ? 'red' : undefined} fw={overspent ? 600 : undefined}>
+                        {formatCurrency(line.remaining)}
+                      </Table.Td>
+                      <Table.Td>
+                        {line.budgeted > 0 ? (
+                          <Progress
+                            value={percent}
+                            color={overspent ? 'red' : WORK_TYPE_COLORS[line.workType]}
+                            size="lg"
+                            radius="sm"
+                          />
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            Ingen budget satt
+                          </Text>
+                        )}
+                      </Table.Td>
+                    </Table.Tr>
+                  )
+                })}
+              </Table.Tbody>
+              <Table.Tfoot>
+                <Table.Tr>
+                  <Table.Th>Totalt</Table.Th>
+                  <Table.Th>{formatCurrency(budget?.totalBudgeted ?? 0)}</Table.Th>
+                  <Table.Th>{formatCurrency(budget?.totalSpent ?? 0)}</Table.Th>
+                  <Table.Th>{formatCurrency((budget?.totalBudgeted ?? 0) - (budget?.totalSpent ?? 0))}</Table.Th>
+                  <Table.Th />
+                </Table.Tr>
+              </Table.Tfoot>
+            </Table>
+          </Table.ScrollContainer>
         </Card>
       )}
     </Stack>

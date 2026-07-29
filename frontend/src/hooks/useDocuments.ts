@@ -15,8 +15,26 @@ export function useDocuments(propertyId: string) {
 export function useUploadDocument(propertyId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, category, date }: { file: File; category: DocumentCategory; date: string }) =>
-      documentsApi.upload(propertyId, file, category, date),
+    mutationFn: ({
+      file,
+      category,
+      date,
+      projectId,
+    }: {
+      file: File
+      category: DocumentCategory
+      date: string
+      projectId?: string | null
+    }) => documentsApi.upload(propertyId, file, category, date, projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
+  })
+}
+
+export function useSetDocumentProject(propertyId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, projectId }: { id: string; projectId: string | null }) =>
+      documentsApi.setProject(id, propertyId, projectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
   })
 }

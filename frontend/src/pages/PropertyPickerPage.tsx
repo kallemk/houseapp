@@ -34,6 +34,10 @@ interface PropertyFormValues {
   nickname: string
   address: string
   address2: string
+  postalCode: string
+  city: string
+  country: string
+  propertyDesignation: string
   yearBuilt: number | string
   type: PropertyType | ''
   purchaseDate: string
@@ -44,6 +48,10 @@ const EMPTY_FORM: PropertyFormValues = {
   nickname: '',
   address: '',
   address2: '',
+  postalCode: '',
+  city: '',
+  country: 'Sverige',
+  propertyDesignation: '',
   yearBuilt: '',
   type: '',
   purchaseDate: '',
@@ -69,6 +77,16 @@ function PropertyForm({
         <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
         <TextInput label="Adress" required {...form.getInputProps('address')} />
         <TextInput label="Adressrad 2" placeholder="valfritt" {...form.getInputProps('address2')} />
+        <Group grow>
+          <TextInput label="Postnummer" placeholder="valfritt" {...form.getInputProps('postalCode')} />
+          <TextInput label="Ort" placeholder="valfritt" {...form.getInputProps('city')} />
+        </Group>
+        <TextInput label="Land" placeholder="valfritt" {...form.getInputProps('country')} />
+        <TextInput
+          label="Fastighetsbeteckning"
+          placeholder="valfritt"
+          {...form.getInputProps('propertyDesignation')}
+        />
         <Group grow>
           <Select
             label="Bostadstyp"
@@ -109,6 +127,10 @@ export function PropertyPickerPage() {
       nickname: values.nickname,
       address: values.address,
       address2: values.address2.trim() || null,
+      postalCode: values.postalCode.trim() || null,
+      city: values.city.trim() || null,
+      country: values.country.trim() || null,
+      propertyDesignation: values.propertyDesignation.trim() || null,
       yearBuilt: values.yearBuilt === '' ? null : Number(values.yearBuilt),
       type: values.type === '' ? null : values.type,
       purchaseDate: values.purchaseDate,
@@ -225,6 +247,10 @@ export function PropertyPickerPage() {
               nickname: editing.nickname,
               address: editing.address,
               address2: editing.address2 ?? '',
+              postalCode: editing.postalCode ?? '',
+              city: editing.city ?? '',
+              country: editing.country ?? '',
+              propertyDesignation: editing.propertyDesignation ?? '',
               yearBuilt: editing.yearBuilt ?? '',
               type: editing.type ?? '',
               purchaseDate: editing.purchaseDate,

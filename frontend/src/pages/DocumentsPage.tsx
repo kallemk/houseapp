@@ -1,12 +1,13 @@
-import { ActionIcon, Anchor, Badge, Card, Center, Group, Loader, Stack, Table, ThemeIcon, Title } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Card, Center, Group, Loader, Stack, Table, Text, ThemeIcon, Title } from '@mantine/core'
 import { IconDownload, IconFiles, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FileUpload } from '../components/common/FileUpload'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/useDocuments'
+import { useProjects } from '../hooks/useProjects'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory } from '../api/types'
 import { DOCUMENT_CATEGORY_LABELS } from '../utils/labels'
@@ -31,7 +32,9 @@ export function DocumentsPage() {
   const { data: documents, isLoading } = useDocuments(propertyId ?? '')
   const uploadDocument = useUploadDocument(propertyId ?? '')
   const deleteDocument = useDeleteDocument(propertyId ?? '')
+  const { data: projects } = useProjects(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const projectsById = new Map((projects ?? []).map((p) => [p.id, p]))
 
   if (loadingProperty || isLoading) {
     return (
@@ -66,43 +69,57 @@ export function DocumentsPage() {
         <EmptyState icon={IconFiles} message="Inga dokument uppladdade ännu." />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table striped highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Namn</Table.Th>
-                <Table.Th>Kategori</Table.Th>
-                <Table.Th>Storlek</Table.Th>
-                <Table.Th>Datum</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {documents.map((doc) => (
-                <Table.Tr key={doc.id}>
-                  <Table.Td>
-                    <Anchor onClick={() => documentsApi.download(doc.id, property.id)} fw={500}>
-                      {doc.fileName}
-                    </Anchor>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={CATEGORY_COLORS[doc.category]} variant="light">
-                      {DOCUMENT_CATEGORY_LABELS[doc.category]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td c="dimmed">{formatSize(doc.sizeBytes)}</Table.Td>
-                  <Table.Td c="dimmed">{doc.date}</Table.Td>
-                  <Table.Td>
-                    <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc.id, property.id)} mr="xs">
-                      <IconDownload size={16} />
-                    </ActionIcon>
-                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(doc.id)}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Table.Td>
+          <Table.ScrollContainer minWidth={760}>
+            <Table striped highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Namn</Table.Th>
+                  <Table.Th>Kategori</Table.Th>
+                  <Table.Th>Projekt</Table.Th>
+                  <Table.Th>Storlek</Table.Th>
+                  <Table.Th>Datum</Table.Th>
+                  <Table.Th />
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {documents.map((doc) => (
+                  <Table.Tr key={doc.id}>
+                    <Table.Td>
+                      <Anchor onClick={() => documentsApi.download(doc.id, property.id)} fw={500}>
+                        {doc.fileName}
+                      </Anchor>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={CATEGORY_COLORS[doc.category]} variant="light">
+                        {DOCUMENT_CATEGORY_LABELS[doc.category]}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      {doc.projectId && projectsById.has(doc.projectId) ? (
+                        <Anchor component={Link} to={`/properties/${property.id}/projects/${doc.projectId}`} size="sm">
+                          {projectsById.get(doc.projectId)!.name}
+                        </Anchor>
+                      ) : (
+                        <Text c="dimmed" size="sm">
+                          —
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td c="dimmed">{formatSize(doc.sizeBytes)}</Table.Td>
+                    <Table.Td c="dimmed">{doc.date}</Table.Td>
+                    <Table.Td>
+                      <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc.id, property.id)} mr="xs">
+                        <IconDownload size={16} />
+                      </ActionIcon>
+                      <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(doc.id)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </Card>
       )}
 

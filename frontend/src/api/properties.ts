@@ -5,6 +5,10 @@ export interface CreatePropertyInput {
   nickname: string
   address: string
   address2: string | null
+  postalCode: string | null
+  city: string | null
+  country: string | null
+  propertyDesignation: string | null
   yearBuilt: number | null
   type: PropertyType | null
   purchaseDate: string

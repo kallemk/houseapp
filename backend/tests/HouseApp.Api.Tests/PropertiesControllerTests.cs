@@ -31,8 +31,8 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            // Admin because Delete_AlsoRemoves... builds its fixture via POST /api/renovation-types,
-            // which is admin-only. Nothing on PropertiesController itself requires it.
+            // Admin because some tests here build fixtures via admin-only endpoints. Nothing on
+            // PropertiesController itself requires it.
             var user = new ApplicationUser
             {
                 Email = email,
@@ -58,7 +58,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            new CreatePropertyRequest("Our House", "123 Main St", "Lgh 1101", 1965, PropertyType.House, new DateOnly(2020, 6, 1), 350000m));
+            new SavePropertyRequest("Our House", "123 Main St", "Lgh 1101", "434 33", "Kungsbacka", "Sverige", "Kungsbacka Tulebo 1:23", 1965, PropertyType.House, new DateOnly(2020, 6, 1), 350000m));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
 
         var created = await create.Content.ReadFromJsonAsync<PropertyDto>();
@@ -69,6 +69,28 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var fetched = await get.Content.ReadFromJsonAsync<PropertyDto>();
         Assert.Equal("Our House", fetched!.Nickname);
+        Assert.Equal("434 33", fetched.PostalCode);
+        Assert.Equal("Kungsbacka", fetched.City);
+        Assert.Equal("Sverige", fetched.Country);
+        Assert.Equal("Kungsbacka Tulebo 1:23", fetched.PropertyDesignation);
+        Assert.Equal(1965, fetched.YearBuilt);
+    }
+
+    [Fact]
+    public async Task Create_WithOnlyTheRequiredFields_LeavesTheOptionalOnesNull()
+    {
+        // They're nullable precisely so properties predating them keep working; creating without
+        // them must not invent values.
+        var client = await CreateAuthenticatedClientAsync();
+
+        var property = await TestData.CreatePropertyAsync(client, "Sparse");
+
+        Assert.Null(property.PostalCode);
+        Assert.Null(property.City);
+        Assert.Null(property.Country);
+        Assert.Null(property.PropertyDesignation);
+        Assert.Null(property.YearBuilt);
+        Assert.Null(property.Type);
     }
 
     [Fact]
@@ -89,13 +111,13 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         var clientA = await CreateAuthenticatedClientAsync();
         var createP1 = await clientA.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("House A", "1 Main St"));
+            TestData.SaveProperty("House A", "1 Main St"));
         var p1 = await createP1.Content.ReadFromJsonAsync<PropertyDto>();
 
         var clientB = await CreateAuthenticatedClientAsync();
         var createP2 = await clientB.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("House B", "2 Main St"));
+            TestData.SaveProperty("House B", "2 Main St"));
         var p2 = await createP2.Content.ReadFromJsonAsync<PropertyDto>();
 
         var bList = await (await clientB.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
@@ -117,18 +139,20 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("Old Name", "1 Old St"));
+            TestData.SaveProperty("Old Name", "1 Old St"));
         var created = await create.Content.ReadFromJsonAsync<PropertyDto>();
 
         var update = await client.PutAsJsonAsync(
             $"/api/properties/{created!.Id}",
-            new UpdatePropertyRequest("New Name", "2 New St", "Plan 2", 1972, PropertyType.Townhouse, new DateOnly(2021, 5, 5), 250000m));
+            new SavePropertyRequest("New Name", "2 New St", "Plan 2", "111 22", "Stockholm", "Sverige", "Stockholm Söder 4:5", 1972, PropertyType.Townhouse, new DateOnly(2021, 5, 5), 250000m));
         Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
 
         var fetched = await (await client.GetAsync($"/api/properties/{created.Id}")).Content
             .ReadFromJsonAsync<PropertyDto>();
         Assert.Equal("New Name", fetched!.Nickname);
         Assert.Equal("2 New St", fetched.Address);
+        Assert.Equal("Stockholm", fetched.City);
+        Assert.Equal("Stockholm Söder 4:5", fetched.PropertyDesignation);
         Assert.Equal(new DateOnly(2021, 5, 5), fetched.PurchaseDate);
         Assert.Equal(250000m, fetched.PurchasePrice);
     }
@@ -139,7 +163,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         var owner = await CreateAuthenticatedClientAsync();
         var create = await owner.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("Theirs", "1 Private Rd"));
+            TestData.SaveProperty("Theirs", "1 Private Rd"));
         var property = await create.Content.ReadFromJsonAsync<PropertyDto>();
 
         // Created before this user existed, so they're not in MemberUserIds.
@@ -147,7 +171,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var update = await outsider.PutAsJsonAsync(
             $"/api/properties/{property!.Id}",
-            new UpdatePropertyRequest("Hijacked", "x", null, null, null, new DateOnly(2020, 1, 1), 1m));
+            new SavePropertyRequest("Hijacked", "x", null, null, null, null, null, null, null, new DateOnly(2020, 1, 1), 1m));
         Assert.Equal(HttpStatusCode.NotFound, update.StatusCode);
 
         var delete = await outsider.DeleteAsync($"/api/properties/{property.Id}");
@@ -168,7 +192,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         var create = await client.PostAsJsonAsync(
             "/api/properties",
-            TestData.CreatePropertyRequest("Doomed", "1 Gone St"));
+            TestData.SaveProperty("Doomed", "1 Gone St"));
         var property = await create.Content.ReadFromJsonAsync<PropertyDto>();
         var propertyId = property!.Id;
 

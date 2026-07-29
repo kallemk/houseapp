@@ -163,33 +163,35 @@ export function PropertyComponentsPage() {
       )}
 
       <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-        <Table striped highlightOnHover verticalSpacing="sm">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Namn</Table.Th>
-              <Table.Th>Rekommenderat intervall</Table.Th>
-              {isAdmin && <Table.Th />}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {components?.map((component) => (
-              <Table.Tr key={component.id}>
-                <Table.Td>{component.name}</Table.Td>
-                <Table.Td c="dimmed">{formatInterval(component.recommendedIntervalMonths)}</Table.Td>
-                {isAdmin && (
-                  <Table.Td>
-                    <ActionIcon variant="subtle" onClick={() => setEditing(component)} mr="xs">
-                      <IconEdit size={16} />
-                    </ActionIcon>
-                    <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(component.id)}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Table.Td>
-                )}
+        <Table.ScrollContainer minWidth={520}>
+          <Table striped highlightOnHover verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Namn</Table.Th>
+                <Table.Th>Rekommenderat intervall</Table.Th>
+                {isAdmin && <Table.Th />}
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {components?.map((component) => (
+                <Table.Tr key={component.id}>
+                  <Table.Td>{component.name}</Table.Td>
+                  <Table.Td c="dimmed">{formatInterval(component.recommendedIntervalMonths)}</Table.Td>
+                  {isAdmin && (
+                    <Table.Td>
+                      <ActionIcon variant="subtle" onClick={() => setEditing(component)} mr="xs">
+                        <IconEdit size={16} />
+                      </ActionIcon>
+                      <ActionIcon color="red" variant="subtle" onClick={() => setPendingDeleteId(component.id)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Table.Td>
+                  )}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Card>
 
       <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera komponent" centered>
