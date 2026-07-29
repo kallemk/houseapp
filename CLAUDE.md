@@ -351,25 +351,38 @@ does *not* need this: every create/update has written it since the container exi
 carry no money — the sketch had cost-per-stage fields, which would have recreated exactly the
 two-sources-of-truth problem `ActualCost` avoids.
 
-### The renovation → project migration
+### The renovation → project migration (done, and removed — don't re-add it)
 
-`Data/Migration/ProjectMigrator.cs` runs on every startup (App Service has no separate migration
-step, same as `DbSeeder`) and copies the old `renovationEntries` into `projects` as completed
-projects. Things that are load-bearing:
+**`ProjectMigrator` no longer exists, and nothing should replace it.** It copied `renovationEntries`
+into `projects` on every startup, guarded by "copy the entries whose id isn't already in `projects`".
+That guard cannot distinguish **"never copied"** from **"copied, then deliberately deleted"** — so
+every project deleted in the UI came back on the next deploy, restored from the still-intact legacy
+container. It shipped, it happened in production, and it was deleted rather than repaired.
 
-- **It copies, it doesn't move.** `renovationEntries` and `renovationTypes` are still provisioned in
+The lesson generalises: **a one-shot migration must not run on a schedule.** Inferring "has this
+already run?" from the state of the data is what breaks, because user deletions are indistinguishable
+from work not yet done. If another migration is ever needed, it has to *record that it ran* — a
+marker document that's written after the copy completes, checked before starting — so a rerun is a
+no-op regardless of what has since been deleted. (`DbSeeder` and `PropertyComponentSeeder` are safe
+for a different reason: they only ever add missing *seed* rows, and `PropertyComponentSeeder`
+explicitly skips the whole container once anything is in it, precisely so a deleted component isn't
+re-added.)
+
+What the migration did, recorded because the data it produced is still in production:
+
+- **It copied, it didn't move.** `renovationEntries` and `renovationTypes` are still provisioned in
   `infra/modules/cosmos.bicep` and still hold every original document. That is the rollback path —
   **don't delete those containers, or `Data/Migration/LegacyModels.cs`, until reverting is off the
-  table.** `PropertiesController.Delete` deliberately doesn't cascade into them.
-- **Ids are preserved.** `Document.ProjectId` is the old `RenovationEntryId` field (mapped via
-  `ToJsonProperty("RenovationEntryId")`, since the `documents` container isn't migrated), so
-  regenerating ids would orphan every document attached to a renovation.
-- **The guard is "copy what's missing", not "skip if the target is non-empty".** EF Cosmos writes
-  items individually and non-transactionally, so a crash partway through leaves a partial copy that
-  an emptiness check would skip forever. As written it's idempotent *and* resumable.
-- **Old types map onto `WorkType`, not onto components** — they classified the work, not the part of
-  the house. The four seeded ids map explicitly; an admin-created type can't be inferred, so it
-  becomes `Renovation` with its original name appended to `Notes` rather than being silently lost.
+  table.** `PropertiesController.Delete` deliberately doesn't cascade into them. (This is also what
+  made the resurrection bug above possible: a complete, untouched source to re-copy from.)
+- **Ids were preserved.** `Document.ProjectId` is the old `RenovationEntryId` field (mapped via
+  `ToJsonProperty("RenovationEntryId")`, since the `documents` container wasn't migrated), so
+  regenerating ids would have orphaned every document attached to a renovation. Those ids are load-
+  bearing today, not just during the migration.
+- **Old types mapped onto `WorkType`, not onto components** — they classified the work, not the part
+  of the house. The four seeded ids mapped explicitly; an admin-created type couldn't be inferred, so
+  it became `Renovation` with its original name appended to `Notes`. If you see "Tidigare typ: …" in
+  a project's notes, that's why.
 
 **New containers must be deployed before the code that reads them.** The app can't create them:
 production authenticates with a managed identity holding only a data-plane role. `backend-ci-cd` and

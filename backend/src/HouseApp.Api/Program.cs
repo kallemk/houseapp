@@ -1,5 +1,4 @@
 using HouseApp.Api.Data;
-using HouseApp.Api.Data.Migration;
 using HouseApp.Api.Data.Seed;
 using HouseApp.Api.Extensions;
 
@@ -45,15 +44,11 @@ if (app.Environment.EnvironmentName != "Testing")
         await db.Database.EnsureCreatedAsync();
     }
 
-    // Copies the old renovation log into `projects`. Idempotent and resumable (it copies only the
-    // entries not already there), so running it on every startup is safe.
-    //
-    // It's sequenced before the seeders because that's the safe habit — migrate real data, then
-    // fill gaps with defaults — but nothing here depends on it today: this migrator and
-    // PropertyComponentSeeder write to different containers. Any future seeder that writes to
-    // `projects` would make the order load-bearing, since a "skip if non-empty" guard satisfied by
-    // seed data would strand the real data in the old container.
-    await ProjectMigrator.MigrateAsync(db, app.Logger);
+    // There is deliberately no data migration step here. ProjectMigrator used to run on every
+    // startup, copying renovationEntries into projects; it resurrected every project you had
+    // deleted, because "copy the entries whose id isn't in `projects`" can't tell "never copied"
+    // from "copied, then deliberately deleted". A one-shot migration must not run on a schedule —
+    // if one is ever needed again, it has to record that it ran rather than infer it from the data.
 
     // Runs on every startup, in every environment including production — DbSeeder is idempotent
     // (skips accounts that already exist), and this is the only place the 2 admin accounts get created.
