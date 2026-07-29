@@ -155,6 +155,8 @@ export interface DocumentDto {
   propertyId: string
   projectId: string | null
   date: string
+  /** Null on documents uploaded before titles existed — fall back to fileName. */
+  title: string | null
   fileName: string
   contentType: string
   sizeBytes: number

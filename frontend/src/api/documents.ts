@@ -19,6 +19,7 @@ export const documentsApi = {
     file: File,
     category: DocumentCategory,
     date: string,
+    title: string | null,
     projectId?: string | null,
   ): Promise<DocumentDto> {
     const { uploadUrl, blobPath } = await apiClient.post<UploadUrlResponse>('/documents/upload-url', {
@@ -45,6 +46,7 @@ export const documentsApi = {
       // renamed ProjectId and every attachment was silently dropped.
       projectId: projectId ?? null,
       date,
+      title,
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
       blobPath,

@@ -206,7 +206,7 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
 
         await client.PostAsJsonAsync(
             "/api/documents",
-            new CreateDocumentRequest(propertyId, null, new DateOnly(2022, 3, 1), "kvitto.pdf", "application/pdf", $"{propertyId}/kvitto.pdf", 1024, DocumentCategory.Receipt));
+            new CreateDocumentRequest(propertyId, null, new DateOnly(2022, 3, 1), null, "kvitto.pdf", "application/pdf", $"{propertyId}/kvitto.pdf", 1024, DocumentCategory.Receipt));
 
         var delete = await client.DeleteAsync($"/api/properties/{propertyId}");
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);

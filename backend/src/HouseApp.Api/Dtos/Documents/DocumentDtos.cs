@@ -7,6 +7,8 @@ public record DocumentDto(
     string PropertyId,
     string? ProjectId,
     DateOnly Date,
+    /// <summary>Null on documents uploaded before titles existed — fall back to FileName.</summary>
+    string? Title,
     string FileName,
     string ContentType,
     long SizeBytes,
@@ -24,6 +26,7 @@ public record CreateDocumentRequest(
     string PropertyId,
     string? ProjectId,
     DateOnly Date,
+    string? Title,
     string FileName,
     string ContentType,
     string BlobPath,

@@ -1,6 +1,7 @@
 import { ActionIcon, Anchor, Group, Menu, Stack, Text, Timeline, ThemeIcon } from '@mantine/core'
 import { IconChartLine, IconFiles, IconHammer, IconPlus } from '@tabler/icons-react'
 import { Link } from 'react-router-dom'
+import { documentsApi } from '../../api/documents'
 import type { DocumentDto, ProjectDto, ValuationEntryDto } from '../../api/types'
 import {
   compareQuarterKeys,
@@ -19,8 +20,10 @@ interface TimelineEvent {
   icon: typeof IconChartLine
   color: string
   label: string
-  /** Set for events that have somewhere to go — currently projects. */
+  /** Navigate somewhere. Mutually exclusive with onClick. */
   to?: string
+  /** Do something instead of navigating — documents download, matching the documents page. */
+  onClick?: () => void
 }
 
 interface PropertyTimelineProps {
@@ -52,6 +55,8 @@ export function PropertyTimeline({
       icon: IconChartLine,
       color: 'terracotta',
       label: `Värdering: ${formatCurrency(v.value)}`,
+      // There's no per-valuation page, so this goes to the list where it can be edited.
+      to: `/properties/${propertyId}/valuations`,
     })),
     ...projects.flatMap((p) => {
       const date = projectDate(p)
@@ -75,7 +80,10 @@ export function PropertyTimeline({
       date: d.date,
       icon: IconFiles,
       color: 'grape',
-      label: d.fileName,
+      label: d.title ?? d.fileName,
+      // Downloads rather than navigates, so clicking a document name means the same thing here as
+      // it does on the documents page.
+      onClick: () => documentsApi.download(d.id, propertyId),
     })),
   ]
 
@@ -142,13 +150,17 @@ export function PropertyTimeline({
                     <ThemeIcon size={20} radius="xl" variant="light" color={event.color}>
                       <event.icon size={12} />
                     </ThemeIcon>
-                    {event.to ? (
+                    {event.to && (
                       <Anchor component={Link} to={event.to} size="sm">
                         {event.label}
                       </Anchor>
-                    ) : (
-                      <Text size="sm">{event.label}</Text>
                     )}
+                    {event.onClick && (
+                      <Anchor size="sm" onClick={event.onClick}>
+                        {event.label}
+                      </Anchor>
+                    )}
+                    {!event.to && !event.onClick && <Text size="sm">{event.label}</Text>}
                   </Group>
                 ))}
               </Stack>

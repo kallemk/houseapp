@@ -19,13 +19,15 @@ export function useUploadDocument(propertyId: string) {
       file,
       category,
       date,
+      title,
       projectId,
     }: {
       file: File
       category: DocumentCategory
       date: string
+      title: string | null
       projectId?: string | null
-    }) => documentsApi.upload(propertyId, file, category, date, projectId),
+    }) => documentsApi.upload(propertyId, file, category, date, title, projectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
   })
 }

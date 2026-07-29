@@ -8,8 +8,15 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
+export interface UploadMeta {
+  category: DocumentCategory
+  date: string
+  /** Null when left blank — the UI falls back to the filename. */
+  title: string | null
+}
+
 interface FileUploadProps {
-  onUpload: (file: File, category: DocumentCategory, date: string) => void
+  onUpload: (file: File, meta: UploadMeta) => void
   uploading?: boolean
   defaultDate?: string
 }
@@ -17,6 +24,15 @@ interface FileUploadProps {
 export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps) {
   const [category, setCategory] = useState<DocumentCategory>('Other')
   const [date, setDate] = useState(defaultDate ?? todayIsoDate())
+  const [title, setTitle] = useState('')
+
+  function handleFile(file: File | null) {
+    if (!file || !date) {
+      return
+    }
+    onUpload(file, { category, date, title: title.trim() || null })
+    setTitle('')
+  }
 
   return (
     <Group align="flex-end">
@@ -29,7 +45,15 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
         allowDeselect={false}
         w={160}
       />
-      <FileButton onChange={(file) => file && date && onUpload(file, category, date)}>
+      {/* Filenames are often meaningless ("scan_0042.pdf"), so this is what gets shown instead. */}
+      <TextInput
+        label="Titel"
+        placeholder="valfritt, t.ex. Besiktningsprotokoll"
+        value={title}
+        onChange={(e) => setTitle(e.currentTarget.value)}
+        w={240}
+      />
+      <FileButton onChange={handleFile}>
         {(props) => (
           <Button {...props} leftSection={<IconUpload size={16} />} loading={uploading}>
             Ladda upp fil

@@ -5,7 +5,7 @@ import type { MaintenanceScheduleItemDto } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
-import { formatInterval } from '../utils/interval'
+import { formatInterval, formatMonthsSpan } from '../utils/interval'
 import { MAINTENANCE_URGENCY_COLORS, MAINTENANCE_URGENCY_LABELS } from '../utils/labels'
 
 function dueText(item: MaintenanceScheduleItemDto): string {
@@ -13,13 +13,12 @@ function dueText(item: MaintenanceScheduleItemDto): string {
     return '—'
   }
   if (item.monthsUntilDue < 0) {
-    const overdueBy = Math.abs(item.monthsUntilDue)
-    return `${item.nextDueDate} (${overdueBy} mån sedan)`
+    return `${item.nextDueDate} (${formatMonthsSpan(item.monthsUntilDue)} sedan)`
   }
   if (item.monthsUntilDue === 0) {
     return `${item.nextDueDate} (denna månad)`
   }
-  return `${item.nextDueDate} (om ${item.monthsUntilDue} mån)`
+  return `${item.nextDueDate} (om ${formatMonthsSpan(item.monthsUntilDue)})`
 }
 
 export function MaintenancePage() {

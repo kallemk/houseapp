@@ -14,6 +14,28 @@ export function splitMonths(months: number): { value: number; unit: IntervalUnit
   return { value: months, unit: 'months' }
 }
 
+/**
+ * A span of time as "2 år 3 mån" rather than "27 mån" — months alone stop being readable past a
+ * year. Takes a positive count; the caller decides whether it reads as "om …" or "… sedan".
+ */
+export function formatMonthsSpan(months: number): string {
+  const total = Math.abs(months)
+  if (total === 0) {
+    return '0 mån'
+  }
+
+  const years = Math.floor(total / 12)
+  const remainingMonths = total % 12
+
+  if (years === 0) {
+    return `${remainingMonths} mån`
+  }
+  if (remainingMonths === 0) {
+    return `${years} år`
+  }
+  return `${years} år ${remainingMonths} mån`
+}
+
 export function formatInterval(months: number | null): string {
   if (months === null || months <= 0) {
     return 'Inget intervall'

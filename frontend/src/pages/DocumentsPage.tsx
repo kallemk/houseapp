@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
-import { FileUpload } from '../components/common/FileUpload'
+import { FileUpload, type UploadMeta } from '../components/common/FileUpload'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/useDocuments'
 import { useProjects } from '../hooks/useProjects'
@@ -48,8 +48,8 @@ export function DocumentsPage() {
     return <Navigate to="/properties" replace />
   }
 
-  function handleUpload(file: File, category: DocumentCategory, date: string) {
-    uploadDocument.mutate({ file, category, date })
+  function handleUpload(file: File, meta: UploadMeta) {
+    uploadDocument.mutate({ file, ...meta })
   }
 
   return (
@@ -86,8 +86,15 @@ export function DocumentsPage() {
                   <Table.Tr key={doc.id}>
                     <Table.Td>
                       <Anchor onClick={() => documentsApi.download(doc.id, property.id)} fw={500}>
-                        {doc.fileName}
+                        {doc.title ?? doc.fileName}
                       </Anchor>
+                      {/* Keep the filename visible when a title replaces it — it's still what
+                          actually lands on disk when you download. */}
+                      {doc.title && (
+                        <Text size="xs" c="dimmed">
+                          {doc.fileName}
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <Badge color={CATEGORY_COLORS[doc.category]} variant="light">

@@ -3,10 +3,9 @@ import { notifications } from '@mantine/notifications'
 import { IconPaperclip, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { documentsApi } from '../../api/documents'
-import type { DocumentCategory } from '../../api/types'
 import { useDocuments, useSetDocumentProject, useUploadDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_LABELS } from '../../utils/labels'
-import { FileUpload } from '../common/FileUpload'
+import { FileUpload, type UploadMeta } from '../common/FileUpload'
 
 /**
  * Attachments live in the `documents` container, not inside the project document, so they're saved
@@ -23,9 +22,9 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
   const attached = (documents ?? []).filter((d) => d.projectId === projectId)
   const unattached = (documents ?? []).filter((d) => d.projectId === null)
 
-  function handleUpload(file: File, category: DocumentCategory, date: string) {
+  function handleUpload(file: File, meta: UploadMeta) {
     uploadDocument.mutate(
-      { file, category, date, projectId },
+      { file, ...meta, projectId },
       { onError: () => notifications.show({ color: 'red', message: 'Uppladdningen misslyckades. Försök igen.' }) },
     )
   }
@@ -61,7 +60,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
                   <Table.Tr key={doc.id}>
                     <Table.Td>
                       <Anchor onClick={() => documentsApi.download(doc.id, propertyId)} fw={500}>
-                        {doc.fileName}
+                        {doc.title ?? doc.fileName}
                       </Anchor>
                     </Table.Td>
                     <Table.Td>
@@ -94,7 +93,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
                   setDocumentProject.mutate({ id: value, projectId })
                 }
               }}
-              data={unattached.map((d) => ({ value: d.id, label: `${d.fileName} (${d.date})` }))}
+              data={unattached.map((d) => ({ value: d.id, label: `${d.title ?? d.fileName} (${d.date})` }))}
               leftSection={<IconPaperclip size={16} />}
               w={340}
             />

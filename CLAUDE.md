@@ -361,6 +361,11 @@ does *not* need this: every create/update has written it since the container exi
 carry no money — the sketch had cost-per-stage fields, which would have recreated exactly the
 two-sources-of-truth problem `ActualCost` avoids.
 
+**`Document.Title` is an optional human label; `FileName` is what's on disk.** Filenames like
+"scan_0042.pdf" say nothing, so the UI shows `title ?? fileName` everywhere and the documents page
+keeps the filename visible underneath. Blank titles are normalised to null on write so that fallback
+works. Titles are set at upload only — there's no edit-document UI yet.
+
 **Documents attach to projects by `Document.ProjectId`, saved immediately — not with the project
 form.** Documents live in their own container, so `components/projects/ProjectDocuments.tsx` uploads
 and attaches straight away rather than waiting for the surrounding form to be submitted; that's also

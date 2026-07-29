@@ -1,11 +1,11 @@
 import { Button, Center, Group, Loader, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { FileUpload } from '../common/FileUpload'
+import { FileUpload, type UploadMeta } from '../common/FileUpload'
 import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateProject } from '../../hooks/useProjects'
 import { usePropertyComponents } from '../../hooks/usePropertyComponents'
 import { useUploadDocument } from '../../hooks/useDocuments'
-import type { DocumentCategory, WorkType } from '../../api/types'
+import type { WorkType } from '../../api/types'
 import { WORK_TYPE_OPTIONS } from '../../utils/labels'
 
 export type QuickAddType = 'valuation' | 'project' | 'document'
@@ -168,8 +168,8 @@ function QuickAddDocumentForm({
 }) {
   const uploadDocument = useUploadDocument(propertyId)
 
-  function handleUpload(file: File, category: DocumentCategory, date: string) {
-    uploadDocument.mutate({ file, category, date }, { onSuccess: onDone })
+  function handleUpload(file: File, meta: UploadMeta) {
+    uploadDocument.mutate({ file, ...meta }, { onSuccess: onDone })
   }
 
   return <FileUpload onUpload={handleUpload} uploading={uploadDocument.isPending} defaultDate={defaultDate} />

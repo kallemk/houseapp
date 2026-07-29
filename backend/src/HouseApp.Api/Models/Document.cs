@@ -16,6 +16,13 @@ public class Document
     // placement — distinct from UploadedAt, which is when the file was actually uploaded.
     public DateOnly Date { get; set; }
 
+    /// <summary>
+    /// Human-readable label, because a filename like "scan_0042.pdf" says nothing. Optional and
+    /// nullable — documents uploaded before this existed have none, and the UI falls back to
+    /// FileName rather than showing a blank.
+    /// </summary>
+    public string? Title { get; set; }
+
     public required string FileName { get; set; }
     public required string ContentType { get; set; }
     public required string BlobPath { get; set; }

@@ -51,13 +51,15 @@ public class DocumentsControllerTests : IClassFixture<HouseAppWebApplicationFact
         HttpClient client,
         string propertyId,
         string? projectId = null,
-        string fileName = "kvitto.pdf") =>
+        string fileName = "kvitto.pdf",
+        string? title = null) =>
         client.PostAsJsonAsync(
             "/api/documents",
             new CreateDocumentRequest(
                 propertyId,
                 projectId,
                 new DateOnly(2026, 3, 1),
+                title,
                 fileName,
                 "application/pdf",
                 $"{propertyId}/{fileName}",
@@ -133,6 +135,24 @@ public class DocumentsControllerTests : IClassFixture<HouseAppWebApplicationFact
             new SetDocumentProjectRequest(null));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("   ", null)]
+    [InlineData("  Besiktningsprotokoll  ", "Besiktningsprotokoll")]
+    public async Task Create_NormalisesTheTitle(string? sent, string? expected)
+    {
+        // Blank is stored as null rather than an empty string, so the UI's `title ?? fileName`
+        // fallback works instead of rendering nothing.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        var created = await (await CreateDocumentAsync(client, property.Id, title: sent))
+            .Content.ReadFromJsonAsync<DocumentDto>();
+
+        Assert.Equal(expected, created!.Title);
     }
 
     [Fact]

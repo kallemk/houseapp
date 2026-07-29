@@ -60,6 +60,7 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
             PropertyId = request.PropertyId,
             ProjectId = request.ProjectId,
             Date = request.Date,
+            Title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim(),
             FileName = request.FileName,
             ContentType = request.ContentType,
             BlobPath = request.BlobPath,
@@ -105,5 +106,5 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     }
 
     private static DocumentDto ToDto(Document d) =>
-        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
+        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.Title, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
 }
