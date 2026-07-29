@@ -488,9 +488,25 @@ choices, don't "fix" these without re-reading why:
   defaults to `westeurope` independently of the `location` param used for everything else.
 - The Static Web App SKU is **Standard**, not Free (~$9/mo) — this is required, not a
   choice: `linkedBackends` (the `/api/*` proxy the whole cookie-auth design depends on) is
-  a Standard-tier-only feature and deployment fails with `SkuCode 'Free' is invalid` on
-  Free. Don't downgrade this SKU without also removing the linked backend and rethinking
-  auth (CORS + `SameSite=None` cookies).
+  a Standard-tier-only feature ([plans](https://learn.microsoft.com/en-us/azure/static-web-apps/plans)
+  lists Free as managed Functions only) and deployment fails with `SkuCode 'Free' is invalid`
+  on Free. **The error message is misleading, and the obvious search result is a red herring:**
+  that error is most commonly caused by a `SystemAssigned` identity on the Static Web App, which
+  Free doesn't support — `modules/staticWebApp.bicep` has no `identity` block at all, so that fix
+  doesn't apply here. It's the `linkedBackends` child resource. Nor can
+  `staticwebapp.config.json` stand in for the proxy: `rewrite` values
+  [must be relative to the app root](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration),
+  so there's no external-host proxying.
+
+  This was re-examined in July 2026 with the explicit goal of getting to Free, and the answer
+  was to stay on Standard. Free *does* support custom domains (2 per app), so the domain isn't
+  what forces the SKU. What was rejected, and why:
+
+  | Alternative | Cost | Why not |
+  |---|---|---|
+  | Serve the SPA from the App Service, delete the SWA | $0 | Loses `housetracker.odenbulten.se` — App Service **F1 can't have a custom domain** ("make sure that your App Service app isn't in the Free tier"), and B1 to regain one is ~$13/mo, more than the SWA costs |
+  | SWA Free + CORS + `SameSite=None` | $0 | Cookies become third-party; Safari blocks those by default, so sign-in would likely fail on iOS — the main way this app gets used |
+  | Free proxy in front (Cloudflare Worker etc.) routing `/api/*` | $0 | Keeps both the domain and same-origin, but adds a non-Azure moving part outside Bicep |
 - Storage CORS allows `*` for origins deliberately (see comment in
   `modules/storage.bicep`): security for direct browser-to-blob SAS uploads comes from the
   SAS signature/expiry, not origin restriction, since wiring the Static Web App's hostname
