@@ -48,6 +48,9 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-08-15
   }
 }
 
+// renovationEntries/renovationTypes are superseded by projects/propertyComponents but deliberately
+// kept: the migration copies rather than moves, so they are the rollback path if the project model
+// misbehaves in production. Removing them is a separate decision, once the new model has settled.
 var containerDefinitions = [
   { name: 'users', partitionKeyPath: '/id' }
   { name: 'properties', partitionKeyPath: '/id' }
@@ -55,6 +58,8 @@ var containerDefinitions = [
   { name: 'renovationEntries', partitionKeyPath: '/propertyId' }
   { name: 'documents', partitionKeyPath: '/propertyId' }
   { name: 'renovationTypes', partitionKeyPath: '/id' }
+  { name: 'projects', partitionKeyPath: '/propertyId' }
+  { name: 'propertyComponents', partitionKeyPath: '/id' }
 ]
 
 resource containers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-08-15' = [
