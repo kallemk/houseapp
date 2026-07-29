@@ -60,7 +60,12 @@ var containerDefinitions = [
   { name: 'renovationTypes', partitionKeyPath: '/id' }
   { name: 'projects', partitionKeyPath: '/propertyId' }
   { name: 'propertyComponents', partitionKeyPath: '/id' }
+  { name: 'budgets', partitionKeyPath: '/propertyId' }
 ]
+
+// No container for the maintenance schedule on purpose: it is derived from propertyComponents'
+// recommended intervals plus the newest completed maintenance project per component, so storing it
+// would only create a copy that drifts. See MaintenanceScheduleController.
 
 resource containers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-08-15' = [
   for c in containerDefinitions: {
