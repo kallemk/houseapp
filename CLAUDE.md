@@ -109,9 +109,10 @@ the permanent recovery path if the admins are ever all lost. `UsersController.Up
 (409) to clear the caller's *own* admin flag, which is what keeps "at least one admin exists" true
 through the API: you can only demote someone else, and that requires still being one yourself.
 
-`GET /api/property-components` is deliberately **not** gated (only POST/PUT/DELETE are) — it feeds
-the component dropdown on the projects page and the dashboard quick-add modal, so gating it would stop
-regular users creating entries at all. `UsersController` is gated in full, listing included.
+`GET /api/property-components` is deliberately **not** gated (only POST/PUT/DELETE are) — it's the
+registry every property inherits from, and the components page shows it read-only to everyone.
+`PropertyLocalComponentsController` isn't admin-gated at all: a property's own component list is
+membership-scoped, not an admin concern. `UsersController` is gated in full, listing included.
 
 Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
 token from Google Identity Services and posts it to the API, which verifies it via
@@ -334,12 +335,9 @@ A `Project` is a piece of work on the house — planned, ongoing or finished. It
 - **`WorkType`** (`Maintenance` / `Renovation` / `Investment`) — a hardcoded enum. This is what
   `DashboardPage` splits its totals on; before it existed, "Totalt investerat" summed every entry
   including routine upkeep and furniture.
-- **`ComponentId`** → `PropertyComponent` — *which part of the house*. Admin-managed data in its own
-  `propertyComponents` container (Tak, Fasad, VVS, …), deliberately not an enum so the list is
-  editable in-app. `PropertyComponentsController` mirrors the old renovation-types shape exactly:
-  `GET` open to every signed-in user (it feeds the dropdown when creating a project — gating it
-  would stop regular users logging work at all), mutations admin-only, and `Delete` refusing (409)
-  to remove a component any project still references.
+- **`ComponentId`** → a component — *which part of the house*. Admin-managed data (Tak, Fasad, VVS, …),
+  deliberately not an enum so the list is editable in-app, and since split into a central registry
+  plus a per-property copy — see below.
 
 **Costs and contractor are EF owned types, stored as nested JSON inside the project document** —
 `OwnsOne(p => p.Contractor)` / `OwnsMany(p => p.Costs)` in `AppDbContext`. They are never read
@@ -355,14 +353,67 @@ the Cosmos provider doesn't do anyway). Consequences worth knowing:
 configuration). One source of truth; a stored total would drift from the rows. The UI shows the
 estimate until there's at least one cost row.
 
+### Components: a central registry each property can diverge from
+
+Components exist at two levels, because a component list that's right for one house is wrong for the
+next — a flat has no roof, and one household's roof interval isn't another's.
+
+- **The central registry** — `PropertyComponent`, the `propertyComponents` container, managed by
+  admins on the Administration page. `PropertyComponentsController` mirrors the old renovation-types
+  shape: `GET` open to every signed-in user, mutations admin-only, `Delete` refusing (409) to remove
+  a component any project references.
+- **A property's own list** — `Property.LocalComponents`, an `OwnsMany` collection nested in the
+  property document (no container of its own: it's never read without the property and holds a dozen
+  rows). Managed by any member on `/properties/:id/components` via
+  `PropertyLocalComponentsController`. **Not admin-gated** — it affects one property and only the
+  people already in it, so the check is the ordinary `CanAccessPropertyAsync`. Admin rights govern
+  the shared registry, not what someone does inside their own house.
+
+Four things about this are load-bearing:
+
+**`Property.ComponentsCustomized` is what makes it safe, and it must not be replaced by inferring the
+same thing from an empty list.** False = the property follows the central registry and its effective
+list *is* whatever `propertyComponents` currently holds (nothing is stored, so it keeps picking up
+central edits and additions for free). True = only `LocalComponents` counts. Deleting every local
+component is a legitimate thing to do, and reading `LocalComponents is null or []` as "not
+customized" would restore the central set on the next page load — the same "can't distinguish 'never
+ran' from 'deliberately emptied'" mistake that made `ProjectMigrator` resurrect deleted projects. A
+plain non-nullable bool, so properties predating the field read as false, which is exactly how they
+behaved before.
+
+**A local copy keeps the central component's `Id` rather than getting a fresh one.** That is what
+makes the whole feature free of migration: `Project.ComponentId` already holds central ids, and every
+one keeps resolving once a property takes its own set. It also means "does central still have this
+id?" is the complete answer to where a row came from, so `ComponentOrigin`
+(`Central`/`Modified`/`Local`) is computed on read by comparing to the live central values — no
+snapshot to go stale. A component invented locally gets a fresh Guid, which can't collide.
+
+**`Data/PropertyComponentSet.cs` is the only place that branches on the flag.** Everything else —
+`MaintenanceScheduleController`, the project component dropdown, the property's component page —
+calls `GetEffectiveComponentsAsync(property)` and can't tell the two cases apart. `EnsureCustomizedAsync`
+materialises the *whole* central set before any local edit, so changing one interval doesn't silently
+drop every other component.
+
+**Sync (`POST .../components/sync`) overwrites both-sides rows from central and adds central
+components the property lacks, leaving `Local` rows alone** — they're either the property's own
+additions or ones central has dropped, and both may have projects logged against them. It's a no-op
+on an uncustomized property: it already *is* the central list, and materialising a copy would only
+stop it tracking future central changes, so the UI hides the button until there's a local list.
+
+Deleting a local component is refused (409) if one of **that property's** projects uses it; another
+household's projects are none of its business. There is no per-property "postpone this activity"
+— lengthening or clearing the interval locally is how that's expressed today (a cleared interval
+makes the component `NotScheduled`).
+
 ### Derived data: the maintenance schedule and budget actuals
 
 Two features deliberately store less than they display, for the same reason `Project.ActualCost`
 isn't stored — a second copy of something is a copy that goes stale.
 
 **The maintenance schedule has no container at all.** `MaintenanceScheduleController` computes
-`GET /api/properties/{id}/maintenance-schedule` from `PropertyComponent.RecommendedIntervalMonths`
-plus the newest **completed Maintenance** project for each component. Every field the original
+`GET /api/properties/{id}/maintenance-schedule` from the **property's effective components'**
+`RecommendedIntervalMonths` (via `GetEffectiveComponentsAsync`, so a locally adjusted interval wins
+over the central one) plus the newest **completed Maintenance** project for each component. Every field the original
 sketch wanted to store (`LastCompletedDate`, `NextDueDate`, `IsCompleted`) is derivable, so storing
 them would mean editing a project's date silently left the schedule wrong. Rules worth keeping:
 - No interval on the component → `NotScheduled`.
@@ -480,7 +531,8 @@ parallel* — push the Bicep change and let `infra-deploy` finish first.
 ### Frontend property routing
 
 Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents}`,
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents,components}`
+(`components` is that property's **own** list — the central registry is under `/admin`),
 plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode)
 and `/properties/:propertyId/admin/{components,users}` (see below).
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
@@ -515,9 +567,9 @@ than saying why. `useUsers(enabled)` takes a flag purely so the users page doesn
 knows will 403. **New management pages belong here as another tab**, and each one decides its own
 non-admin behaviour — the API is still the real gate either way.
 
-"Hantera komponenter" links there from the **maintenance** page, not the projects page: the schedule
-is computed directly from the components' recommended intervals, so that's where wanting to change
-one actually arises.
+"Hantera komponenter" on the **maintenance** page (not the projects page) points at the property's
+own component list, not the central registry: the schedule is computed directly from that list's
+intervals, so that's both where wanting to change one arises and the list that would change.
 
 ### UI language
 

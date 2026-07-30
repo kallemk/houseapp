@@ -52,5 +52,29 @@ public class Property
     /// </summary>
     public bool IsDemo { get; set; }
 
+    /// <summary>
+    /// False = this property follows the central component registry; its effective component list is
+    /// whatever PropertyComponents currently holds, and LocalComponents is not consulted. True = it
+    /// has its own list, and only LocalComponents counts.
+    ///
+    /// This flag is the whole reason the feature is safe, and it must not be replaced by inferring
+    /// the same thing from `LocalComponents is null or []`. Deleting every local component is a
+    /// legitimate thing to do, and inferring "not customized" from an empty list would silently
+    /// restore the central set on the next read — the same "can't tell 'never ran' from 'deliberately
+    /// emptied'" mistake that made ProjectMigrator resurrect deleted projects.
+    ///
+    /// A plain non-nullable bool on purpose: properties that predate the field have no such JSON
+    /// property, which reads as false, and "follows central" is exactly how they behaved before.
+    /// </summary>
+    public bool ComponentsCustomized { get; set; }
+
+    /// <summary>
+    /// This property's own component list, materialised from the central registry the first time
+    /// anything here is edited. Nullable rather than "= []" for the usual reason (properties written
+    /// before the field existed have no such JSON property) — read it as <c>?? []</c>, and only ever
+    /// when <see cref="ComponentsCustomized"/> is true.
+    /// </summary>
+    public List<PropertyLocalComponent>? LocalComponents { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -5,6 +5,7 @@ using HouseApp.Api.Dtos.Auth;
 using HouseApp.Api.Dtos.Budgets;
 using HouseApp.Api.Dtos.Documents;
 using HouseApp.Api.Dtos.Properties;
+using HouseApp.Api.Dtos.PropertyComponents;
 using HouseApp.Api.Dtos.Valuations;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Identity;
@@ -83,6 +84,10 @@ public class PropertyAccessTests : IClassFixture<HouseAppWebApplicationFactory>
             ("PUT budget", await client.PutAsJsonAsync($"/api/properties/{propertyId}/budgets/2026",
                 new SaveBudgetRequest(2026, 1m, 1m, 1m))),
             ("GET maintenance-schedule", await client.GetAsync($"/api/properties/{propertyId}/maintenance-schedule")),
+            ("GET components", await client.GetAsync($"/api/properties/{propertyId}/components")),
+            ("POST components", await client.PostAsJsonAsync($"/api/properties/{propertyId}/components",
+                new SavePropertyLocalComponentRequest("Smyginlagd komponent", 12))),
+            ("POST components sync", await client.PostAsync($"/api/properties/{propertyId}/components/sync", null)),
             ("GET property", await client.GetAsync($"/api/properties/{propertyId}")),
         };
 

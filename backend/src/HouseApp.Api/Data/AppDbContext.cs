@@ -35,6 +35,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.ToContainer("properties");
             b.HasPartitionKey(p => p.Id);
             b.HasNoDiscriminator();
+            // Nested JSON on the property document rather than a container of its own: a property's
+            // components are never read without the property, and there are only ever a handful.
+            b.OwnsMany(p => p.LocalComponents);
         });
 
         modelBuilder.Entity<ValuationEntry>(b =>

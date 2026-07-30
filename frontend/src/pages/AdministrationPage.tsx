@@ -3,7 +3,8 @@ import { IconAdjustments, IconSettings, IconUsers } from '@tabler/icons-react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 const TABS = [
-  { value: 'components', label: 'Komponenter', icon: IconAdjustments },
+  // "Centrala" distinguishes it from each property's own list at /properties/:id/components.
+  { value: 'components', label: 'Centrala komponenter', icon: IconAdjustments },
   { value: 'users', label: 'Användare', icon: IconUsers },
 ]
 

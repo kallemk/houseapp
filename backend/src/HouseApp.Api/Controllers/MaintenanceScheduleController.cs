@@ -50,7 +50,10 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
-        var components = await db.PropertyComponents.ToListAsync();
+        // The property's own component list, which is the central registry until it's been
+        // customised — see PropertyComponentSet. Intervals are exactly the thing a household is
+        // likely to disagree with central about, so the schedule has to read theirs.
+        var components = await db.GetEffectiveComponentsAsync(property);
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
 
         var items = components
@@ -66,7 +69,7 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
     }
 
     private static MaintenanceScheduleItemDto Build(
-        PropertyComponent component,
+        PropertyLocalComponent component,
         List<Project> projects,
         int? yearBuilt,
         DateOnly today)

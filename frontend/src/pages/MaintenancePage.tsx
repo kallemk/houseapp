@@ -58,9 +58,9 @@ export function MaintenancePage() {
           </ThemeIcon>
           <Title order={2}>Underhållsplan</Title>
         </Group>
-        {/* The schedule is computed straight from the components' intervals, so this is where
-            wanting to change one actually comes up. */}
-        <Anchor component={Link} to={`/properties/${propertyId}/admin/components`} size="sm">
+        {/* The schedule is computed straight from this property's own component intervals, so this
+            is where wanting to change one actually comes up. */}
+        <Anchor component={Link} to={`/properties/${propertyId}/components`} size="sm">
           <Group gap={4}>
             <IconSettings size={14} />
             Hantera komponenter

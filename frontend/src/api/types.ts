@@ -57,6 +57,27 @@ export interface PropertyComponentDto {
   recommendedIntervalMonths: number | null
 }
 
+/** How a property's component compares to the central registry — computed on read, never stored. */
+export type ComponentOrigin = 'Central' | 'Modified' | 'Local'
+
+export interface PropertyLocalComponentDto {
+  id: string
+  name: string
+  recommendedIntervalMonths: number | null
+  origin: ComponentOrigin
+  /** What central says, so a Modified row can show what it differs from. Null unless Modified. */
+  centralName: string | null
+  centralIntervalMonths: number | null
+}
+
+export interface PropertyComponentSetDto {
+  /** False while the property still follows the central registry. */
+  customized: boolean
+  components: PropertyLocalComponentDto[]
+  /** Central components this property doesn't have, which a sync would add. */
+  availableFromCentralCount: number
+}
+
 export interface ValuationEntryDto {
   id: string
   propertyId: string

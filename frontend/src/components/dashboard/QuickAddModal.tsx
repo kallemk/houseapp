@@ -3,7 +3,7 @@ import { useForm } from '@mantine/form'
 import { FileUpload, type UploadMeta } from '../common/FileUpload'
 import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateProject } from '../../hooks/useProjects'
-import { usePropertyComponents } from '../../hooks/usePropertyComponents'
+import { usePropertyComponentList } from '../../hooks/usePropertyComponents'
 import { useUploadDocument } from '../../hooks/useDocuments'
 import type { WorkType } from '../../api/types'
 import { WORK_TYPE_OPTIONS } from '../../utils/labels'
@@ -77,7 +77,7 @@ function QuickAddProjectForm({
   onDone: () => void
 }) {
   const createProject = useCreateProject(propertyId)
-  const { data: components, isLoading: loadingComponents } = usePropertyComponents()
+  const { data: components, isLoading: loadingComponents } = usePropertyComponentList(propertyId)
   const form = useForm({
     initialValues: {
       date: defaultDate,

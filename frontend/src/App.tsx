@@ -15,6 +15,7 @@ import { MaintenancePage } from './pages/MaintenancePage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { PropertyComponentsPage } from './pages/PropertyComponentsPage'
+import { PropertyLocalComponentsPage } from './pages/PropertyLocalComponentsPage'
 import { PropertyPickerPage } from './pages/PropertyPickerPage'
 import { UsersPage } from './pages/UsersPage'
 import { ValuationsPage } from './pages/ValuationsPage'
@@ -50,6 +51,9 @@ export default function App() {
                   <Route path="projects/:projectId" element={<ProjectDetailPage />} />
                   <Route path="maintenance" element={<MaintenancePage />} />
                   <Route path="budget" element={<BudgetPage />} />
+                  {/* This property's own component list, not the central registry — that one lives
+                      under /admin and is admin-only to change. */}
+                  <Route path="components" element={<PropertyLocalComponentsPage />} />
                   <Route path="documents" element={<DocumentsPage />} />
                   {/* Open to everyone — each page under it decides what a non-admin may do. */}
                   <Route path="admin" element={<AdministrationPage />}>

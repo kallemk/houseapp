@@ -30,7 +30,7 @@ import type { CostType, ProjectDto, ProjectPriority, ProjectStatus, WorkType } f
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { ProjectDocuments } from '../components/projects/ProjectDocuments'
 import { useCreateProject, useDeleteProject, useProject, useUpdateProject } from '../hooks/useProjects'
-import { usePropertyComponents } from '../hooks/usePropertyComponents'
+import { usePropertyComponentList } from '../hooks/usePropertyComponents'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import {
@@ -233,7 +233,7 @@ export function ProjectDetailPage() {
   const isNew = projectId === 'new'
 
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
-  const { data: components, isLoading: loadingComponents } = usePropertyComponents()
+  const { data: components, isLoading: loadingComponents } = usePropertyComponentList(propertyId ?? '')
   const { data: project, isLoading: loadingProject } = useProject(propertyId ?? '', isNew ? '' : (projectId ?? ''))
   const createProject = useCreateProject(propertyId ?? '')
   const updateProject = useUpdateProject(propertyId ?? '', projectId ?? '')

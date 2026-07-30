@@ -151,8 +151,8 @@ export function PropertyComponentsPage() {
     <Stack>
       <Text c="dimmed" size="sm">
         {isAdmin
-          ? 'Hantera vilka delar av bostaden som projekt kan höra till, och hur ofta de brukar behöva ses över.'
-          : 'Vilka delar av bostaden som projekt kan höra till, och hur ofta de brukar behöva ses över. Endast administratörer kan ändra dem.'}
+          ? 'Utgångsläget som alla bostäder ärver. Varje bostad kan sedan ändra sin egen lista — ändringar här slår inte igenom på en bostad som redan anpassat sina komponenter förrän någon hämtar från registret där.'
+          : 'Utgångsläget som alla bostäder ärver, och som varje bostad sedan kan anpassa själv. Endast administratörer kan ändra registret.'}
       </Text>
 
       {isAdmin && (

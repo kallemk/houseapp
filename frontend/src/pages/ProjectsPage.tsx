@@ -21,7 +21,7 @@ import { EmptyState } from '../components/common/EmptyState'
 import { SortableTh } from '../components/common/SortableTh'
 import { useTableSort } from '../hooks/useTableSort'
 import { useProjects } from '../hooks/useProjects'
-import { usePropertyComponents } from '../hooks/usePropertyComponents'
+import { usePropertyComponentList } from '../hooks/usePropertyComponents'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import {
@@ -40,7 +40,7 @@ export function ProjectsPage() {
   const navigate = useNavigate()
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: projects, isLoading } = useProjects(propertyId ?? '')
-  const { data: components, isLoading: loadingComponents } = usePropertyComponents()
+  const { data: components, isLoading: loadingComponents } = usePropertyComponentList(propertyId ?? '')
   const [workType, setWorkType] = useState<string>(ALL)
   const [status, setStatus] = useState<string>(ALL)
   const [componentId, setComponentId] = useState<string>(ALL)
