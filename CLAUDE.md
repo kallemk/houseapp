@@ -393,7 +393,9 @@ map is rendered.
 **The dashboard timeline groups by year and expands to quarters on click.** A house owned for 20
 years is 80 quarter rows, nearly all empty. `utils/quarters.ts` keeps both groupings; the year is
 the default and the quarter view is opt-in per year. Both levels carry the same quick-add menu, just
-seeding a different default date.
+seeding a different default date. It shows **valuations and projects only** — documents were dropped
+because they crowded out the two things worth seeing, and the quick-add went with them so nothing
+can be added there that then leaves no trace. Every row is dated and links somewhere.
 
 ### The renovation → project migration (done, and removed — don't re-add it)
 

@@ -1,16 +1,8 @@
 import { ActionIcon, Anchor, Badge, Group, Menu, Stack, Text, Timeline, ThemeIcon, UnstyledButton } from '@mantine/core'
-import {
-  IconChartLine,
-  IconChevronDown,
-  IconChevronRight,
-  IconFiles,
-  IconHammer,
-  IconPlus,
-} from '@tabler/icons-react'
+import { IconChartLine, IconChevronDown, IconChevronRight, IconHammer, IconPlus } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { documentsApi } from '../../api/documents'
-import type { DocumentDto, ProjectDto, ValuationEntryDto } from '../../api/types'
+import type { ProjectDto, ValuationEntryDto } from '../../api/types'
 import {
   currentYear,
   defaultDateForQuarter,
@@ -30,10 +22,7 @@ interface TimelineEvent {
   icon: typeof IconChartLine
   color: string
   label: string
-  /** Navigate somewhere. Mutually exclusive with onClick. */
-  to?: string
-  /** Do something instead of navigating — documents download, matching the documents page. */
-  onClick?: () => void
+  to: string
 }
 
 interface PropertyTimelineProps {
@@ -41,7 +30,6 @@ interface PropertyTimelineProps {
   purchaseDate: string
   valuations: ValuationEntryDto[]
   projects: ProjectDto[]
-  documents: DocumentDto[]
   onQuickAdd: (request: QuickAddRequest) => void
 }
 
@@ -62,21 +50,17 @@ function EventList({ events }: { events: TimelineEvent[] }) {
   return (
     <Stack gap={4}>
       {events.map((event) => (
-        <Group key={event.id} gap="xs" wrap="nowrap">
+        <Group key={event.id} gap="xs" wrap="nowrap" align="baseline">
           <ThemeIcon size={20} radius="xl" variant="light" color={event.color}>
             <event.icon size={12} />
           </ThemeIcon>
-          {event.to && (
-            <Anchor component={Link} to={event.to} size="sm">
-              {event.label}
-            </Anchor>
-          )}
-          {event.onClick && (
-            <Anchor size="sm" onClick={event.onClick}>
-              {event.label}
-            </Anchor>
-          )}
-          {!event.to && !event.onClick && <Text size="sm">{event.label}</Text>}
+          {/* Fixed width so the labels line up into a column rather than ragging. */}
+          <Text size="xs" c="dimmed" ff="monospace" w={82} style={{ flexShrink: 0 }}>
+            {event.date}
+          </Text>
+          <Anchor component={Link} to={event.to} size="sm">
+            {event.label}
+          </Anchor>
         </Group>
       ))}
     </Stack>
@@ -102,9 +86,6 @@ function QuickAddMenu({ defaultDate, onQuickAdd }: { defaultDate: string; onQuic
         <Menu.Item leftSection={<IconHammer size={14} />} onClick={() => onQuickAdd({ type: 'project', defaultDate })}>
           Lägg till projekt
         </Menu.Item>
-        <Menu.Item leftSection={<IconFiles size={14} />} onClick={() => onQuickAdd({ type: 'document', defaultDate })}>
-          Lägg till dokument
-        </Menu.Item>
       </Menu.Dropdown>
     </Menu>
   )
@@ -115,7 +96,6 @@ export function PropertyTimeline({
   purchaseDate,
   valuations,
   projects,
-  documents,
   onQuickAdd,
 }: PropertyTimelineProps) {
   // Years default to collapsed: a house owned for 20 years is 80 quarter rows, nearly all empty.
@@ -159,16 +139,6 @@ export function PropertyTimeline({
         },
       ]
     }),
-    ...documents.map((d) => ({
-      id: `document-${d.id}`,
-      date: d.date,
-      icon: IconFiles,
-      color: 'grape',
-      label: d.title ?? d.fileName,
-      // Downloads rather than navigates, so clicking a document name means the same thing here as
-      // it does on the documents page.
-      onClick: () => documentsApi.download(d.id, propertyId),
-    })),
   ]
 
   const byQuarter = new Map<string, TimelineEvent[]>()

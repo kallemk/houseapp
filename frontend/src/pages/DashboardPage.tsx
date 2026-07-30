@@ -15,7 +15,6 @@ import type { WorkType } from '../api/types'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useValuations } from '../hooks/useValuations'
 import { useProjects } from '../hooks/useProjects'
-import { useDocuments } from '../hooks/useDocuments'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
 import { formatAddress } from '../utils/address'
 import {
@@ -96,7 +95,6 @@ export function DashboardPage() {
   const { property, isLoading, notFound } = useSelectedProperty(propertyId)
   const { data: valuations } = useValuations(propertyId ?? '')
   const { data: projects } = useProjects(propertyId ?? '')
-  const { data: documents } = useDocuments(propertyId ?? '')
   const { data: schedule } = useMaintenanceSchedule(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
 
@@ -247,7 +245,6 @@ export function DashboardPage() {
           purchaseDate={property.purchaseDate}
           valuations={valuations ?? []}
           projects={projects ?? []}
-          documents={documents ?? []}
           onQuickAdd={setQuickAddRequest}
         />
       </Card>
