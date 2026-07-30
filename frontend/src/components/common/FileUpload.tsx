@@ -47,13 +47,19 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
         allowDeselect={false}
         w={160}
       />
-      {/* Filenames are often meaningless ("scan_0042.pdf"), so this is what gets shown instead. */}
+      {/* Filenames are often meaningless ("scan_0042.pdf"), so this is what gets shown instead.
+          `withAsterisk` rather than `required`: this widget renders inside the project form on the
+          project page, and a native `required` there made the browser block *saving the project*
+          over an empty document title. The asterisk keeps the cue; the disabled button below is what
+          actually enforces it, at the only moment it matters. For the same reason Enter mustn't
+          bubble — it would submit the surrounding form instead of doing nothing. */}
       <TextInput
         label="Titel"
         placeholder="t.ex. Besiktningsprotokoll"
-        required
+        withAsterisk
         value={title}
         onChange={(e) => setTitle(e.currentTarget.value)}
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
         w={240}
       />
       {/* Disabled rather than validated after the fact: the file picker opens on click, so there's
