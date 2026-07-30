@@ -205,6 +205,12 @@ is configured (`ConnectionStrings:Cosmos` / `ConnectionStrings:Storage`, set onl
 app settings wired from Bicep outputs). When touching auth/storage wiring, preserve both
 branches — don't assume a connection string always exists.
 
+**Storing documents in Google Drive instead of Blob has been designed but not built** — see
+`docs/google-drive-integration.md`. It's parked, and that document records why the obvious shapes
+don't work (a folder URL grants no API access; service accounts have no Drive storage quota) so the
+research doesn't get repeated. Two statements below would change if it's ever picked up: documents
+would pass through the API, and the app would gain its first client secret.
+
 Documents/photos never pass through the API: `DocumentsController.GetUploadUrl` /
 `GetDownloadUrl` issue short-lived SAS URLs (`Services/BlobStorageService.cs`), and the
 browser PUTs/GETs directly to Blob Storage. `BlobStorageService` transparently supports
