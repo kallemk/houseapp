@@ -1,4 +1,5 @@
 import {
+  Accordion,
   ActionIcon,
   Button,
   Card,
@@ -16,13 +17,12 @@ import {
   Text,
   Textarea,
   TextInput,
-  Tooltip,
   ThemeIcon,
   Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconArrowLeft, IconHammer, IconInfoCircle, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconArrowLeft, IconHammer, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { SaveProjectInput } from '../api/projects'
@@ -45,6 +45,12 @@ interface CostFormValues {
   description: string
   amount: number | string
   dateIncurred: string
+  /**
+   * No longer shown. Nothing reads it — BudgetsController sums every cost regardless — so a column
+   * asking "was this budgeted?" only raised a question the app doesn't answer. Still carried through
+   * the form so existing rows keep the value they were saved with, which also makes bringing the
+   * column back a UI change rather than a data one.
+   */
   isBudgeted: boolean
 }
 
@@ -416,18 +422,6 @@ export function ProjectDetailPage() {
                         <Table.Th>Beskrivning</Table.Th>
                         <Table.Th w={140}>Belopp (kr)</Table.Th>
                         <Table.Th w={160}>Datum</Table.Th>
-                        <Table.Th w={120}>
-                        <Group gap={4} wrap="nowrap">
-                          Budgeterad
-                          <Tooltip
-                            multiline
-                            w={260}
-                            label="Kryssa i om kostnaden var planerad i årets budget. Just nu är det bara en notering — budgetsidan räknar med alla kostnader oavsett."
-                          >
-                            <IconInfoCircle size={14} style={{ opacity: 0.6 }} />
-                          </Tooltip>
-                        </Group>
-                      </Table.Th>
                         <Table.Th w={50} />
                       </Table.Tr>
                     </Table.Thead>
@@ -450,11 +444,6 @@ export function ProjectDetailPage() {
                           </Table.Td>
                           <Table.Td>
                             <TextInput type="date" {...form.getInputProps(`costs.${index}.dateIncurred`)} />
-                          </Table.Td>
-                          <Table.Td>
-                            <Checkbox
-                              {...form.getInputProps(`costs.${index}.isBudgeted`, { type: 'checkbox' })}
-                            />
                           </Table.Td>
                           <Table.Td>
                             <ActionIcon
@@ -497,8 +486,23 @@ export function ProjectDetailPage() {
           {/* Only once the project exists — attachments are saved against its id, not with the form. */}
           {!isNew && projectId && <ProjectDocuments propertyId={propertyId ?? ''} projectId={projectId} />}
 
-          <Card withBorder padding="lg">
-            <Stack>
+          {/* Collapsed by default: most projects never need milestones, a contractor record or
+              impact estimates, and three always-open cards pushed the save button off the screen. */}
+          <Accordion variant="separated" chevronPosition="left" styles={{ item: { border: 0 } }}>
+            <Accordion.Item value="other">
+              <Card withBorder padding={0}>
+                <Accordion.Control>
+                  <Text fw={600} size="sm">
+                    Övrigt
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Milstolpar, entreprenör och påverkan
+                  </Text>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="xl" pb="md">
+
+          <Stack>
               <Title order={5}>Milstolpar</Title>
               <Text size="xs" c="dimmed">
                 Endast tidsplan — kostnader hör hemma bland kostnadsposterna ovan.
@@ -555,10 +559,10 @@ export function ProjectDetailPage() {
                 </Button>
               </Group>
             </Stack>
-          </Card>
 
-          <Card withBorder padding="lg">
-            <Stack>
+          <Divider />
+
+          <Stack>
               <Group justify="space-between">
                 <Title order={5}>Entreprenör</Title>
                 <Switch
@@ -592,10 +596,10 @@ export function ProjectDetailPage() {
                 </Grid>
               )}
             </Stack>
-          </Card>
 
-          <Card withBorder padding="lg">
-            <Stack>
+          <Divider />
+
+          <Stack>
               <Title order={5}>Påverkan</Title>
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 4 }}>
@@ -619,17 +623,22 @@ export function ProjectDetailPage() {
               </Grid>
               <Textarea label="Anteckningar" autosize minRows={2} {...form.getInputProps('notes')} />
             </Stack>
-          </Card>
 
-          <Group justify="space-between">
-            <Button type="submit" loading={saving}>
-              {isNew ? 'Skapa projekt' : 'Spara'}
-            </Button>
+                  </Stack>
+                </Accordion.Panel>
+              </Card>
+            </Accordion.Item>
+          </Accordion>
+
+          <Group justify="flex-end">
             {!isNew && (
               <Button color="red" variant="light" onClick={() => setConfirmingDelete(true)}>
                 Ta bort projekt
               </Button>
             )}
+            <Button type="submit" loading={saving}>
+              {isNew ? 'Skapa projekt' : 'Spara'}
+            </Button>
           </Group>
         </Stack>
       </form>
