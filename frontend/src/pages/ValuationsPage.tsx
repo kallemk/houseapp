@@ -20,6 +20,8 @@ import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import type { ValuationEntryDto } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import {
@@ -82,6 +84,13 @@ export function ValuationsPage() {
   const deleteValuation = useDeleteValuation(propertyId ?? '')
   const [editing, setEditing] = useState<ValuationEntryDto | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const { sorted, sortProps } = useTableSort(valuations ?? [], {
+    date: (v) => v.date,
+    value: (v) => v.value,
+    source: (v) => v.source,
+    notes: (v) => v.notes,
+  })
 
   if (loadingProperty || isLoading) {
     return (
@@ -146,15 +155,15 @@ export function ValuationsPage() {
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Datum</Table.Th>
-                  <Table.Th>Värde</Table.Th>
-                  <Table.Th>Källa</Table.Th>
-                  <Table.Th>Anteckning</Table.Th>
+                  <SortableTh {...sortProps('date')}>Datum</SortableTh>
+                  <SortableTh {...sortProps('value')}>Värde</SortableTh>
+                  <SortableTh {...sortProps('source')}>Källa</SortableTh>
+                  <SortableTh {...sortProps('notes')}>Anteckning</SortableTh>
                   <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {valuations.map((v) => (
+                {sorted.map((v) => (
                   <Table.Tr key={v.id}>
                     <Table.Td>{v.date}</Table.Td>
                     <Table.Td fw={600}>{formatCurrency(v.value)}</Table.Td>

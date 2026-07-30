@@ -23,6 +23,8 @@ import { ApiError } from '../api/client'
 import type { PropertyComponentDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import {
   useCreatePropertyComponent,
   useDeletePropertyComponent,
@@ -102,6 +104,11 @@ export function PropertyComponentsPage() {
   const deleteComponent = useDeletePropertyComponent()
   const [editing, setEditing] = useState<PropertyComponentDto | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const { sorted, sortProps } = useTableSort(components ?? [], {
+    name: (c) => c.name,
+    // Sort by the number of months, not the rendered "Vart 8:e år" string.
+    interval: (c) => c.recommendedIntervalMonths,
+  })
 
   function toRequest(values: ComponentFormValues) {
     return {
@@ -167,13 +174,13 @@ export function PropertyComponentsPage() {
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Namn</Table.Th>
-                <Table.Th>Rekommenderat intervall</Table.Th>
+                <SortableTh {...sortProps('name')}>Namn</SortableTh>
+                <SortableTh {...sortProps('interval')}>Rekommenderat intervall</SortableTh>
                 {isAdmin && <Table.Th />}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {components?.map((component) => (
+              {sorted.map((component) => (
                 <Table.Tr key={component.id}>
                   <Table.Td>{component.name}</Table.Td>
                   <Table.Td c="dimmed">{formatInterval(component.recommendedIntervalMonths)}</Table.Td>

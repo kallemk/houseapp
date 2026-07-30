@@ -19,6 +19,8 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { ProjectDto, ProjectStatus, WorkType } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import { useProjects } from '../hooks/useProjects'
 import { usePropertyComponents } from '../hooks/usePropertyComponents'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
@@ -46,18 +48,6 @@ export function ProjectsPage() {
   const [year, setYear] = useState<string>(ALL)
   const [search, setSearch] = useState('')
 
-  if (loadingProperty || isLoading || loadingComponents) {
-    return (
-      <Center py="xl">
-        <Loader />
-      </Center>
-    )
-  }
-
-  if (notFound || !property) {
-    return <Navigate to="/properties" replace />
-  }
-
   const componentsById = new Map((components ?? []).map((c) => [c.id, c]))
 
   // The same date the table shows and the list sorts by, so filtering by year can't disagree with
@@ -76,6 +66,28 @@ export function ProjectsPage() {
       (year === ALL || projectYear(p) === year) &&
       (trimmedSearch === '' || p.name.toLowerCase().includes(trimmedSearch)),
   )
+
+  const { sorted, sortProps } = useTableSort(filtered, {
+    name: (p) => p.name,
+    workType: (p) => WORK_TYPE_LABELS[p.workType],
+    component: (p) => componentsById.get(p.componentId)?.name,
+    status: (p) => PROJECT_STATUS_LABELS[p.status],
+    date: (p) => p.completedDate ?? p.plannedStartDate,
+    cost: (p) => (p.actualCost > 0 ? p.actualCost : p.estimatedCost),
+  })
+
+  if (loadingProperty || isLoading || loadingComponents) {
+    return (
+      <Center py="xl">
+        <Loader />
+      </Center>
+    )
+  }
+
+  if (notFound || !property) {
+    return <Navigate to="/properties" replace />
+  }
+
 
   return (
     <Stack>
@@ -168,16 +180,16 @@ export function ProjectsPage() {
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Namn</Table.Th>
-                  <Table.Th>Typ</Table.Th>
-                  <Table.Th>Komponent</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Datum</Table.Th>
-                  <Table.Th>Kostnad</Table.Th>
+                  <SortableTh {...sortProps('name')}>Namn</SortableTh>
+                  <SortableTh {...sortProps('workType')}>Typ</SortableTh>
+                  <SortableTh {...sortProps('component')}>Komponent</SortableTh>
+                  <SortableTh {...sortProps('status')}>Status</SortableTh>
+                  <SortableTh {...sortProps('date')}>Datum</SortableTh>
+                  <SortableTh {...sortProps('cost')}>Kostnad</SortableTh>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filtered.map((project) => (
+                {sorted.map((project) => (
                   <Table.Tr
                     key={project.id}
                     style={{ cursor: 'pointer' }}

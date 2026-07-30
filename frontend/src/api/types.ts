@@ -48,7 +48,7 @@ export interface PropertyMemberDto {
   displayName: string
 }
 
-export type DocumentCategory = 'Deed' | 'Warranty' | 'Receipt' | 'Photo' | 'Other'
+export type DocumentCategory = 'Deed' | 'Warranty' | 'Receipt' | 'Photo' | 'Other' | 'Invoice'
 
 /** A part of the house a project can concern — admin-managed data, not a fixed list. */
 export interface PropertyComponentDto {

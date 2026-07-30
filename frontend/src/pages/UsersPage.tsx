@@ -24,6 +24,8 @@ import { ApiError } from '../api/client'
 import type { UserDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../hooks/useUsers'
 
 interface CreateFormValues {
@@ -40,6 +42,12 @@ export function UsersPage() {
   const deleteUser = useDeleteUser()
   const [editing, setEditing] = useState<UserDto | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const { sorted, sortProps } = useTableSort(users ?? [], {
+    name: (u) => u.displayName,
+    email: (u) => u.email,
+    login: (u) => (u.hasPassword ? 'Lösenord + Google' : 'Endast Google'),
+    admin: (u) => (u.isAdmin ? 1 : 0),
+  })
 
   const createForm = useForm<CreateFormValues>({
     initialValues: { email: '', displayName: '', initialPassword: '' },
@@ -143,15 +151,15 @@ export function UsersPage() {
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Namn</Table.Th>
-                <Table.Th>E-post</Table.Th>
-                <Table.Th>Inloggning</Table.Th>
-                <Table.Th>Admin</Table.Th>
+                <SortableTh {...sortProps('name')}>Namn</SortableTh>
+                <SortableTh {...sortProps('email')}>E-post</SortableTh>
+                <SortableTh {...sortProps('login')}>Inloggning</SortableTh>
+                <SortableTh {...sortProps('admin')}>Admin</SortableTh>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {users?.map((user) => (
+              {sorted.map((user) => (
                 <Table.Tr key={user.id}>
                   <Table.Td>
                     {user.displayName}

@@ -3,6 +3,8 @@ import { IconDownload, IconFiles, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FileUpload, type UploadMeta } from '../components/common/FileUpload'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
@@ -16,6 +18,7 @@ const CATEGORY_COLORS: Record<DocumentCategory, string> = {
   Deed: 'terracotta',
   Warranty: 'blue',
   Receipt: 'green',
+  Invoice: 'orange',
   Photo: 'grape',
   Other: 'gray',
 }
@@ -35,6 +38,13 @@ export function DocumentsPage() {
   const { data: projects } = useProjects(propertyId ?? '')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const projectsById = new Map((projects ?? []).map((p) => [p.id, p]))
+  const { sorted, sortProps } = useTableSort(documents ?? [], {
+    name: (d) => d.title ?? d.fileName,
+    category: (d) => DOCUMENT_CATEGORY_LABELS[d.category],
+    project: (d) => (d.projectId ? projectsById.get(d.projectId)?.name : null),
+    size: (d) => d.sizeBytes,
+    date: (d) => d.date,
+  })
 
   if (loadingProperty || isLoading) {
     return (
@@ -73,16 +83,16 @@ export function DocumentsPage() {
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Namn</Table.Th>
-                  <Table.Th>Kategori</Table.Th>
-                  <Table.Th>Projekt</Table.Th>
-                  <Table.Th>Storlek</Table.Th>
-                  <Table.Th>Datum</Table.Th>
+                  <SortableTh {...sortProps('name')}>Namn</SortableTh>
+                  <SortableTh {...sortProps('category')}>Kategori</SortableTh>
+                  <SortableTh {...sortProps('project')}>Projekt</SortableTh>
+                  <SortableTh {...sortProps('size')}>Storlek</SortableTh>
+                  <SortableTh {...sortProps('date')}>Datum</SortableTh>
                   <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {documents.map((doc) => (
+                {sorted.map((doc) => (
                   <Table.Tr key={doc.id}>
                     <Table.Td>
                       <Anchor onClick={() => documentsApi.download(doc.id, property.id)} fw={500}>

@@ -3,6 +3,8 @@ import { IconCalendarClock } from '@tabler/icons-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { MaintenanceScheduleItemDto } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
+import { SortableTh } from '../components/common/SortableTh'
+import { useTableSort } from '../hooks/useTableSort'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatInterval, formatMonthsSpan } from '../utils/interval'
@@ -25,6 +27,15 @@ export function MaintenancePage() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: schedule, isLoading } = useMaintenanceSchedule(propertyId ?? '')
+  const { sorted, sortProps } = useTableSort(schedule ?? [], {
+    component: (i) => i.componentName,
+    // By the underlying urgency order, not the Swedish label — "Försenat" before "Ok" matters more
+    // than F before O.
+    status: (i) => ['NotScheduled', 'Unknown', 'Ok', 'DueSoon', 'Overdue'].indexOf(i.urgency),
+    interval: (i) => i.recommendedIntervalMonths,
+    last: (i) => i.lastCompletedDate,
+    next: (i) => i.nextDueDate,
+  })
 
   if (loadingProperty || isLoading) {
     return (
@@ -60,15 +71,15 @@ export function MaintenancePage() {
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Komponent</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Intervall</Table.Th>
-                  <Table.Th>Senast utfört</Table.Th>
-                  <Table.Th>Nästa gång</Table.Th>
+                  <SortableTh {...sortProps('component')}>Komponent</SortableTh>
+                  <SortableTh {...sortProps('status')}>Status</SortableTh>
+                  <SortableTh {...sortProps('interval')}>Intervall</SortableTh>
+                  <SortableTh {...sortProps('last')}>Senast utfört</SortableTh>
+                  <SortableTh {...sortProps('next')}>Nästa gång</SortableTh>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {schedule.map((item) => (
+                {sorted.map((item) => (
                   <Table.Tr key={item.componentId}>
                     <Table.Td>
                       {item.componentName}

@@ -11,8 +11,8 @@ function todayIsoDate() {
 export interface UploadMeta {
   category: DocumentCategory
   date: string
-  /** Null when left blank — the UI falls back to the filename. */
-  title: string | null
+  /** Required — the upload button stays disabled until it's filled in. */
+  title: string
 }
 
 interface FileUploadProps {
@@ -26,11 +26,13 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
   const [date, setDate] = useState(defaultDate ?? todayIsoDate())
   const [title, setTitle] = useState('')
 
+  const titled = title.trim().length > 0
+
   function handleFile(file: File | null) {
-    if (!file || !date) {
+    if (!file || !date || !titled) {
       return
     }
-    onUpload(file, { category, date, title: title.trim() || null })
+    onUpload(file, { category, date, title: title.trim() })
     setTitle('')
   }
 
@@ -48,14 +50,23 @@ export function FileUpload({ onUpload, uploading, defaultDate }: FileUploadProps
       {/* Filenames are often meaningless ("scan_0042.pdf"), so this is what gets shown instead. */}
       <TextInput
         label="Titel"
-        placeholder="valfritt, t.ex. Besiktningsprotokoll"
+        placeholder="t.ex. Besiktningsprotokoll"
+        required
         value={title}
         onChange={(e) => setTitle(e.currentTarget.value)}
         w={240}
       />
+      {/* Disabled rather than validated after the fact: the file picker opens on click, so there's
+          no natural moment to show an error before the upload would already be under way. */}
       <FileButton onChange={handleFile}>
         {(props) => (
-          <Button {...props} leftSection={<IconUpload size={16} />} loading={uploading}>
+          <Button
+            {...props}
+            leftSection={<IconUpload size={16} />}
+            loading={uploading}
+            disabled={!titled}
+            title={titled ? undefined : 'Fyll i en titel först'}
+          >
             Ladda upp fil
           </Button>
         )}

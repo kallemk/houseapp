@@ -52,7 +52,7 @@ public class DocumentsControllerTests : IClassFixture<HouseAppWebApplicationFact
         string propertyId,
         string? projectId = null,
         string fileName = "kvitto.pdf",
-        string? title = null) =>
+        string? title = "Ett kvitto") =>
         client.PostAsJsonAsync(
             "/api/documents",
             new CreateDocumentRequest(
@@ -138,21 +138,31 @@ public class DocumentsControllerTests : IClassFixture<HouseAppWebApplicationFact
     }
 
     [Theory]
-    [InlineData(null, null)]
-    [InlineData("", null)]
-    [InlineData("   ", null)]
-    [InlineData("  Besiktningsprotokoll  ", "Besiktningsprotokoll")]
-    public async Task Create_NormalisesTheTitle(string? sent, string? expected)
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Create_WithoutATitle_IsRejected(string? title)
     {
-        // Blank is stored as null rather than an empty string, so the UI's `title ?? fileName`
-        // fallback works instead of rendering nothing.
+        // A filename like "scan_0042.pdf" says nothing, which is the whole reason titles exist —
+        // so uploading without one is refused rather than quietly falling back.
         var client = await CreateAuthenticatedClientAsync();
         var property = await TestData.CreatePropertyAsync(client);
 
-        var created = await (await CreateDocumentAsync(client, property.Id, title: sent))
+        var response = await CreateDocumentAsync(client, property.Id, title: title);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_TrimsTheTitle()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        var created = await (await CreateDocumentAsync(client, property.Id, title: "  Besiktningsprotokoll  "))
             .Content.ReadFromJsonAsync<DocumentDto>();
 
-        Assert.Equal(expected, created!.Title);
+        Assert.Equal("Besiktningsprotokoll", created!.Title);
     }
 
     [Fact]

@@ -76,7 +76,7 @@ public class PropertyAccessTests : IClassFixture<HouseAppWebApplicationFactory>
             ("POST document upload-url", await client.PostAsJsonAsync("/api/documents/upload-url",
                 new UploadUrlRequest(propertyId, "smyg.pdf", "application/pdf"))),
             ("POST documents", await client.PostAsJsonAsync("/api/documents",
-                new CreateDocumentRequest(propertyId, null, new DateOnly(2026, 1, 1), null, "smyg.pdf",
+                new CreateDocumentRequest(propertyId, null, new DateOnly(2026, 1, 1), "Smyginlagt", "smyg.pdf",
                     "application/pdf", $"{propertyId}/smyg.pdf", 1, DocumentCategory.Other))),
             ("GET budgets", await client.GetAsync($"/api/properties/{propertyId}/budgets")),
             ("GET budget year", await client.GetAsync($"/api/properties/{propertyId}/budgets/2026")),

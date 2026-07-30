@@ -75,6 +75,13 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
             return NotFound();
         }
 
+        // Required on new documents, though the column stays nullable: files uploaded before titles
+        // existed have none, and the UI still falls back to the filename for those.
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "A title is required." });
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var document = new Document
         {

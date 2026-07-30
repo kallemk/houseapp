@@ -21,6 +21,7 @@ export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
   Deed: 'Lagfart',
   Warranty: 'Garanti',
   Receipt: 'Kvitto',
+  Invoice: 'Faktura',
   Photo: 'Foto',
   Other: 'Övrigt',
 }

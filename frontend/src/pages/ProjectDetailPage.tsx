@@ -16,12 +16,13 @@ import {
   Text,
   Textarea,
   TextInput,
+  Tooltip,
   ThemeIcon,
   Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconArrowLeft, IconHammer, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconArrowLeft, IconHammer, IconInfoCircle, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { SaveProjectInput } from '../api/projects'
@@ -415,7 +416,18 @@ export function ProjectDetailPage() {
                         <Table.Th>Beskrivning</Table.Th>
                         <Table.Th w={140}>Belopp (kr)</Table.Th>
                         <Table.Th w={160}>Datum</Table.Th>
-                        <Table.Th w={100}>Budgeterad</Table.Th>
+                        <Table.Th w={120}>
+                        <Group gap={4} wrap="nowrap">
+                          Budgeterad
+                          <Tooltip
+                            multiline
+                            w={260}
+                            label="Kryssa i om kostnaden var planerad i årets budget. Just nu är det bara en notering — budgetsidan räknar med alla kostnader oavsett."
+                          >
+                            <IconInfoCircle size={14} style={{ opacity: 0.6 }} />
+                          </Tooltip>
+                        </Group>
+                      </Table.Th>
                         <Table.Th w={50} />
                       </Table.Tr>
                     </Table.Thead>
@@ -466,7 +478,9 @@ export function ProjectDetailPage() {
                   leftSection={<IconPlus size={16} />}
                   onClick={() =>
                     form.insertListItem('costs', {
-                      type: 'Materials',
+                      // Övrigt by default: most costs get typed in as a lump sum, and picking a
+                      // specific type is the exception rather than the rule.
+                      type: 'Other',
                       description: '',
                       amount: '',
                       dateIncurred: defaultCostDate(form.values),
