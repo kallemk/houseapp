@@ -267,14 +267,43 @@ a general pattern worth remembering: adding a required-looking field to an exist
 entity does not backfill it onto documents that predate the change — either null-check
 defensively (as here) or write a one-time backfill if the field truly can't be absent.
 
-**Every account is connected automatically when a property is created** (`PropertiesController.Create`
-reads all of `db.Users` and stamps every id into `MemberUserIds`) — there's deliberately no
-invite/sharing flow, since there are only ever 2 accounts and the app's whole premise is a
-couple sharing visibility into the same house(s). A consequence: a user created *after* a
-property already exists won't retroactively see it (covered by
-`PropertiesControllerTests.GetAll_OnlyReturnsPropertiesCreatedWhileUserExisted`) — in practice
-this can't happen since `DbSeeder` creates both accounts on first startup, before any property
-can exist.
+**Creating a property connects only its creator**, and creating a user grants access to nothing.
+Both used to do the opposite — `PropertiesController.Create` stamped every account into
+`MemberUserIds` and `UsersController.Create` backfilled every new account onto every property. That
+was the entire sharing model while there were two accounts and one house; it became a data leak the
+moment a second household joined. Access now comes from exactly two places: being in
+`MemberUserIds`, or the property being the demo.
+
+**`Data/PropertyAccess.cs` is the only place that decides this, and every per-property controller
+must call it.** `CanAccessPropertyAsync` (member *or* demo) guards everything that reads or writes a
+property's contents; `IsPropertyMemberAsync` (strict) guards the things that must stay with the
+owners — managing members and deleting. Both return `NotFound`, never `Forbid`, so a stranger can't
+confirm a property exists.
+
+This matters more than it looks: `ProjectsController`, `ValuationsController`, `DocumentsController`,
+`BudgetsController` and `MaintenanceScheduleController` all take a `propertyId` from a route, query
+string or **request body** and would otherwise act on it unchecked — including
+`DocumentsController.GetUploadUrl`, where an unchecked id mints a SAS URL into someone else's blob
+path. `PropertyAccessTests` walks every one of these endpoints; **a new per-property controller needs
+adding there and needs the same call.**
+
+**Any member manages that property's members** — there is no owner role. Adding someone hands them
+the same keys you have, including the ability to remove you. Removing the *last* member is refused
+(409): admins deliberately don't bypass membership, so an empty list would orphan the property and
+its data permanently. Members are found through `GET /api/properties/{id}/member-candidates?query=`,
+a substring search over name and email that is **scoped to a property you're already in, capped at
+10, and silent below two characters** — enough to invite someone you know of, not a way to dump the
+user directory, which `GET /api/users` still guards as admin-only.
+
+**`Property.IsDemo` is a shared sandbox everyone can see *and edit*.** It exists so a newcomer with
+no property of their own has something to learn on. Editable rather than read-only because that
+teaches more and avoids hiding write controls on every page — the cost is that it accumulates other
+people's experiments, which is the intended trade. It can't be deleted while flagged, and the flag
+is **admin-only and deliberately not part of `SavePropertyRequest`** (`PUT /api/properties/{id}/demo`),
+so a member can't publish their own house to everyone by editing it. Setting it clears the flag
+elsewhere; there is only ever one demo. Its content is **curated in the app, never seeded** — a
+startup seeder would need a marker document to avoid resurrecting a deleted demo, which is exactly
+the trap `ProjectMigrator` fell into.
 
 **Deleting a property cascades by hand.** Cosmos has no cascade delete and no cross-container
 foreign keys, so `PropertiesController.Delete` explicitly removes the property's

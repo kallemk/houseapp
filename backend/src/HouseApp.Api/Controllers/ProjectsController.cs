@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HouseApp.Api.Data;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Dtos.Projects;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     [HttpGet("api/properties/{propertyId}/projects")]
     public async Task<ActionResult<List<ProjectDto>>> GetForProperty(string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var projects = await db.Projects
             .Where(p => p.PropertyId == propertyId)
             .ToListAsync();
@@ -33,6 +39,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     [HttpGet("api/projects/{id}")]
     public async Task<ActionResult<ProjectDto>> GetById(string id, [FromQuery] string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var project = await FindAsync(id, propertyId);
         return project is null ? NotFound() : Ok(ToDto(project));
     }
@@ -40,6 +51,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     [HttpPost("api/properties/{propertyId}/projects")]
     public async Task<ActionResult<ProjectDto>> Create(string propertyId, SaveProjectRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var project = new Project
         {
@@ -58,6 +74,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     [HttpPut("api/projects/{id}")]
     public async Task<IActionResult> Update(string id, [FromQuery] string propertyId, SaveProjectRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var project = await FindAsync(id, propertyId);
         if (project is null)
         {
@@ -72,6 +93,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     [HttpDelete("api/projects/{id}")]
     public async Task<IActionResult> Delete(string id, [FromQuery] string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var project = await FindAsync(id, propertyId);
         if (project is null)
         {

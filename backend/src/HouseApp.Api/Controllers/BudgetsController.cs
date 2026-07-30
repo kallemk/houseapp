@@ -1,4 +1,5 @@
 using HouseApp.Api.Data;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Dtos.Budgets;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,11 @@ public class BudgetsController(AppDbContext db) : ControllerBase
     [HttpGet("api/properties/{propertyId}/budgets/{year:int}")]
     public async Task<ActionResult<BudgetDto>> GetForYear(string propertyId, int year)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var budget = (await db.Budgets.Where(b => b.PropertyId == propertyId).ToListAsync())
             .FirstOrDefault(b => b.Year == year);
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
@@ -35,6 +41,11 @@ public class BudgetsController(AppDbContext db) : ControllerBase
     [HttpGet("api/properties/{propertyId}/budgets")]
     public async Task<ActionResult<List<BudgetDto>>> GetAll(string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var budgets = await db.Budgets.Where(b => b.PropertyId == propertyId).ToListAsync();
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
 
@@ -55,6 +66,11 @@ public class BudgetsController(AppDbContext db) : ControllerBase
     [HttpPut("api/properties/{propertyId}/budgets/{year:int}")]
     public async Task<ActionResult<BudgetDto>> Save(string propertyId, int year, SaveBudgetRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         if (request.Year != year)
         {
             return BadRequest(new { message = "Year in the URL and body must match." });
@@ -81,6 +97,11 @@ public class BudgetsController(AppDbContext db) : ControllerBase
     [HttpDelete("api/properties/{propertyId}/budgets/{year:int}")]
     public async Task<IActionResult> Delete(string propertyId, int year)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var budget = (await db.Budgets.Where(b => b.PropertyId == propertyId).ToListAsync())
             .FirstOrDefault(b => b.Year == year);
         if (budget is null)

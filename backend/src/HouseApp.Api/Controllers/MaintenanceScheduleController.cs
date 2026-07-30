@@ -1,5 +1,6 @@
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Maintenance;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,13 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
         [FromQuery] DateOnly? asOf = null)
     {
         var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Access check first: this reads the property's projects, so it must not answer for a
+        // property the caller has nothing to do with.
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
 
         var property = await db.Properties.FindAsync(propertyId);
         if (property is null)

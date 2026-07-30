@@ -60,20 +60,11 @@ public class UsersController(AppDbContext db) : ControllerBase
 
         db.Users.Add(user);
 
-        // PropertiesController.Create only stamps the users that exist *at that moment* into
-        // MemberUserIds, so someone added now would otherwise sign in to an empty property list.
-        // Backfill them onto everything that already exists — consistent with this app's premise
-        // that everyone shares every property.
-        var properties = await db.Properties.ToListAsync();
-        foreach (var property in properties)
-        {
-            property.MemberUserIds ??= [];
-            if (!property.MemberUserIds.Contains(user.Id))
-            {
-                property.MemberUserIds.Add(user.Id);
-            }
-        }
-
+        // Deliberately no backfill onto existing properties. This used to add every new account to
+        // every property, which was the whole sharing model back when there were two users and one
+        // house; with several households it would hand a newcomer everyone else's finances. A new
+        // account starts with nothing of its own and sees only the demo property, and is given
+        // access to a real one by someone already on it.
         await db.SaveChangesAsync();
         return Ok(ToDto(user));
     }

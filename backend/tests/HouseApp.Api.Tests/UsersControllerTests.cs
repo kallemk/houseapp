@@ -82,11 +82,12 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
     }
 
     /// <summary>
-    /// PropertiesController.Create only stamps users that exist at that moment into MemberUserIds,
-    /// so without a backfill a newly invited person would sign in to an empty property list.
+    /// Creating an account grants access to nothing. This used to do the opposite — every new user
+    /// was backfilled onto every existing property — which was the sharing model when there were two
+    /// accounts and one house, and became a data leak as soon as a second household joined.
     /// </summary>
     [Fact]
-    public async Task Create_BackfillsNewUserOntoExistingProperties()
+    public async Task Create_DoesNotGrantAccessToExistingProperties()
     {
         var (client, _) = await CreateAuthenticatedClientAsync();
 
@@ -95,15 +96,19 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
             TestData.SaveProperty("Pre-existing House", "1 Old St"));
         var property = await createProperty.Content.ReadFromJsonAsync<PropertyDto>();
 
-        var newEmail = $"backfill-{Guid.NewGuid()}@example.com";
+        var newEmail = $"newcomer-{Guid.NewGuid()}@example.com";
         await client.PostAsJsonAsync("/api/users", new CreateUserRequest(newEmail, "Late Joiner", null));
 
-        // Sign in as the newly invited user and confirm they can see the pre-existing property.
         var newClient = _factory.CreateClient();
         await newClient.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(newEmail));
 
         var list = await (await newClient.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
-        Assert.Contains(list!, p => p.Id == property!.Id);
+        Assert.DoesNotContain(list!, p => p.Id == property!.Id);
+
+        // Not just hidden from the listing — the property's data is unreachable too.
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await newClient.GetAsync($"/api/properties/{property!.Id}/projects")).StatusCode);
     }
 
     [Fact]

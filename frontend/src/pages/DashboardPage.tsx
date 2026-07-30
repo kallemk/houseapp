@@ -134,7 +134,20 @@ export function DashboardPage() {
             Byggt {property.yearBuilt}
           </Badge>
         )}
+        {property.isDemo && (
+          <Badge variant="light" color="grape">
+            Demo
+          </Badge>
+        )}
       </Group>
+      {/* So nobody mistakes the shared sandbox for their own house — anything entered here is
+          visible to everyone with an account. */}
+      {property.isDemo && (
+        <Text size="sm" c="dimmed">
+          Det här är en demobostad som alla användare kan se och ändra i. Prova gärna — men lägg inte
+          in något du vill hålla för dig själv.
+        </Text>
+      )}
       <Text c="dimmed">{formatAddress(property)}</Text>
       {property.propertyDesignation && (
         <Text c="dimmed" size="sm">

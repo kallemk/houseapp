@@ -107,33 +107,30 @@ public class PropertiesControllerTests : IClassFixture<HouseAppWebApplicationFac
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// You see what you're a member of, and nothing else. This used to be about *when* an account
+    /// was created, because creating a property stamped in every account existing at that moment;
+    /// now creation time is irrelevant and membership is the whole story.
+    /// </summary>
     [Fact]
-    public async Task GetAll_OnlyReturnsPropertiesCreatedWhileUserExisted()
+    public async Task GetAll_OnlyReturnsPropertiesYouBelongTo()
     {
-        // Property creation connects every account that exists at that moment. A user created
-        // afterwards shouldn't retroactively see properties created before they existed.
         var clientA = await CreateAuthenticatedClientAsync();
-        var createP1 = await clientA.PostAsJsonAsync(
-            "/api/properties",
-            TestData.SaveProperty("House A", "1 Main St"));
-        var p1 = await createP1.Content.ReadFromJsonAsync<PropertyDto>();
+        var a = await TestData.CreatePropertyAsync(clientA, "House A", "1 Main St");
 
         var clientB = await CreateAuthenticatedClientAsync();
-        var createP2 = await clientB.PostAsJsonAsync(
-            "/api/properties",
-            TestData.SaveProperty("House B", "2 Main St"));
-        var p2 = await createP2.Content.ReadFromJsonAsync<PropertyDto>();
+        var b = await TestData.CreatePropertyAsync(clientB, "House B", "2 Main St");
 
         var bList = await (await clientB.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
-        Assert.DoesNotContain(bList!, p => p.Id == p1!.Id);
-        Assert.Contains(bList!, p => p.Id == p2!.Id);
+        Assert.DoesNotContain(bList!, p => p.Id == a.Id);
+        Assert.Contains(bList!, p => p.Id == b.Id);
 
+        // And symmetrically — A no longer sees B's house either, which is the actual change.
         var aList = await (await clientA.GetAsync("/api/properties")).Content.ReadFromJsonAsync<List<PropertyDto>>();
-        Assert.Contains(aList!, p => p.Id == p1!.Id);
-        Assert.Contains(aList!, p => p.Id == p2!.Id);
+        Assert.Contains(aList!, p => p.Id == a.Id);
+        Assert.DoesNotContain(aList!, p => p.Id == b.Id);
 
-        var bGetP1 = await clientB.GetAsync($"/api/properties/{p1!.Id}");
-        Assert.Equal(HttpStatusCode.NotFound, bGetP1.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await clientB.GetAsync($"/api/properties/{a.Id}")).StatusCode);
     }
 
     [Fact]

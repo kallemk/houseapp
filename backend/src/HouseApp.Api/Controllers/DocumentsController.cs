@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Documents;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Models;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpGet("api/properties/{propertyId}/documents")]
     public async Task<ActionResult<List<DocumentDto>>> GetForProperty(string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var documents = await db.Documents
             .Where(d => d.PropertyId == propertyId)
             .OrderByDescending(d => d.Date)
@@ -31,6 +37,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpPut("api/documents/{id}/project")]
     public async Task<IActionResult> SetProject(string id, [FromQuery] string propertyId, SetDocumentProjectRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var document = await db.Documents
             .Where(d => d.PropertyId == propertyId && d.Id == id)
             .FirstOrDefaultAsync();
@@ -47,6 +58,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpPost("api/documents/upload-url")]
     public async Task<ActionResult<UploadUrlResponse>> GetUploadUrl(UploadUrlRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(request.PropertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var (uploadUrl, blobPath) = await blobStorage.GetUploadUrlAsync(request.PropertyId, request.FileName, request.ContentType);
         return Ok(new UploadUrlResponse(uploadUrl, blobPath));
     }
@@ -54,6 +70,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpPost("api/documents")]
     public async Task<ActionResult<DocumentDto>> Create(CreateDocumentRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(request.PropertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var document = new Document
         {
@@ -76,6 +97,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpGet("api/documents/{id}/download-url")]
     public async Task<ActionResult<DownloadUrlResponse>> GetDownloadUrl(string id, [FromQuery] string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var document = await db.Documents
             .Where(d => d.PropertyId == propertyId && d.Id == id)
             .FirstOrDefaultAsync();
@@ -91,6 +117,11 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
     [HttpDelete("api/documents/{id}")]
     public async Task<IActionResult> Delete(string id, [FromQuery] string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var document = await db.Documents
             .Where(d => d.PropertyId == propertyId && d.Id == id)
             .FirstOrDefaultAsync();

@@ -40,5 +40,17 @@ public class Property
     // via a Cosmos query, to avoid array-Contains query translation entirely.
     public List<string>? MemberUserIds { get; set; } = [];
 
+    /// <summary>
+    /// The shared sandbox every signed-in user can see and edit, so someone with no property of
+    /// their own has something to learn the app on. Deliberately a plain non-nullable bool: a
+    /// missing JSON property reads as false, and "this existing property is not the demo" is exactly
+    /// the right default.
+    ///
+    /// Only an admin can set it (PUT /api/properties/{id}/demo) — it's kept out of
+    /// SavePropertyRequest so nobody can publish their own house to everyone by editing it. Deleting
+    /// a property while this is set is refused.
+    /// </summary>
+    public bool IsDemo { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

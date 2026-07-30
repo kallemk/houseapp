@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HouseApp.Api.Data;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Dtos.Valuations;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,11 @@ public class ValuationsController(AppDbContext db) : ControllerBase
     [HttpGet("api/properties/{propertyId}/valuations")]
     public async Task<ActionResult<List<ValuationEntryDto>>> GetForProperty(string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var entries = await db.ValuationEntries
             .Where(v => v.PropertyId == propertyId)
             .OrderByDescending(v => v.Date)
@@ -25,6 +31,11 @@ public class ValuationsController(AppDbContext db) : ControllerBase
     [HttpPost("api/properties/{propertyId}/valuations")]
     public async Task<ActionResult<ValuationEntryDto>> Create(string propertyId, CreateValuationEntryRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var entry = new ValuationEntry
         {
@@ -43,6 +54,11 @@ public class ValuationsController(AppDbContext db) : ControllerBase
     [HttpPut("api/valuations/{id}")]
     public async Task<IActionResult> Update(string id, [FromQuery] string propertyId, UpdateValuationEntryRequest request)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var entry = await db.ValuationEntries
             .Where(v => v.PropertyId == propertyId && v.Id == id)
             .FirstOrDefaultAsync();
@@ -62,6 +78,11 @@ public class ValuationsController(AppDbContext db) : ControllerBase
     [HttpDelete("api/valuations/{id}")]
     public async Task<IActionResult> Delete(string id, [FromQuery] string propertyId)
     {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
         var entry = await db.ValuationEntries
             .Where(v => v.PropertyId == propertyId && v.Id == id)
             .FirstOrDefaultAsync();

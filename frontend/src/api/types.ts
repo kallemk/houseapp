@@ -35,7 +35,17 @@ export interface PropertyDto {
   longitude: number | null
   purchaseDate: string
   purchasePrice: number
+  /** The shared sandbox — every signed-in user can see and edit it. */
+  isDemo: boolean
+  /** False when you can only see this because it's the demo. Gates sharing and deletion. */
+  isMember: boolean
   createdAt: string
+}
+
+export interface PropertyMemberDto {
+  userId: string
+  email: string
+  displayName: string
 }
 
 export type DocumentCategory = 'Deed' | 'Warranty' | 'Receipt' | 'Photo' | 'Other'

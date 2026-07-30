@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Badge,
   Button,
   Card,
   Center,
@@ -20,11 +21,23 @@ import {
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconDotsVertical, IconEdit, IconHome2, IconHomeStar, IconLogout, IconMapPin, IconTrash } from '@tabler/icons-react'
+import {
+  IconDotsVertical,
+  IconEdit,
+  IconHome2,
+  IconHomeStar,
+  IconLogout,
+  IconMapPin,
+  IconStar,
+  IconTrash,
+  IconUsers,
+} from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { PropertyDto, PropertyType } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
+import { PropertyAccessModal } from '../components/properties/PropertyAccessModal'
+import { useSetDemoProperty } from '../hooks/usePropertyMembers'
 import { PROPERTY_TYPE_OPTIONS } from '../utils/labels'
 import { geocodeAddress } from '../utils/geocode'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
@@ -164,14 +177,23 @@ function PropertyForm({
 }
 
 export function PropertyPickerPage() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { data: properties, isLoading } = useProperties()
   const createProperty = useCreateProperty()
   const updateProperty = useUpdateProperty()
   const deleteProperty = useDeleteProperty()
   const [editing, setEditing] = useState<PropertyDto | null>(null)
+  const [managingAccess, setManagingAccess] = useState<PropertyDto | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PropertyDto | null>(null)
+  const setDemo = useSetDemoProperty()
+
+  function toggleDemo(property: PropertyDto) {
+    setDemo.mutate(
+      { propertyId: property.id, isDemo: !property.isDemo },
+      { onError: () => notifications.show({ color: 'red', message: 'Kunde inte ändra demomarkeringen.' }) },
+    )
+  }
 
   function selectProperty(id: string) {
     setLastPropertyId(id)
@@ -253,9 +275,16 @@ export function PropertyPickerPage() {
                           <IconHome2 size={20} />
                         </ThemeIcon>
                         <div style={{ minWidth: 0 }}>
-                          <Text fw={600} truncate>
-                            {property.nickname}
-                          </Text>
+                          <Group gap="xs" wrap="nowrap">
+                            <Text fw={600} truncate>
+                              {property.nickname}
+                            </Text>
+                            {property.isDemo && (
+                              <Badge size="xs" variant="light" color="grape">
+                                Demo
+                              </Badge>
+                            )}
+                          </Group>
                           <Text size="sm" c="dimmed" truncate>
                             {property.address}
                           </Text>
@@ -273,13 +302,30 @@ export function PropertyPickerPage() {
                         <Menu.Item leftSection={<IconEdit size={14} />} onClick={() => setEditing(property)}>
                           Redigera
                         </Menu.Item>
-                        <Menu.Item
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => setPendingDelete(property)}
-                        >
-                          Ta bort
-                        </Menu.Item>
+                        {/* Sharing and deleting belong to the people who actually own the property.
+                            Someone who only sees it because it's the demo gets neither. */}
+                        {property.isMember && (
+                          <Menu.Item leftSection={<IconUsers size={14} />} onClick={() => setManagingAccess(property)}>
+                            Hantera åtkomst
+                          </Menu.Item>
+                        )}
+                        {user?.isAdmin && (
+                          <Menu.Item
+                            leftSection={<IconStar size={14} />}
+                            onClick={() => toggleDemo(property)}
+                          >
+                            {property.isDemo ? 'Ta bort demomarkering' : 'Markera som demobostad'}
+                          </Menu.Item>
+                        )}
+                        {property.isMember && !property.isDemo && (
+                          <Menu.Item
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={() => setPendingDelete(property)}
+                          >
+                            Ta bort
+                          </Menu.Item>
+                        )}
                       </Menu.Dropdown>
                     </Menu>
                   </Group>
@@ -296,6 +342,8 @@ export function PropertyPickerPage() {
           </Card>
         </Stack>
       </Stack>
+
+      <PropertyAccessModal property={managingAccess} onClose={() => setManagingAccess(null)} />
 
       <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera bostad" centered>
         {editing && (

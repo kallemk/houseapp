@@ -36,7 +36,11 @@ documents/photos.
    `POST /api/auth/change-password`. Everyone else is added in-app on the
    **Användare** page. Seed accounts are admins; everyone added afterwards is a
    regular user until an admin ticks their **Admin** switch.
-5. Google sign-in is optional locally — leave `Authentication:Google:ClientId`
+5. Properties are private to their members. Creating one connects only you; you
+   share it from **Hantera åtkomst** on the property card, searching by name or
+   email. Everyone additionally sees the shared **Demo** property, a sandbox any
+   signed-in user can edit — an admin marks one property as the demo.
+6. Google sign-in is optional locally — leave `Authentication:Google:ClientId`
    blank in `appsettings.Development.json` and the Google button simply doesn't
    render, leaving password login. To try it locally, set that value plus
    `VITE_GOOGLE_CLIENT_ID` in `frontend/.env.development`, and add
