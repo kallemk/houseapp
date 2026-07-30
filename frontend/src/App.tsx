@@ -2,10 +2,10 @@ import { MantineProvider } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AdminRoute } from './auth/AdminRoute'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
+import { AdministrationPage } from './pages/AdministrationPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { LoginPage } from './pages/LoginPage'
@@ -50,11 +50,13 @@ export default function App() {
                   <Route path="projects/:projectId" element={<ProjectDetailPage />} />
                   <Route path="maintenance" element={<MaintenancePage />} />
                   <Route path="budget" element={<BudgetPage />} />
-                  <Route path="components" element={<PropertyComponentsPage />} />
-                  <Route element={<AdminRoute />}>
+                  <Route path="documents" element={<DocumentsPage />} />
+                  {/* Open to everyone — each page under it decides what a non-admin may do. */}
+                  <Route path="admin" element={<AdministrationPage />}>
+                    <Route index element={<Navigate to="components" replace />} />
+                    <Route path="components" element={<PropertyComponentsPage />} />
                     <Route path="users" element={<UsersPage />} />
                   </Route>
-                  <Route path="documents" element={<DocumentsPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />

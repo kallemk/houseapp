@@ -3,8 +3,9 @@ import { usersApi, type CreateUserInput, type UpdateUserInput } from '../api/use
 
 const KEY = ['users']
 
-export function useUsers() {
-  return useQuery({ queryKey: KEY, queryFn: usersApi.list })
+/** `enabled: false` for a non-admin, who would only get a 403 from the endpoint. */
+export function useUsers(enabled = true) {
+  return useQuery({ queryKey: KEY, queryFn: usersApi.list, enabled })
 }
 
 export function useCreateUser() {

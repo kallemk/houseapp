@@ -12,12 +12,10 @@ import {
   Table,
   Text,
   TextInput,
-  ThemeIcon,
-  Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconAdjustments, IconEdit, IconTrash } from '@tabler/icons-react'
+import { IconEdit, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import type { PropertyComponentDto } from '../api/types'
@@ -151,12 +149,6 @@ export function PropertyComponentsPage() {
 
   return (
     <Stack>
-      <Group gap="sm">
-        <ThemeIcon variant="light" size={36} radius="md">
-          <IconAdjustments size={20} />
-        </ThemeIcon>
-        <Title order={2}>Komponenter</Title>
-      </Group>
       <Text c="dimmed" size="sm">
         {isAdmin
           ? 'Hantera vilka delar av bostaden som projekt kan höra till, och hur ofta de brukar behöva ses över.'

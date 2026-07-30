@@ -13,17 +13,16 @@ import {
   Table,
   Text,
   TextInput,
-  ThemeIcon,
-  Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-react'
+import { IconEdit, IconLock, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import type { UserDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { EmptyState } from '../components/common/EmptyState'
 import { SortableTh } from '../components/common/SortableTh'
 import { useTableSort } from '../hooks/useTableSort'
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../hooks/useUsers'
@@ -36,7 +35,10 @@ interface CreateFormValues {
 
 export function UsersPage() {
   const { user: currentUser } = useAuth()
-  const { data: users, isLoading } = useUsers()
+  const isAdmin = currentUser?.isAdmin ?? false
+  // Not fetched at all for a regular user — every /api/users endpoint returns 403, so asking would
+  // only put a failed query in the cache behind a page that already says no.
+  const { data: users, isLoading } = useUsers(isAdmin)
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
@@ -108,6 +110,17 @@ export function UsersPage() {
     })
   }
 
+  // Shown rather than redirected away: the tab is visible to everyone, so landing here needs to
+  // explain itself instead of bouncing you somewhere you didn't ask to go.
+  if (!isAdmin) {
+    return (
+      <EmptyState
+        icon={IconLock}
+        message="Du har inte behörighet att hantera användare. Kontakta en administratör om du behöver ändra något här."
+      />
+    )
+  }
+
   if (isLoading) {
     return (
       <Center py="xl">
@@ -118,12 +131,6 @@ export function UsersPage() {
 
   return (
     <Stack>
-      <Group gap="sm">
-        <ThemeIcon variant="light" size={36} radius="md">
-          <IconUsers size={20} />
-        </ThemeIcon>
-        <Title order={2}>Användare</Title>
-      </Group>
       <Text c="dimmed" size="sm">
         Endast personer i den här listan kan logga in. Lämna lösenordet tomt om personen ska logga in med Google.
       </Text>

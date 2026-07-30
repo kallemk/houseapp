@@ -480,8 +480,9 @@ parallel* — push the Bicep change and let `infra-deploy` finish first.
 ### Frontend property routing
 
 Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents,components}`,
-plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode).
+`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents}`,
+plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode)
+and `/properties/:propertyId/admin/{components,users}` (see below).
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
 (`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's
 stale — the target route re-validates membership itself (via `useSelectedProperty`, which
@@ -502,6 +503,21 @@ silently does nothing. The `exclude` list matters as much as the rewrite: `/api/
 excluded so API calls still reach the linked backend instead of being handed `index.html`, and
 static assets are excluded so a genuinely missing file 404s properly rather than returning HTML
 under a `.js`/`.css` URL (which surfaces as a confusing MIME-type error, not an obvious 404).
+
+**The Administration section (`/admin`) is reachable by everyone, and gates per page rather than at
+the route.** `pages/AdministrationPage.tsx` is a layout route holding the shared heading and the tab
+bar; each management page renders through its `Outlet`, and `/admin` alone redirects to the first
+tab. There used to be an `auth/AdminRoute.tsx` that bounced non-admins to `/properties` — it's gone,
+because the section now mixes pages with different rules: components is read-only for a regular user
+(the list is the vocabulary the projects page is built on, so it's worth reading), while users shows
+a plain "no permission" state. Silently redirecting away from a nav link everyone can see is worse
+than saying why. `useUsers(enabled)` takes a flag purely so the users page doesn't fire a request it
+knows will 403. **New management pages belong here as another tab**, and each one decides its own
+non-admin behaviour — the API is still the real gate either way.
+
+"Hantera komponenter" links there from the **maintenance** page, not the projects page: the schedule
+is computed directly from the components' recommended intervals, so that's where wanting to change
+one actually arises.
 
 ### UI language
 

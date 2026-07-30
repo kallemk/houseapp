@@ -10,7 +10,7 @@ import {
   IconHomeStar,
   IconLogout,
   IconPlus,
-  IconUsers,
+  IconSettings,
   IconWallet,
 } from '@tabler/icons-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -57,6 +57,9 @@ export function NavBar() {
     { to: `/properties/${propertyId}/maintenance`, label: 'Underhållsplan', icon: IconCalendarClock, end: false },
     { to: `/properties/${propertyId}/budget`, label: 'Budget', icon: IconWallet, end: false },
     { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
+    // Visible to everyone: the components list is worth reading even if you can't change it, and
+    // the users page inside says plainly that it's admin-only rather than hiding.
+    { to: `/properties/${propertyId}/admin`, label: 'Administration', icon: IconSettings, end: false },
   ]
 
   // Preserves which sub-page you're on (dashboard/valuations/renovations/documents) when
@@ -138,18 +141,6 @@ export function NavBar() {
         </Group>
 
         <Group gap="sm" visibleFrom="sm" wrap="nowrap">
-          {/* Admin-only, matching the API: every /api/users endpoint returns 403 for regular users,
-              so showing the link would only lead to a broken page. */}
-          {user?.isAdmin && (
-            <UnstyledButton
-              component={NavLink}
-              to={`/properties/${propertyId}/users`}
-              title="Användare"
-              style={{ display: 'flex', alignItems: 'center', color: 'var(--mantine-color-gray-6)' }}
-            >
-              <IconUsers size={16} />
-            </UnstyledButton>
-          )}
           <Text size="sm" c="dimmed">
             {user?.displayName}
           </Text>
@@ -222,17 +213,6 @@ export function NavBar() {
               {link.label}
             </UnstyledButton>
           ))}
-          {user?.isAdmin && (
-            <UnstyledButton
-              component={NavLink}
-              to={`/properties/${propertyId}/users`}
-              onClick={closeDrawer}
-              style={drawerLinkStyle}
-            >
-              <IconUsers size={18} />
-              Användare
-            </UnstyledButton>
-          )}
 
           <Divider mt="sm" />
           <UnstyledButton

@@ -1,5 +1,4 @@
 import {
-  Anchor,
   Badge,
   Button,
   Card,
@@ -14,9 +13,9 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core'
-import { IconHammer, IconPlus, IconSearch, IconSettings } from '@tabler/icons-react'
+import { IconHammer, IconPlus, IconSearch } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { ProjectDto, ProjectStatus, WorkType } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
 import { SortableTh } from '../components/common/SortableTh'
@@ -98,20 +97,12 @@ export function ProjectsPage() {
           </ThemeIcon>
           <Title order={2}>Projekt</Title>
         </Group>
-        <Group gap="md">
-          <Anchor component={Link} to={`/properties/${propertyId}/components`} size="sm">
-            <Group gap={4}>
-              <IconSettings size={14} />
-              Hantera komponenter
-            </Group>
-          </Anchor>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => navigate(`/properties/${propertyId}/projects/new`)}
-          >
-            Nytt projekt
-          </Button>
-        </Group>
+        <Button
+          leftSection={<IconPlus size={16} />}
+          onClick={() => navigate(`/properties/${propertyId}/projects/new`)}
+        >
+          Nytt projekt
+        </Button>
       </Group>
       <Text c="dimmed" size="sm">
         Underhåll, renoveringar och nyinvesteringar i bostaden.

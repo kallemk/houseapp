@@ -1,5 +1,5 @@
-import { Badge, Card, Center, Group, Loader, Stack, Table, Text, ThemeIcon, Title } from '@mantine/core'
-import { IconCalendarClock } from '@tabler/icons-react'
+import { Anchor, Badge, Card, Center, Group, Loader, Stack, Table, Text, ThemeIcon, Title } from '@mantine/core'
+import { IconCalendarClock, IconSettings } from '@tabler/icons-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { MaintenanceScheduleItemDto } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
@@ -51,11 +51,21 @@ export function MaintenancePage() {
 
   return (
     <Stack>
-      <Group gap="sm">
-        <ThemeIcon variant="light" size={36} radius="md">
-          <IconCalendarClock size={20} />
-        </ThemeIcon>
-        <Title order={2}>Underhållsplan</Title>
+      <Group justify="space-between">
+        <Group gap="sm">
+          <ThemeIcon variant="light" size={36} radius="md">
+            <IconCalendarClock size={20} />
+          </ThemeIcon>
+          <Title order={2}>Underhållsplan</Title>
+        </Group>
+        {/* The schedule is computed straight from the components' intervals, so this is where
+            wanting to change one actually comes up. */}
+        <Anchor component={Link} to={`/properties/${propertyId}/admin/components`} size="sm">
+          <Group gap={4}>
+            <IconSettings size={14} />
+            Hantera komponenter
+          </Group>
+        </Anchor>
       </Group>
       <Text c="dimmed" size="sm">
         Räknas fram från komponenternas rekommenderade intervall och det senaste slutförda
