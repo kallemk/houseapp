@@ -78,7 +78,7 @@ function ValueChange({ purchasePrice, currentValue }: { purchasePrice: number; c
       <ThemeIcon size={18} radius="xl" variant="light" color={color}>
         <Icon size={12} />
       </ThemeIcon>
-      <Text size="sm" fw={600} c={color}>
+      <Text size="sm" fw={600} c={color} style={{ whiteSpace: 'nowrap' }}>
         {up ? '+' : '−'}
         {formatNumber(Math.abs(percent), 1)} %
       </Text>

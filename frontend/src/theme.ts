@@ -34,5 +34,14 @@ export const theme = createTheme({
         radius: 'lg',
       },
     },
+    Badge: {
+      // Mantine truncates badge labels with an ellipsis by default, which turned every badge in a
+      // narrow cell into noise — "PLANE…", "INGET INTE…". Nothing here uses a badge long enough to
+      // need truncating, so they're allowed to size to their text and not shrink in a flex row.
+      styles: {
+        root: { flexShrink: 0 },
+        label: { overflow: 'visible' },
+      },
+    },
   },
 })

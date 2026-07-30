@@ -172,8 +172,9 @@ export function PropertyTimeline({
                   <Text fw={600} size="sm" c={yearEvents.length > 0 ? undefined : 'dimmed'}>
                     {year}
                   </Text>
+                  {/* Not `circle` — that pins a one-character width and turned "12" into "1..". */}
                   {yearEvents.length > 0 && (
-                    <Badge size="xs" variant="light" circle>
+                    <Badge size="xs" variant="light">
                       {yearEvents.length}
                     </Badge>
                   )}
