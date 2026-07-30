@@ -240,6 +240,86 @@ public class MaintenanceScheduleControllerTests : IClassFixture<HouseAppWebAppli
         Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
     }
 
+    /// <summary>
+    /// Minor work — patching a few tiles — shouldn't push the next roof service out by the whole
+    /// interval just because it touched the roof.
+    /// </summary>
+    [Fact]
+    public async Task ExcludedWork_DoesNotResetTheClock()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Lagade två pannor", componentId, workType: WorkType.Maintenance,
+                status: ProjectStatus.Completed, excludeFromMaintenanceSchedule: true,
+                completedDate: new DateOnly(2025, 6, 1)));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.None, item.Baseline);
+        Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
+    }
+
+    [Fact]
+    public async Task ExcludedWork_DoesNotCountAsUpcomingEither()
+    {
+        // The flag hides a project from the schedule in both directions — a minor planned job
+        // shouldn't read as "this component is already being taken care of".
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Liten lagning", componentId, workType: WorkType.Maintenance,
+                status: ProjectStatus.Planned, excludeFromMaintenanceSchedule: true));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.False(item.HasUpcomingProject);
+    }
+
+    /// <summary>
+    /// The flag is stored as an *exclusion* precisely so the CLR default of a missing JSON property
+    /// (false) means "counts", preserving how every project written before the field existed
+    /// behaves. A positive flag would have silently emptied the whole schedule on deploy.
+    /// </summary>
+    [Fact]
+    public async Task ProjectWithoutTheFlag_StillCounts()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Projects.Add(new Project
+            {
+                PropertyId = property.Id,
+                Name = "Äldre projekt",
+                ComponentId = componentId,
+                WorkType = WorkType.Maintenance,
+                Status = ProjectStatus.Completed,
+                CompletedDate = new DateOnly(2025, 6, 1),
+                CreatedByUserId = "someone",
+                // Not set at all — exactly what a pre-existing document deserializes to.
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2025, 7, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.Project, item.Baseline);
+        Assert.Equal(new DateOnly(2026, 6, 1), item.NextDueDate);
+    }
+
     [Fact]
     public async Task PlannedWorkCountsAsUpcomingButNotAsCompleted()
     {

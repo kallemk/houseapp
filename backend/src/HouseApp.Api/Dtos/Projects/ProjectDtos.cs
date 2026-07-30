@@ -37,6 +37,8 @@ public record ProjectDto(
     ProjectStatus Status,
     ProjectPriority Priority,
     bool IsUrgent,
+    /// <summary>True for work too minor to reset the component's maintenance clock.</summary>
+    bool ExcludeFromMaintenanceSchedule,
     DateOnly? PlannedStartDate,
     DateOnly? ActualStartDate,
     DateOnly? CompletedDate,
@@ -78,6 +80,8 @@ public record SaveProjectRequest(
     ProjectStatus Status,
     ProjectPriority Priority,
     bool IsUrgent,
+    /// <summary>True for work too minor to reset the component's maintenance clock.</summary>
+    bool ExcludeFromMaintenanceSchedule,
     DateOnly? PlannedStartDate,
     DateOnly? ActualStartDate,
     DateOnly? CompletedDate,

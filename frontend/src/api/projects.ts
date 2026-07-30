@@ -35,6 +35,7 @@ export interface SaveProjectInput {
   status: ProjectStatus
   priority: ProjectPriority
   isUrgent: boolean
+  excludeFromMaintenanceSchedule: boolean
   plannedStartDate: string | null
   actualStartDate: string | null
   completedDate: string | null

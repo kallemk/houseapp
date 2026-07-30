@@ -31,6 +31,19 @@ public class Project
     public ProjectPriority Priority { get; set; }
     public bool IsUrgent { get; set; }
 
+    /// <summary>
+    /// Set for work too minor to reset the component's maintenance clock — patching a few roof tiles
+    /// shouldn't push the next roof service out by the full interval.
+    ///
+    /// Phrased as an exclusion on purpose, and this is the reason it isn't the more natural
+    /// "CountsTowardMaintenanceSchedule": this field was added after projects already existed, and a
+    /// missing JSON property deserializes to `false`. False therefore has to mean "behaves as it
+    /// always did" — with a positive flag, every existing project would silently stop counting the
+    /// moment this deployed. The UI still presents it positively (a ticked "räknas mot
+    /// underhållsplanen"), so the awkward direction stays in the storage layer.
+    /// </summary>
+    public bool ExcludeFromMaintenanceSchedule { get; set; }
+
     public DateOnly? PlannedStartDate { get; set; }
     public DateOnly? ActualStartDate { get; set; }
     public DateOnly? CompletedDate { get; set; }

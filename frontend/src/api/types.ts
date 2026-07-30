@@ -100,6 +100,8 @@ export interface ProjectDto {
   status: ProjectStatus
   priority: ProjectPriority
   isUrgent: boolean
+  /** True for work too minor to reset the component's maintenance clock. */
+  excludeFromMaintenanceSchedule: boolean
   plannedStartDate: string | null
   actualStartDate: string | null
   completedDate: string | null

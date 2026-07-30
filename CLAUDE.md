@@ -339,6 +339,13 @@ them would mean editing a project's date silently left the schedule wrong. Rules
   overdue, because calling it overdue would state a guess as a fact.
 - Expect the `YearBuilt` baseline to make an old house look comprehensively overdue on day one.
   That's intended: it's the backlog, and it shrinks as real work gets logged.
+- **`Project.ExcludeFromMaintenanceSchedule` hides a project from the schedule entirely** — set for
+  work too minor to count, like patching a few tiles. It's phrased as an *exclusion* deliberately:
+  the field was added after projects existed, and a missing JSON property deserializes to `false`,
+  so false has to mean "behaves as before". A positive `CountsToward…` flag would have silently
+  emptied the whole schedule on the deploy that shipped it. The UI flips it back to a ticked
+  "Räknas mot underhållsplanen", so the awkward direction stays in storage. It applies in both
+  directions — an excluded project sets neither the baseline nor `HasUpcomingProject`.
 - **`Maintenance` and `Renovation` both reset the clock** (`LifeExtendingWork`), with
   `Status.Completed`. Renovating or replacing a part extends its life at least as much as servicing
   it, so a roof redone last year isn't due just because it was logged as a renovation. `Investment`

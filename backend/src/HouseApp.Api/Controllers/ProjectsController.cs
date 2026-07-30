@@ -96,6 +96,7 @@ public class ProjectsController(AppDbContext db) : ControllerBase
         project.Status = request.Status;
         project.Priority = request.Priority;
         project.IsUrgent = request.IsUrgent;
+        project.ExcludeFromMaintenanceSchedule = request.ExcludeFromMaintenanceSchedule;
         project.PlannedStartDate = request.PlannedStartDate;
         project.ActualStartDate = request.ActualStartDate;
         project.CompletedDate = request.CompletedDate;
@@ -156,6 +157,7 @@ public class ProjectsController(AppDbContext db) : ControllerBase
             p.Status,
             p.Priority,
             p.IsUrgent,
+            p.ExcludeFromMaintenanceSchedule,
             p.PlannedStartDate,
             p.ActualStartDate,
             p.CompletedDate,

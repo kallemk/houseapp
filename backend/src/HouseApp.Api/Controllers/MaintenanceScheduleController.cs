@@ -63,7 +63,13 @@ public class MaintenanceScheduleController(AppDbContext db) : ControllerBase
         int? yearBuilt,
         DateOnly today)
     {
-        var forComponent = projects.Where(p => p.ComponentId == component.Id).ToList();
+        // Projects tagged as minor are dropped up front: patching a few tiles shouldn't push the
+        // next roof service out by the whole interval, and it shouldn't count as one being planned
+        // either. Deliberately applied here rather than only to `lastCompleted`, so a minor job is
+        // invisible to the schedule in both directions.
+        var forComponent = projects
+            .Where(p => p.ComponentId == component.Id && !p.ExcludeFromMaintenanceSchedule)
+            .ToList();
 
         var lastCompleted = forComponent
             .Where(p => LifeExtendingWork.Contains(p.WorkType) && p.Status == ProjectStatus.Completed && p.CompletedDate is not null)

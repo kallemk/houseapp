@@ -62,6 +62,7 @@ interface ProjectFormValues {
   status: ProjectStatus
   priority: ProjectPriority
   isUrgent: boolean
+  countsTowardMaintenanceSchedule: boolean
   plannedStartDate: string
   actualStartDate: string
   completedDate: string
@@ -91,6 +92,7 @@ const EMPTY_FORM: ProjectFormValues = {
   status: 'Planned',
   priority: 'Medium',
   isUrgent: false,
+  countsTowardMaintenanceSchedule: true,
   plannedStartDate: '',
   actualStartDate: '',
   completedDate: '',
@@ -124,6 +126,7 @@ function toFormValues(project: ProjectDto): ProjectFormValues {
     status: project.status,
     priority: project.priority,
     isUrgent: project.isUrgent,
+    countsTowardMaintenanceSchedule: !project.excludeFromMaintenanceSchedule,
     plannedStartDate: project.plannedStartDate ?? '',
     actualStartDate: project.actualStartDate ?? '',
     completedDate: project.completedDate ?? '',
@@ -165,6 +168,7 @@ function toInput(values: ProjectFormValues): SaveProjectInput {
     status: values.status,
     priority: values.priority,
     isUrgent: values.isUrgent,
+    excludeFromMaintenanceSchedule: !values.countsTowardMaintenanceSchedule,
     plannedStartDate: text(values.plannedStartDate),
     actualStartDate: text(values.actualStartDate),
     completedDate: text(values.completedDate),
@@ -333,6 +337,16 @@ export function ProjectDetailPage() {
                     {...form.getInputProps('isUrgent', { type: 'checkbox' })}
                   />
                 </Grid.Col>
+                {/* Only shown where it does something: investments never reset the clock anyway. */}
+                {form.values.workType !== 'Investment' && (
+                  <Grid.Col span={12}>
+                    <Checkbox
+                      label="Räknas mot underhållsplanen"
+                      description="Avmarkera för mindre jobb som inte förlänger komponentens livslängd, t.ex. en lagning."
+                      {...form.getInputProps('countsTowardMaintenanceSchedule', { type: 'checkbox' })}
+                    />
+                  </Grid.Col>
+                )}
               </Grid>
             </Stack>
           </Card>

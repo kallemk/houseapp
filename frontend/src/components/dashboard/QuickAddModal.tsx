@@ -104,6 +104,7 @@ function QuickAddProjectForm({
         status: 'Completed',
         priority: 'Medium',
         isUrgent: false,
+        excludeFromMaintenanceSchedule: false,
         plannedStartDate: null,
         actualStartDate: values.date,
         completedDate: values.date,
