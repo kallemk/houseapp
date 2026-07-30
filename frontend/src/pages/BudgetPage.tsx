@@ -115,7 +115,13 @@ export function BudgetPage() {
   const years = Array.from(
     new Set([currentYear, ...(budgets ?? []).map((b) => b.year), ...(selectedYear ? [selectedYear] : [])]),
   ).sort((a, b) => b - a)
-  const year = selectedYear ?? years[0] ?? currentYear
+  // The year you're in wins whenever it has a plan of its own — that's the one you're actually
+  // spending against. Only when it hasn't does the newest year stand in, so planning 2027 ahead of
+  // time still lands you on it rather than on an empty current year.
+  const defaultYear = (budgets ?? []).some((b) => b.year === currentYear && b.id)
+    ? currentYear
+    : (years[0] ?? currentYear)
+  const year = selectedYear ?? defaultYear
   const budget = (budgets ?? []).find((b) => b.year === year)
 
   function startEditing() {
