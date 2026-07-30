@@ -10,13 +10,14 @@ import {
   Stack,
   Table,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
 } from '@mantine/core'
-import { IconHammer, IconPlus, IconSettings } from '@tabler/icons-react'
+import { IconHammer, IconPlus, IconSearch, IconSettings } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import type { ProjectStatus, WorkType } from '../api/types'
+import type { ProjectDto, ProjectStatus, WorkType } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
 import { useProjects } from '../hooks/useProjects'
 import { usePropertyComponents } from '../hooks/usePropertyComponents'
@@ -42,6 +43,8 @@ export function ProjectsPage() {
   const [workType, setWorkType] = useState<string>(ALL)
   const [status, setStatus] = useState<string>(ALL)
   const [componentId, setComponentId] = useState<string>(ALL)
+  const [year, setYear] = useState<string>(ALL)
+  const [search, setSearch] = useState('')
 
   if (loadingProperty || isLoading || loadingComponents) {
     return (
@@ -56,11 +59,22 @@ export function ProjectsPage() {
   }
 
   const componentsById = new Map((components ?? []).map((c) => [c.id, c]))
+
+  // The same date the table shows and the list sorts by, so filtering by year can't disagree with
+  // what's on screen. A project with neither date simply has no year to filter on.
+  const projectYear = (p: ProjectDto) => (p.completedDate ?? p.plannedStartDate)?.slice(0, 4) ?? null
+  const years = [...new Set((projects ?? []).map(projectYear).filter((y): y is string => y !== null))].sort(
+    (a, b) => b.localeCompare(a),
+  )
+
+  const trimmedSearch = search.trim().toLowerCase()
   const filtered = (projects ?? []).filter(
     (p) =>
       (workType === ALL || p.workType === workType) &&
       (status === ALL || p.status === status) &&
-      (componentId === ALL || p.componentId === componentId),
+      (componentId === ALL || p.componentId === componentId) &&
+      (year === ALL || projectYear(p) === year) &&
+      (trimmedSearch === '' || p.name.toLowerCase().includes(trimmedSearch)),
   )
 
   return (
@@ -93,6 +107,22 @@ export function ProjectsPage() {
 
       <Card withBorder padding="md">
         <Group>
+          <TextInput
+            label="Sök"
+            placeholder="Namn"
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            w={220}
+          />
+          <Select
+            label="År"
+            value={year}
+            onChange={(value) => setYear(value ?? ALL)}
+            allowDeselect={false}
+            w={120}
+            data={[{ value: ALL, label: 'Alla' }, ...years.map((y) => ({ value: y, label: y }))]}
+          />
           <Select
             label="Typ av arbete"
             value={workType}
@@ -129,7 +159,7 @@ export function ProjectsPage() {
           message={
             (projects ?? []).length === 0
               ? 'Inga projekt registrerade ännu.'
-              : 'Inga projekt matchar filtret.'
+              : 'Inga projekt matchar sökningen.'
           }
         />
       ) : (

@@ -73,12 +73,19 @@ export function NavBar() {
     <>
       <Group h="100%" px="md" justify="space-between" wrap="nowrap">
         <Group gap="xl" wrap="nowrap" style={{ minWidth: 0 }}>
-          <Group gap="xs" wrap="nowrap">
+          {/* The logo is the way back to the current property's overview — the conventional
+              "click the wordmark to go home", where home is the property you're in. */}
+          <UnstyledButton
+            component={NavLink}
+            to={`/properties/${propertyId}`}
+            end
+            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+          >
             <ThemeIcon variant="light" radius="md" size="md">
               <IconHomeStar size={18} />
             </ThemeIcon>
             <Text fw={700}>HusTracker</Text>
-          </Group>
+          </UnstyledButton>
 
           {/* Desktop: property switcher + horizontal links. Collapses into the burger/drawer
               below "sm" instead of wrapping onto a second line, which used to spill out of the

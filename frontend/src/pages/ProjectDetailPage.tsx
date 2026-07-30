@@ -116,6 +116,20 @@ const EMPTY_FORM: ProjectFormValues = {
 const text = (value: string) => (value.trim() === '' ? null : value.trim())
 const num = (value: number | string) => (value === '' || value === null ? null : Number(value))
 
+/**
+ * A cost is nearly always incurred around the work, not on the day you happen to type it in, so the
+ * project's own dates are a far better guess than today. Most specific first: the job finished, else
+ * it started, else it's planned to start. Today is the last resort for a project with no dates yet.
+ */
+function defaultCostDate(values: ProjectFormValues): string {
+  return (
+    values.completedDate ||
+    values.actualStartDate ||
+    values.plannedStartDate ||
+    new Date().toISOString().slice(0, 10)
+  )
+}
+
 function toFormValues(project: ProjectDto): ProjectFormValues {
   return {
     name: project.name,
@@ -455,7 +469,7 @@ export function ProjectDetailPage() {
                       type: 'Materials',
                       description: '',
                       amount: '',
-                      dateIncurred: new Date().toISOString().slice(0, 10),
+                      dateIncurred: defaultCostDate(form.values),
                       isBudgeted: false,
                     })
                   }
@@ -465,6 +479,9 @@ export function ProjectDetailPage() {
               </Group>
             </Stack>
           </Card>
+
+          {/* Only once the project exists — attachments are saved against its id, not with the form. */}
+          {!isNew && projectId && <ProjectDocuments propertyId={propertyId ?? ''} projectId={projectId} />}
 
           <Card withBorder padding="lg">
             <Stack>
@@ -589,9 +606,6 @@ export function ProjectDetailPage() {
               <Textarea label="Anteckningar" autosize minRows={2} {...form.getInputProps('notes')} />
             </Stack>
           </Card>
-
-          {/* Only once the project exists — attachments are saved against its id, not with the form. */}
-          {!isNew && projectId && <ProjectDocuments propertyId={propertyId ?? ''} projectId={projectId} />}
 
           <Group justify="space-between">
             <Button type="submit" loading={saving}>

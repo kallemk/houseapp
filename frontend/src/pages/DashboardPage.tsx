@@ -1,9 +1,26 @@
-import { Alert, Anchor, Badge, Card, Center, Group, Loader, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Badge,
+  Card,
+  Center,
+  Group,
+  Loader,
+  Modal,
+  SimpleGrid,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+} from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import {
   IconBuildingCommunity,
   IconCalendarClock,
   IconHammer,
   IconHome2,
+  IconPencil,
   IconTag,
   IconTool,
   IconTrendingDown,
@@ -12,6 +29,9 @@ import {
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { WorkType } from '../api/types'
+import { PropertyForm } from '../components/properties/PropertyForm'
+import { propertyFormToInput, propertyToFormValues } from '../utils/propertyForm'
+import { useUpdateProperty } from '../hooks/useProperties'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useValuations } from '../hooks/useValuations'
 import { useProjects } from '../hooks/useProjects'
@@ -97,6 +117,8 @@ export function DashboardPage() {
   const { data: projects } = useProjects(propertyId ?? '')
   const { data: schedule } = useMaintenanceSchedule(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
+  const [editing, setEditing] = useState(false)
+  const updateProperty = useUpdateProperty()
 
   if (isLoading) {
     return (
@@ -129,6 +151,9 @@ export function DashboardPage() {
     <Stack>
       <Group gap="sm" align="center">
         <Title order={2}>{property.nickname}</Title>
+        <ActionIcon variant="subtle" color="gray" title="Redigera bostaden" onClick={() => setEditing(true)}>
+          <IconPencil size={18} />
+        </ActionIcon>
         {property.yearBuilt && (
           <Badge variant="light" color="gray">
             Byggt {property.yearBuilt}
@@ -263,6 +288,23 @@ export function DashboardPage() {
       </Card>
 
       <QuickAddModal propertyId={property.id} request={quickAddRequest} onClose={() => setQuickAddRequest(null)} />
+
+      <Modal opened={editing} onClose={() => setEditing(false)} title="Redigera bostad" centered>
+        <PropertyForm
+          initial={propertyToFormValues(property)}
+          submitLabel="Spara"
+          submitting={updateProperty.isPending}
+          onSubmit={(values) =>
+            updateProperty.mutate(
+              { id: property.id, input: propertyFormToInput(values) },
+              {
+                onSuccess: () => setEditing(false),
+                onError: () => notifications.show({ color: 'red', message: 'Kunde inte spara bostaden.' }),
+              },
+            )
+          }
+        />
+      </Modal>
     </Stack>
   )
 }
