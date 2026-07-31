@@ -20,6 +20,7 @@ import {
   IconCalendarClock,
   IconHome2,
   IconPencil,
+  IconPigMoney,
   IconTag,
   IconTrendingDown,
   IconTrendingUp,
@@ -33,6 +34,8 @@ import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useValuations } from '../hooks/useValuations'
 import { useProjects } from '../hooks/useProjects'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
+import { useBudgets } from '../hooks/useBudgets'
+import { usePropertyComponentList } from '../hooks/usePropertyComponents'
 import { formatAddress } from '../utils/address'
 import {
   MAINTENANCE_URGENCY_COLORS,
@@ -43,7 +46,9 @@ import {
 import { PropertyMap } from '../components/dashboard/PropertyMap'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
+import { BudgetProgressCard } from '../components/dashboard/BudgetProgressCard'
 import { SpendBreakdown } from '../components/dashboard/SpendBreakdown'
+import { SpendByComponent } from '../components/dashboard/SpendByComponent'
 import { formatCurrency, formatNumber } from '../utils/currency'
 
 interface StatCardProps {
@@ -114,6 +119,8 @@ export function DashboardPage() {
   const { data: valuations } = useValuations(propertyId ?? '')
   const { data: projects } = useProjects(propertyId ?? '')
   const { data: schedule } = useMaintenanceSchedule(propertyId ?? '')
+  const { data: budgets } = useBudgets(propertyId ?? '')
+  const { data: components } = usePropertyComponentList(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
   const [editing, setEditing] = useState(false)
   const updateProperty = useUpdateProperty()
@@ -133,8 +140,25 @@ export function DashboardPage() {
   const hasValuation = (valuations?.length ?? 0) > 0
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice
 
+  // Capital put into the house: the purchase plus work that adds to it. Maintenance is deliberately
+  // excluded — it's upkeep that's consumed, not money that's still sitting in the building. Same
+  // Renovation/Investment split the rest of the app makes.
+  const capitalWork = (projects ?? [])
+    .filter((p) => p.workType === 'Renovation' || p.workType === 'Investment')
+    .reduce((sum, p) => sum + p.actualCost, 0)
+  const investedTotal = property.purchasePrice + capitalWork
+  const netPosition = currentValue - investedTotal
+
   const openProjects = (projects ?? []).filter((p) => p.status !== 'Completed' && p.status !== 'Cancelled')
   const needsAttention = (schedule ?? []).filter((i) => i.urgency === 'Overdue' || i.urgency === 'DueSoon')
+  // Money committed but not yet paid out. Estimates rather than cost rows on purpose: these are
+  // projects that mostly haven't been invoiced yet, so the estimate is all there is.
+  const pipeline = openProjects.reduce((sum, p) => sum + (p.actualCost > 0 ? p.actualCost : p.estimatedCost), 0)
+  const thisYearsBudget = (budgets ?? []).find((b) => b.year === new Date().getFullYear() && b.id)
+  // Both cards below hide themselves when they'd say nothing; this keeps the grid from rendering
+  // empty, and drops it to one column when only one of them has anything to show.
+  const hasSpend = (projects ?? []).some((p) => p.actualCost > 0)
+  const lowerCards = [thisYearsBudget !== undefined, hasSpend].filter(Boolean).length
 
   return (
     <Stack>
@@ -185,11 +209,40 @@ export function DashboardPage() {
           }
         />
         <StatCard icon={IconTag} label="Köpeskilling" value={formatCurrency(property.purchasePrice)} />
+        {/* The value change above compares against the purchase price alone, which flatters a house
+            with a lot of renovation in it. This one counts that money too. */}
+        <StatCard
+          icon={IconPigMoney}
+          label="Mot insatt kapital"
+          value={hasValuation ? formatCurrency(netPosition) : '—'}
+          footer={
+            hasValuation ? (
+              <Text size="xs" c={netPosition >= 0 ? 'teal' : 'red'} mt={2}>
+                Värde mot {formatCurrency(investedTotal)} (köpeskilling + renovering & investering)
+              </Text>
+            ) : (
+              <Text size="xs" c="dimmed" mt={2}>
+                Kräver en värdering
+              </Text>
+            )
+          }
+        />
       </SimpleGrid>
 
       {/* Replaces the two single-figure spend cards that used to sit above: the same totals are the
           rightmost column here, with the years the cards couldn't show. */}
-      <SpendBreakdown projects={projects ?? []} />
+      <SpendBreakdown
+        projects={projects ?? []}
+        purchaseDate={property.purchaseDate}
+        currentValue={currentValue}
+      />
+
+      {lowerCards > 0 && (
+        <SimpleGrid cols={{ base: 1, lg: lowerCards > 1 ? 2 : 1 }}>
+          {thisYearsBudget && <BudgetProgressCard budget={thisYearsBudget} propertyId={property.id} />}
+          <SpendByComponent projects={projects ?? []} components={components ?? []} />
+        </SimpleGrid>
+      )}
 
       {openProjects.length > 0 && (
         <Card withBorder padding="lg">
@@ -204,6 +257,11 @@ export function DashboardPage() {
               <Text size="xl" fw={700}>
                 {openProjects.length} st
               </Text>
+              {pipeline > 0 && (
+                <Text size="xs" c="dimmed">
+                  {formatCurrency(pipeline)} beräknad kostnad kvar att betala
+                </Text>
+              )}
             </div>
           </Group>
           <Stack gap={6}>
