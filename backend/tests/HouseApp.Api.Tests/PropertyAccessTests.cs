@@ -143,6 +143,13 @@ public class PropertyAccessTests : IClassFixture<HouseAppWebApplicationFactory>
         Assert.Equal(HttpStatusCode.NotFound,
             (await stranger.PostAsJsonAsync($"/api/properties/{property.Id}/members", new AddPropertyMemberRequest("whoever"))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.DeleteAsync($"/api/properties/{property.Id}")).StatusCode);
+
+        // Binding your own Google Drive to the shared sandbox, or unbinding someone else's, is not a
+        // sandbox action — these take strict membership like the rest of this list.
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await stranger.GetAsync($"/api/drive/connect?propertyId={property.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await stranger.DeleteAsync($"/api/drive/connection?propertyId={property.Id}")).StatusCode);
     }
 
     [Fact]

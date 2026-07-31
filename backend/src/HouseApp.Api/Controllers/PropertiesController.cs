@@ -13,7 +13,11 @@ namespace HouseApp.Api.Controllers;
 [ApiController]
 [Route("api/properties")]
 [Authorize]
-public class PropertiesController(AppDbContext db, IBlobStorageService blobStorage) : ControllerBase
+public class PropertiesController(
+    AppDbContext db,
+    IBlobStorageService blobStorage,
+    IGoogleDriveService drive,
+    IDriveAccessTokenResolver driveTokens) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<PropertyDto>>> GetAll()
@@ -24,8 +28,15 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         // predicate — the properties container is tiny (a handful of properties, ever), and this
         // sidesteps translating .Contains() on a list property into Cosmos SQL entirely.
         var properties = await db.Properties.ToListAsync();
-        var visible = properties.Where(p => p.IsDemo || PropertyAccess.IsMember(p, userId));
-        return Ok(visible.Select(p => ToDto(p, userId)));
+        var visible = properties.Where(p => p.IsDemo || PropertyAccess.IsMember(p, userId)).ToList();
+
+        // One read for every card's "connected by" name, rather than one per property. The users
+        // container holds a handful of rows, same reasoning as the full scan above.
+        var names = visible.Any(p => p.UsesGoogleDrive)
+            ? (await db.Users.ToListAsync()).ToDictionary(u => u.Id, u => u.DisplayName)
+            : [];
+
+        return Ok(visible.Select(p => ToDto(p, userId, names.GetValueOrDefault(p.GoogleDriveConnectedByUserId ?? ""))));
     }
 
     [HttpGet("{id}")]
@@ -38,7 +49,7 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
             return NotFound();
         }
 
-        return Ok(ToDto(property, userId));
+        return Ok(ToDto(property, userId, await DriveOwnerNameAsync(property)));
     }
 
     [HttpPost]
@@ -59,7 +70,8 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         Apply(property, request);
         db.Properties.Add(property);
         await db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = property.Id }, ToDto(property, userId));
+        // A brand new property is never connected to Drive, so there is no owner name to resolve.
+        return CreatedAtAction(nameof(GetById), new { id = property.Id }, ToDto(property, userId, null));
     }
 
     [HttpPut("{id}")]
@@ -76,8 +88,14 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         return NoContent();
     }
 
+    /// <param name="deleteFromDrive">
+    /// Whether to also remove this property's documents from Google Drive. Off by default and asked
+    /// per deletion: the files are in someone's personal Drive, and a property delete would otherwise
+    /// clear out a folder's worth of them as a side effect. Blob files are always deleted — those are
+    /// ours, and nothing else could ever reach them again.
+    /// </param>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string id, [FromQuery] bool deleteFromDrive = false)
     {
         // Strict membership, not demo access: the demo is a sandbox anyone may edit, but nobody
         // outside it may delete it out from under everyone.
@@ -102,12 +120,46 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         var documents = await db.Documents.Where(d => d.PropertyId == id).ToListAsync();
         var budgets = await db.Budgets.Where(b => b.PropertyId == id).ToListAsync();
 
-        // Blobs live outside Cosmos entirely — nothing else would ever clean them up. Deleted
+        // Files live outside Cosmos entirely — nothing else would ever clean them up. Deleted
         // before the rows so a failure here leaves the (still-reachable) documents intact rather
-        // than dropping the only pointer to a blob that then leaks silently.
+        // than dropping the only pointer to a file that then leaks silently.
+        //
+        // Drive files are only touched when explicitly asked for, and a failure there is swallowed:
+        // the property is being deleted either way, and the files are safe in someone's own Drive.
+        // Blob is unconditional — those are ours.
+        string? driveAccessToken = null;
+        if (deleteFromDrive && property.UsesGoogleDrive && documents.Any(d => d.StorageKind == DocumentStorageKind.Drive))
+        {
+            try
+            {
+                driveAccessToken = await driveTokens.GetForPropertyAsync(property);
+            }
+            catch (DriveConnectionExpiredException)
+            {
+                driveAccessToken = null;
+            }
+        }
+
         foreach (var document in documents)
         {
-            await blobStorage.DeleteAsync(document.BlobPath);
+            if (document.StorageKind == DocumentStorageKind.Drive)
+            {
+                if (driveAccessToken is not null && document.DriveFileId is { } fileId)
+                {
+                    try
+                    {
+                        await drive.DeleteFileAsync(driveAccessToken, fileId);
+                    }
+                    catch (DriveConnectionExpiredException)
+                    {
+                        driveAccessToken = null;
+                    }
+                }
+            }
+            else if (document.BlobPath is { } blobPath)
+            {
+                await blobStorage.DeleteAsync(blobPath);
+            }
         }
 
         // The legacy renovationEntries container is deliberately not cascaded — it's a frozen
@@ -275,7 +327,18 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
         property.PurchasePrice = request.PurchasePrice;
     }
 
-    private static PropertyDto ToDto(Property p, string userId) =>
+    /// <summary>Display name of whoever connected Drive, or null when the property is on Blob.</summary>
+    private async Task<string?> DriveOwnerNameAsync(Property property)
+    {
+        if (property.GoogleDriveConnectedByUserId is not { } ownerId)
+        {
+            return null;
+        }
+
+        return (await db.Users.FindAsync(ownerId))?.DisplayName;
+    }
+
+    private static PropertyDto ToDto(Property p, string userId, string? driveOwnerName) =>
         new(
             p.Id,
             p.Nickname,
@@ -293,5 +356,8 @@ public class PropertiesController(AppDbContext db, IBlobStorageService blobStora
             p.PurchasePrice,
             p.IsDemo,
             PropertyAccess.IsMember(p, userId),
+            p.UsesGoogleDrive ? DocumentStorageKind.Drive : DocumentStorageKind.Blob,
+            p.GoogleDriveFolderUrl,
+            driveOwnerName,
             p.CreatedAt);
 }

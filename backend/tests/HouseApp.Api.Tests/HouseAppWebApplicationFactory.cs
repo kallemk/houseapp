@@ -17,6 +17,12 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"houseapp-tests-{Guid.NewGuid()}";
 
+    /// <summary>
+    /// Exposed so tests can assert what reached Drive and simulate a revoked grant. Registered as a
+    /// singleton here even though the real service is scoped — the tests need one instance to look at.
+    /// </summary>
+    public FakeGoogleDriveService Drive { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -37,6 +43,11 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
             // is stubbed — the endpoint, allowlist check and cookie issuance are still the real ones.
             services.RemoveAll<IGoogleTokenValidator>();
             services.AddSingleton<IGoogleTokenValidator, FakeGoogleTokenValidator>();
+
+            // Same treatment: the OAuth exchange and the Drive calls are stubbed, but the connect
+            // controller, the protected state, the storage routing and the metadata writes are real.
+            services.RemoveAll<IGoogleDriveService>();
+            services.AddSingleton<IGoogleDriveService>(Drive);
         });
     }
 }

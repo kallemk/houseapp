@@ -24,6 +24,7 @@ else
 
 builder.Services.AddHouseAppCookieAuth();
 builder.Services.AddHouseAppGoogleAuth();
+builder.Services.AddHouseAppGoogleDrive();
 
 var app = builder.Build();
 

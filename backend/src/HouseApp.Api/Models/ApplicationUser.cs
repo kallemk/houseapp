@@ -22,5 +22,17 @@ public class ApplicationUser
     // bootstrap problem (a database where nobody is an admin yet, so nobody can promote anyone).
     public bool IsAdmin { get; set; }
 
+    /// <summary>
+    /// Google Drive OAuth refresh token, encrypted with the app's Data Protection key ring before it
+    /// gets here — see <c>DriveTokenProtector</c>. Never leaves the server: no DTO exposes it, and
+    /// nothing reads it except the code exchanging it for a short-lived access token.
+    ///
+    /// It's on the user rather than the property because the grant belongs to a Google account, not
+    /// a house — one person connecting three properties gets one token. Note the coupling this adds
+    /// to the key ring: losing it already means everyone signs in again, and now also means
+    /// reconnecting Drive.
+    /// </summary>
+    public string? GoogleDriveRefreshTokenProtected { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

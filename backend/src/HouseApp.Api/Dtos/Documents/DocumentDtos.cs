@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using HouseApp.Api.Models;
 
 namespace HouseApp.Api.Dtos.Documents;
@@ -13,15 +14,32 @@ public record DocumentDto(
     string ContentType,
     long SizeBytes,
     DocumentCategory Category,
+    DocumentStorageKind StorageKind,
+    /// <summary>Drive's own "open this file" link. Null on Blob documents, which go through a SAS URL instead.</summary>
+    string? DriveWebViewLink,
     string UploadedByUserId,
     DateTimeOffset UploadedAt);
 
-/// <summary>Step 1 of upload: ask the API for a place to PUT the file directly to Blob Storage.</summary>
+/// <summary>
+/// Step 1 of upload. The reply tells the client *how* to upload, because which backend a property
+/// uses is the server's business — the client shouldn't have to look at the property to find out,
+/// and a client working from a stale cache shouldn't be able to pick the wrong one.
+/// </summary>
 public record UploadUrlRequest(string PropertyId, string FileName, string ContentType);
 
-public record UploadUrlResponse(string UploadUrl, string BlobPath);
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum UploadMode
+{
+    /// <summary>PUT the bytes straight to Blob Storage using the SAS URL, then POST the metadata.</summary>
+    Sas,
 
-/// <summary>Step 2 of upload: after the client PUTs the file to Blob Storage, save its metadata.</summary>
+    /// <summary>POST the file to /api/documents/upload — Drive can't take a direct browser upload.</summary>
+    Drive,
+}
+
+public record UploadUrlResponse(UploadMode Mode, string? UploadUrl, string? BlobPath);
+
+/// <summary>Step 2 of a Blob upload: after the client PUTs the file, save its metadata.</summary>
 public record CreateDocumentRequest(
     string PropertyId,
     string? ProjectId,

@@ -76,5 +76,26 @@ public class Property
     /// </summary>
     public List<PropertyLocalComponent>? LocalComponents { get; set; }
 
+    // --- Google Drive document storage -------------------------------------------------------
+    //
+    // All three null (the state of every property that predates this) means documents go to Blob
+    // Storage. Set together when someone connects Drive, cleared together on disconnect.
+    //
+    // The folder is recorded here but the OAuth refresh token lives on the *user*
+    // (ApplicationUser.GoogleDriveRefreshTokenProtected) — GoogleDriveConnectedByUserId says whose,
+    // so one person can connect several properties from a single grant.
+    //
+    // One connection per property, not per member, and that is forced by the drive.file scope: it
+    // only reaches files the granting user created through this app, so two members uploading under
+    // their own tokens would each see half the folder. Everything therefore goes through the
+    // connecting user's token; if they disconnect, uploads fail loudly rather than splitting.
+
+    public string? GoogleDriveFolderId { get; set; }
+    public string? GoogleDriveFolderUrl { get; set; }
+    public string? GoogleDriveConnectedByUserId { get; set; }
+
+    /// <summary>True when documents for this property go to Google Drive rather than Blob Storage.</summary>
+    public bool UsesGoogleDrive => GoogleDriveFolderId is not null && GoogleDriveConnectedByUserId is not null;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -25,7 +25,26 @@ public class Document
 
     public required string FileName { get; set; }
     public required string ContentType { get; set; }
-    public required string BlobPath { get; set; }
+
+    /// <summary>
+    /// Which backend holds the bytes. Absent on every document written before Drive existed, which
+    /// reads as <see cref="DocumentStorageKind.Blob"/> — see the enum for why that ordering matters.
+    /// </summary>
+    public DocumentStorageKind StorageKind { get; set; }
+
+    /// <summary>Set for <see cref="DocumentStorageKind.Blob"/> documents; null for Drive ones.</summary>
+    public string? BlobPath { get; set; }
+
+    /// <summary>Set for <see cref="DocumentStorageKind.Drive"/> documents; null for Blob ones.</summary>
+    public string? DriveFileId { get; set; }
+
+    /// <summary>
+    /// Drive's own "open this file" URL, stored at upload rather than fetched on demand — opening a
+    /// document shouldn't need a Drive round-trip, or an access token, or the connection to still be
+    /// alive. It's the same link Drive shows in its UI, so Drive's sharing decides who can follow it.
+    /// </summary>
+    public string? DriveWebViewLink { get; set; }
+
     public long SizeBytes { get; set; }
     public DocumentCategory Category { get; set; }
     public required string UploadedByUserId { get; set; }

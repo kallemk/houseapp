@@ -141,4 +141,22 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
         return services;
     }
+
+    /// <summary>
+    /// Google Drive as an alternative document store, opt-in per property.
+    ///
+    /// This *is* a redirect-based OAuth flow, unlike sign-in above — Drive has no equivalent of the
+    /// ID-token shortcut, since the app needs a long-lived grant to act on the user's behalf rather
+    /// than a one-off proof of who they are. It stays compatible with the SameSite=Lax cookie because
+    /// the redirect is a top-level navigation, and the callback lands on the same public origin.
+    /// </summary>
+    public static IServiceCollection AddHouseAppGoogleDrive(this IServiceCollection services)
+    {
+        services.AddHttpClient(nameof(GoogleDriveService));
+        services.AddSingleton<IDriveTokenProtector, DriveTokenProtector>();
+        services.AddScoped<IGoogleDriveService, GoogleDriveService>();
+        // Scoped: resolves AppDbContext to find the connecting user's token.
+        services.AddScoped<IDriveAccessTokenResolver, DriveAccessTokenResolver>();
+        return services;
+    }
 }

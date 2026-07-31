@@ -38,6 +38,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Nested JSON on the property document rather than a container of its own: a property's
             // components are never read without the property, and there are only ever a handful.
             b.OwnsMany(p => p.LocalComponents);
+            // Derived from the two Drive fields; nothing to store.
+            b.Ignore(p => p.UsesGoogleDrive);
         });
 
         modelBuilder.Entity<ValuationEntry>(b =>

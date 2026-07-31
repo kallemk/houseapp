@@ -12,8 +12,19 @@ namespace HouseApp.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public class DocumentsController(AppDbContext db, IBlobStorageService blobStorage) : ControllerBase
+public class DocumentsController(
+    AppDbContext db,
+    IBlobStorageService blobStorage,
+    IGoogleDriveService drive,
+    IDriveAccessTokenResolver driveTokens) : ControllerBase
 {
+    /// <summary>
+    /// Cap on files routed through the API, which only happens for Drive. Blob uploads go straight
+    /// from the browser to storage and are unaffected. Chosen for the F1 App Service, where every
+    /// byte through the API shares a 60 CPU-minute daily quota.
+    /// </summary>
+    private const long MaxDriveUploadBytes = 25 * 1024 * 1024;
+
     [HttpGet("api/properties/{propertyId}/documents")]
     public async Task<ActionResult<List<DocumentDto>>> GetForProperty(string propertyId)
     {
@@ -55,52 +66,149 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
         return NoContent();
     }
 
+    /// <summary>
+    /// Says how to upload to this property. On Blob that's a SAS URL to PUT to; on Drive there's no
+    /// equivalent (it would mean handing the browser a Drive token), so the answer is "post the file
+    /// to the API instead".
+    /// </summary>
     [HttpPost("api/documents/upload-url")]
     public async Task<ActionResult<UploadUrlResponse>> GetUploadUrl(UploadUrlRequest request)
     {
-        if (!await db.CanAccessPropertyAsync(request.PropertyId, User.CurrentUserId()))
+        var property = await LoadAccessiblePropertyAsync(request.PropertyId);
+        if (property is null)
         {
             return NotFound();
+        }
+
+        if (property.UsesGoogleDrive)
+        {
+            return Ok(new UploadUrlResponse(UploadMode.Drive, UploadUrl: null, BlobPath: null));
         }
 
         var (uploadUrl, blobPath) = await blobStorage.GetUploadUrlAsync(request.PropertyId, request.FileName, request.ContentType);
-        return Ok(new UploadUrlResponse(uploadUrl, blobPath));
+        return Ok(new UploadUrlResponse(UploadMode.Sas, uploadUrl, blobPath));
     }
 
+    /// <summary>Saves the metadata for a file the client has just PUT to Blob Storage.</summary>
     [HttpPost("api/documents")]
     public async Task<ActionResult<DocumentDto>> Create(CreateDocumentRequest request)
     {
-        if (!await db.CanAccessPropertyAsync(request.PropertyId, User.CurrentUserId()))
+        var property = await LoadAccessiblePropertyAsync(request.PropertyId);
+        if (property is null)
         {
             return NotFound();
         }
 
-        // Required on new documents, though the column stays nullable: files uploaded before titles
-        // existed have none, and the UI still falls back to the filename for those.
+        // A client working from a stale cache could otherwise write a Blob-shaped row against a
+        // property that has since moved to Drive, pointing at a blob nobody ever uploaded.
+        if (property.UsesGoogleDrive)
+        {
+            return Conflict(new { message = "This property stores documents in Google Drive — use /api/documents/upload." });
+        }
+
         if (string.IsNullOrWhiteSpace(request.Title))
         {
             return BadRequest(new { message = "A title is required." });
         }
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var document = new Document
         {
             PropertyId = request.PropertyId,
             ProjectId = request.ProjectId,
             Date = request.Date,
-            Title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim(),
+            Title = request.Title.Trim(),
             FileName = request.FileName,
             ContentType = request.ContentType,
+            StorageKind = DocumentStorageKind.Blob,
             BlobPath = request.BlobPath,
             SizeBytes = request.SizeBytes,
             Category = request.Category,
-            UploadedByUserId = userId,
+            UploadedByUserId = CurrentUserId,
         };
         db.Documents.Add(document);
         await db.SaveChangesAsync();
         return Ok(ToDto(document));
     }
 
+    /// <summary>
+    /// The Drive upload path: the file itself comes through the API, which streams it into the
+    /// property's Drive folder and writes the metadata row.
+    ///
+    /// This is the one place documents pass through the API — Blob's SAS design deliberately avoids
+    /// it, and Drive leaves no choice without putting an access token in the browser.
+    /// </summary>
+    [HttpPost("api/documents/upload")]
+    [RequestSizeLimit(MaxDriveUploadBytes)]
+    public async Task<ActionResult<DocumentDto>> Upload(
+        [FromForm] DriveUploadForm form,
+        CancellationToken cancellationToken)
+    {
+        var property = await LoadAccessiblePropertyAsync(form.PropertyId);
+        if (property is null)
+        {
+            return NotFound();
+        }
+
+        if (!property.UsesGoogleDrive)
+        {
+            return Conflict(new { message = "This property stores documents in Blob Storage — use /api/documents/upload-url." });
+        }
+
+        if (string.IsNullOrWhiteSpace(form.Title))
+        {
+            return BadRequest(new { message = "A title is required." });
+        }
+
+        if (form.File is null || form.File.Length == 0)
+        {
+            return BadRequest(new { message = "No file was uploaded." });
+        }
+
+        var contentType = string.IsNullOrWhiteSpace(form.File.ContentType)
+            ? "application/octet-stream"
+            : form.File.ContentType;
+
+        try
+        {
+            var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
+            await using var stream = form.File.OpenReadStream();
+            var uploaded = await drive.UploadAsync(
+                accessToken,
+                property.GoogleDriveFolderId!,
+                form.File.FileName,
+                contentType,
+                stream,
+                cancellationToken);
+
+            var document = new Document
+            {
+                PropertyId = form.PropertyId,
+                ProjectId = form.ProjectId,
+                Date = form.Date,
+                Title = form.Title.Trim(),
+                FileName = form.File.FileName,
+                ContentType = contentType,
+                StorageKind = DocumentStorageKind.Drive,
+                DriveFileId = uploaded.FileId,
+                DriveWebViewLink = uploaded.WebViewLink,
+                SizeBytes = form.File.Length,
+                Category = form.Category,
+                UploadedByUserId = CurrentUserId,
+            };
+            db.Documents.Add(document);
+            await db.SaveChangesAsync(cancellationToken);
+            return Ok(ToDto(document));
+        }
+        catch (DriveConnectionExpiredException)
+        {
+            return DriveConnectionGone();
+        }
+    }
+
+    /// <summary>
+    /// A URL to open the document with. Blob documents get a short-lived SAS URL; Drive documents get
+    /// the link stored at upload, so opening one needs neither a Drive call nor a live connection.
+    /// </summary>
     [HttpGet("api/documents/{id}/download-url")]
     public async Task<ActionResult<DownloadUrlResponse>> GetDownloadUrl(string id, [FromQuery] string propertyId)
     {
@@ -117,32 +225,106 @@ public class DocumentsController(AppDbContext db, IBlobStorageService blobStorag
             return NotFound();
         }
 
-        var url = await blobStorage.GetDownloadUrlAsync(document.BlobPath);
+        if (document.StorageKind == DocumentStorageKind.Drive)
+        {
+            return document.DriveWebViewLink is { } link
+                ? Ok(new DownloadUrlResponse(link))
+                : NotFound();
+        }
+
+        var url = await blobStorage.GetDownloadUrlAsync(document.BlobPath!);
         return Ok(new DownloadUrlResponse(url));
     }
 
+    /// <summary>
+    /// Removes the app's record of the document, and its file.
+    ///
+    /// For Blob that's unconditional — the blob is ours and nothing else can reach it. For Drive it's
+    /// opt-in via <paramref name="deleteFromDrive"/>: the file sits in someone's personal Drive, and
+    /// deleting from there is their call to make each time, not a side effect of tidying up the app.
+    /// </summary>
     [HttpDelete("api/documents/{id}")]
-    public async Task<IActionResult> Delete(string id, [FromQuery] string propertyId)
+    public async Task<IActionResult> Delete(
+        string id,
+        [FromQuery] string propertyId,
+        [FromQuery] bool deleteFromDrive = false,
+        CancellationToken cancellationToken = default)
     {
-        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        var property = await LoadAccessiblePropertyAsync(propertyId);
+        if (property is null)
         {
             return NotFound();
         }
 
         var document = await db.Documents
             .Where(d => d.PropertyId == propertyId && d.Id == id)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
         if (document is null)
         {
             return NotFound();
         }
 
-        await blobStorage.DeleteAsync(document.BlobPath);
+        if (document.StorageKind == DocumentStorageKind.Drive)
+        {
+            if (deleteFromDrive && document.DriveFileId is { } fileId)
+            {
+                try
+                {
+                    var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
+                    await drive.DeleteFileAsync(accessToken, fileId, cancellationToken);
+                }
+                catch (DriveConnectionExpiredException)
+                {
+                    // Refuse rather than silently dropping the row: the caller explicitly asked for
+                    // the file to go, and leaving it while forgetting where it is would be worse.
+                    return DriveConnectionGone();
+                }
+            }
+        }
+        else if (document.BlobPath is { } blobPath)
+        {
+            await blobStorage.DeleteAsync(blobPath);
+        }
+
         db.Documents.Remove(document);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
+    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    private async Task<Property?> LoadAccessiblePropertyAsync(string propertyId)
+    {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return null;
+        }
+
+        return await db.Properties.FindAsync(propertyId);
+    }
+
+    /// <summary>
+    /// 409 rather than 500: nothing is broken, the Drive grant just needs remaking. The frontend
+    /// keys off this to show "Drive-anslutningen behöver förnyas" instead of a generic failure.
+    /// </summary>
+    private ObjectResult DriveConnectionGone() =>
+        Conflict(new { message = "The Google Drive connection needs to be renewed.", code = "drive_connection_expired" });
+
     private static DocumentDto ToDto(Document d) =>
-        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.Title, d.FileName, d.ContentType, d.SizeBytes, d.Category, d.UploadedByUserId, d.UploadedAt);
+        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.Title, d.FileName, d.ContentType, d.SizeBytes,
+            d.Category, d.StorageKind, d.DriveWebViewLink, d.UploadedByUserId, d.UploadedAt);
+}
+
+/// <summary>
+/// Multipart form for a Drive upload. A class with [FromForm] rather than a record, because model
+/// binding needs settable properties and an IFormFile can't ride in a JSON body.
+/// </summary>
+public class DriveUploadForm
+{
+    public string PropertyId { get; set; } = string.Empty;
+    public string? ProjectId { get; set; }
+    public DateOnly Date { get; set; }
+    public string? Title { get; set; }
+    public DocumentCategory Category { get; set; }
+    public IFormFile? File { get; set; }
 }
