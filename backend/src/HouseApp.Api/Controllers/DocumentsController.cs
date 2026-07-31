@@ -47,23 +47,48 @@ public class DocumentsController(
     /// written whole, but its attachments aren't part of that document.
     /// </summary>
     [HttpPut("api/documents/{id}/project")]
-    public async Task<IActionResult> SetProject(string id, [FromQuery] string propertyId, SetDocumentProjectRequest request)
+    public async Task<IActionResult> SetProject(
+        string id,
+        [FromQuery] string propertyId,
+        SetDocumentProjectRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        var property = await LoadAccessiblePropertyAsync(propertyId);
+        if (property is null)
         {
             return NotFound();
         }
 
         var document = await db.Documents
             .Where(d => d.PropertyId == propertyId && d.Id == id)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
         if (document is null)
         {
             return NotFound();
         }
 
+        // Re-file it in Drive to match: into the project's folder, or back to "Allmänt" when
+        // detached. Done *before* the metadata is saved, so a Drive failure leaves both sides
+        // consistent rather than recording an attachment whose file is filed somewhere else.
+        if (document.StorageKind == DocumentStorageKind.Drive
+            && property.UsesGoogleDrive
+            && document.DriveFileId is { } fileId)
+        {
+            try
+            {
+                var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
+                var folderId = await driveFolders.GetUploadFolderIdAsync(
+                    accessToken, property, request.ProjectId, cancellationToken);
+                await drive.MoveFileAsync(accessToken, fileId, folderId, cancellationToken);
+            }
+            catch (DriveConnectionExpiredException)
+            {
+                return DriveConnectionGone();
+            }
+        }
+
         document.ProjectId = request.ProjectId;
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 

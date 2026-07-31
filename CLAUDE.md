@@ -302,10 +302,19 @@ the resolver still creates them on demand — properties connected before this e
 nothing else, and `Property.GoogleDriveGeneralFolderId`/`ProjectsFolderId` are null there. Project
 folders are created on the project's *first* upload, not with the project: most projects never get a
 document, and the property may not have been on Drive when the project was made. The date suffix is
-`Project.CreatedAt`, so the name is stable — a folder is **not** renamed when its project is, and a
-document attached to a project *after* upload (`PUT /api/documents/{id}/project`) is **not** moved.
-Ids are saved the moment a folder is made, before the upload that prompted it, so a failed upload
-can't orphan one.
+`Project.CreatedAt`, not today's date, so the name doesn't depend on when the first document happened
+to arrive. Ids are saved the moment a folder is made, before the upload that prompted it, so a failed
+upload can't orphan one.
+
+**The structure is kept in step after the fact, and the two cases fail differently on purpose:**
+- `PUT /api/documents/{id}/project` **moves the file** into the project's folder, or back to
+  "Allmänt" when detached. The move happens *before* the metadata is saved and a dead connection
+  **refuses** the whole call (409), because the alternative is recording an attachment whose file is
+  filed somewhere else.
+- `PUT /api/projects/{id}` **renames the folder** when the name changes, keeping the same date suffix.
+  This one is **best-effort after the save** and only logs on failure: a folder name is cosmetic, the
+  files in it are already right, and refusing to rename a project because Drive is unreachable would
+  be a poor trade. A later rename fixes it.
 
 **Disconnecting clears every project's `GoogleDriveFolderId` too**, not just the property's. They
 point into the tree being forgotten, and reconnecting builds a fresh one — stale ids would file new

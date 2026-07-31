@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { IconPaperclip, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { documentsApi } from '../../api/documents'
+import { ApiError } from '../../api/client'
 import { useDocuments, useSetDocumentProject, useUploadDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_LABELS } from '../../utils/labels'
 import { FileUpload, type UploadMeta } from '../common/FileUpload'
@@ -29,8 +30,25 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
     )
   }
 
-  function detach(id: string) {
-    setDocumentProject.mutate({ id, projectId: null })
+  /**
+   * Attaching and detaching also re-file the document in Google Drive, so these can now fail with a
+   * dead Drive connection where they used to be a pure metadata write. Silence would look like the
+   * click simply not registering.
+   */
+  function moveTo(id: string, target: string | null) {
+    setDocumentProject.mutate(
+      { id, projectId: target },
+      {
+        onError: (error) =>
+          notifications.show({
+            color: 'red',
+            message:
+              error instanceof ApiError && error.status === 409
+                ? 'Google Drive-anslutningen behöver förnyas innan dokumentet kan flyttas.'
+                : 'Kunde inte ändra dokumentets koppling. Försök igen.',
+          }),
+      },
+    )
   }
 
   return (
@@ -69,7 +87,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
                     <Table.Td c="dimmed">{doc.date}</Table.Td>
                     <Table.Td>
                       {/* Detaches only — deleting the file itself belongs on the documents page. */}
-                      <ActionIcon variant="subtle" color="gray" title="Koppla loss" onClick={() => detach(doc.id)}>
+                      <ActionIcon variant="subtle" color="gray" title="Koppla loss" onClick={() => moveTo(doc.id, null)}>
                         <IconX size={16} />
                       </ActionIcon>
                     </Table.Td>
@@ -90,7 +108,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
               onChange={(value) => {
                 setAttachingId(null)
                 if (value) {
-                  setDocumentProject.mutate({ id: value, projectId })
+                  moveTo(value, projectId)
                 }
               }}
               data={unattached.map((d) => ({ value: d.id, label: `${d.title ?? d.fileName} (${d.date})` }))}

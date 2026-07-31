@@ -54,6 +54,24 @@ public interface IGoogleDriveService
     /// delete it in Drive at any time, and that must not block removing the app's own record of it.
     /// </summary>
     Task DeleteFileAsync(string accessToken, string fileId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-files an existing document, for when it's attached to a project (or detached) after upload.
+    /// Replaces every current parent rather than adding one — Drive files can have several, and the
+    /// app's model is that a document lives in exactly one place.
+    /// </summary>
+    Task MoveFileAsync(
+        string accessToken,
+        string fileId,
+        string newParentFolderId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Keeps a project's folder name in step with the project.</summary>
+    Task RenameFolderAsync(
+        string accessToken,
+        string folderId,
+        string newName,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Thrown when Drive rejects the stored refresh token — the connection needs remaking.</summary>

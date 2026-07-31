@@ -158,6 +158,63 @@ public class GoogleDriveService(
         }
     }
 
+    public async Task MoveFileAsync(
+        string accessToken,
+        string fileId,
+        string newParentFolderId,
+        CancellationToken cancellationToken = default)
+    {
+        using var drive = CreateDriveService(accessToken);
+
+        try
+        {
+            // Drive's update takes the parents to add and remove, not a target — so the current ones
+            // have to be read first. A file can legitimately have several (someone can add it to
+            // another folder in Drive); all of them are replaced.
+            var get = drive.Files.Get(fileId);
+            get.Fields = "parents";
+            var file = await ExecuteAsync(() => get.ExecuteAsync(cancellationToken));
+
+            var currentParents = file.Parents ?? [];
+            if (currentParents.Count == 1 && currentParents[0] == newParentFolderId)
+            {
+                return;
+            }
+
+            var update = drive.Files.Update(new Google.Apis.Drive.v3.Data.File(), fileId);
+            update.AddParents = newParentFolderId;
+            update.RemoveParents = currentParents.Count > 0 ? string.Join(",", currentParents) : null;
+            update.Fields = "id,parents";
+            await ExecuteAsync(() => update.ExecuteAsync(cancellationToken));
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == HttpStatusCode.NotFound)
+        {
+            // Deleted in Drive directly. Nothing to move, and the app's metadata change shouldn't
+            // fail over a file that no longer exists.
+            logger.LogInformation("Drive file {FileId} could not be moved because it is gone.", fileId);
+        }
+    }
+
+    public async Task RenameFolderAsync(
+        string accessToken,
+        string folderId,
+        string newName,
+        CancellationToken cancellationToken = default)
+    {
+        using var drive = CreateDriveService(accessToken);
+
+        try
+        {
+            var update = drive.Files.Update(new Google.Apis.Drive.v3.Data.File { Name = newName }, folderId);
+            update.Fields = "id,name";
+            await ExecuteAsync(() => update.ExecuteAsync(cancellationToken));
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == HttpStatusCode.NotFound)
+        {
+            logger.LogInformation("Drive folder {FolderId} could not be renamed because it is gone.", folderId);
+        }
+    }
+
     private DriveService CreateDriveService(string accessToken) =>
         new(new BaseClientService.Initializer
         {

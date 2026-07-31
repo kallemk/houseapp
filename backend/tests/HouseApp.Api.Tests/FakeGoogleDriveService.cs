@@ -82,6 +82,33 @@ public class FakeGoogleDriveService : IGoogleDriveService
         return Task.CompletedTask;
     }
 
+    public Task MoveFileAsync(
+        string accessToken,
+        string fileId,
+        string newParentFolderId,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfExpired();
+        // Mirrors the real one's single-parent model: replace, don't add.
+        Files[fileId] = newParentFolderId;
+        return Task.CompletedTask;
+    }
+
+    public Task RenameFolderAsync(
+        string accessToken,
+        string folderId,
+        string newName,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfExpired();
+        if (Folders.TryGetValue(folderId, out var folder))
+        {
+            Folders[folderId] = (newName, folder.ParentId);
+        }
+
+        return Task.CompletedTask;
+    }
+
     private void ThrowIfExpired()
     {
         if (ConnectionExpired)

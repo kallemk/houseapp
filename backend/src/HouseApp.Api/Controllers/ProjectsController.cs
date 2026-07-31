@@ -3,6 +3,7 @@ using HouseApp.Api.Data;
 using HouseApp.Api.Extensions;
 using HouseApp.Api.Dtos.Projects;
 using HouseApp.Api.Models;
+using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,11 @@ namespace HouseApp.Api.Controllers;
 /// </summary>
 [ApiController]
 [Authorize]
-public class ProjectsController(AppDbContext db) : ControllerBase
+public class ProjectsController(
+    AppDbContext db,
+    IGoogleDriveService drive,
+    IDriveAccessTokenResolver driveTokens,
+    ILogger<ProjectsController> logger) : ControllerBase
 {
     [HttpGet("api/properties/{propertyId}/projects")]
     public async Task<ActionResult<List<ProjectDto>>> GetForProperty(string propertyId)
@@ -72,7 +77,11 @@ public class ProjectsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("api/projects/{id}")]
-    public async Task<IActionResult> Update(string id, [FromQuery] string propertyId, SaveProjectRequest request)
+    public async Task<IActionResult> Update(
+        string id,
+        [FromQuery] string propertyId,
+        SaveProjectRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
         {
@@ -85,9 +94,53 @@ public class ProjectsController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        var renamed = project.Name != request.Name;
         Apply(project, request);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (renamed)
+        {
+            await RenameDriveFolderAsync(project, propertyId, cancellationToken);
+        }
+
         return NoContent();
+    }
+
+    /// <summary>
+    /// Keeps the project's Google Drive folder named after the project.
+    ///
+    /// Deliberately best-effort and *after* the save: a folder name is cosmetic, the files inside it
+    /// are already right, and refusing to rename a project because Drive is unreachable would be a
+    /// poor trade. A failure leaves the old name until the next rename — visible, not silent, and
+    /// harmless. Contrast the document move in DocumentsController.SetProject, which does refuse:
+    /// there the file would end up genuinely misfiled.
+    /// </summary>
+    private async Task RenameDriveFolderAsync(Project project, string propertyId, CancellationToken cancellationToken)
+    {
+        if (project.GoogleDriveFolderId is not { } folderId)
+        {
+            return;
+        }
+
+        var property = await db.Properties.FindAsync([propertyId], cancellationToken);
+        if (property is null || !property.UsesGoogleDrive)
+        {
+            return;
+        }
+
+        try
+        {
+            var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
+            await drive.RenameFolderAsync(
+                accessToken,
+                folderId,
+                DriveFolderResolver.FolderNameFor(project),
+                cancellationToken);
+        }
+        catch (DriveConnectionExpiredException ex)
+        {
+            logger.LogWarning(ex, "Could not rename the Drive folder for project {ProjectId}.", project.Id);
+        }
     }
 
     [HttpDelete("api/projects/{id}")]

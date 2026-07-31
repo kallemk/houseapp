@@ -224,6 +224,119 @@ public class GoogleDriveDocumentsTests : IClassFixture<HouseAppWebApplicationFac
     }
 
     [Fact]
+    public async Task AttachingADocumentToAProjectAfterUpload_MovesTheFile()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Flytt");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Nytt kök", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+
+        // Uploaded loose, then attached — the path that used to leave the file behind in "Allmänt".
+        var document = (await (await client.PostAsync("/api/documents/upload", DriveUpload(property.Id)))
+            .Content.ReadFromJsonAsync<DocumentDto>())!;
+        var root = _factory.Drive.Folders.First(f => f.Value.Name.Contains("Villa Flytt")).Key;
+        var general = _factory.Drive.FolderIdIn(root, "Allmänt");
+        var fileId = _factory.Drive.Files.Single(f => f.Value == general).Key;
+
+        var attach = await client.PutAsJsonAsync(
+            $"/api/documents/{document.Id}/project?propertyId={property.Id}",
+            new SetDocumentProjectRequest(project.Id));
+        Assert.Equal(HttpStatusCode.NoContent, attach.StatusCode);
+
+        var projectsFolder = _factory.Drive.FolderIdIn(root, "Projekt");
+        var projectFolder = _factory.Drive.FolderIdIn(projectsFolder, $"Nytt kök {project.CreatedAt:yyyy-MM-dd}");
+        Assert.Equal(projectFolder, _factory.Drive.Files[fileId]);
+
+        // And detaching puts it back.
+        await client.PutAsJsonAsync(
+            $"/api/documents/{document.Id}/project?propertyId={property.Id}",
+            new SetDocumentProjectRequest(null));
+        Assert.Equal(general, _factory.Drive.Files[fileId]);
+    }
+
+    [Fact]
+    public async Task RenamingAProject_RenamesItsDriveFolder()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Namn");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Gammalt namn", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+
+        var root = _factory.Drive.Folders.First(f => f.Value.Name.Contains("Villa Namn")).Key;
+        var projectsFolder = _factory.Drive.FolderIdIn(root, "Projekt");
+        var projectFolder = _factory.Drive.Folders.Single(f => f.Value.ParentId == projectsFolder).Key;
+
+        var rename = await client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}?propertyId={property.Id}",
+            TestData.SaveProject("Nytt namn", project.ComponentId));
+        Assert.Equal(HttpStatusCode.NoContent, rename.StatusCode);
+
+        // Same folder, new name — the date suffix stays the project's creation date.
+        Assert.Equal($"Nytt namn {project.CreatedAt:yyyy-MM-dd}", _factory.Drive.FolderNameOf(projectFolder));
+    }
+
+    [Fact]
+    public async Task RenamingAProject_StillSucceedsWhenDriveIsUnreachable()
+    {
+        // A folder name is cosmetic and the files inside it are already right, so a dead grant must
+        // not block renaming a project.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Trasig");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Före", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+
+        _factory.Drive.ConnectionExpired = true;
+        var rename = await client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}?propertyId={property.Id}",
+            TestData.SaveProject("Efter", project.ComponentId));
+
+        Assert.Equal(HttpStatusCode.NoContent, rename.StatusCode);
+        var updated = await (await client.GetAsync($"/api/properties/{property.Id}/projects"))
+            .Content.ReadFromJsonAsync<List<ProjectDto>>();
+        Assert.Equal("Efter", updated!.Single(p => p.Id == project.Id).Name);
+    }
+
+    [Fact]
+    public async Task AttachingADocument_RefusesWhenDriveIsUnreachable()
+    {
+        // The opposite call: here the file really would end up misfiled, so the attachment is
+        // refused rather than recorded against a file sitting somewhere else.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Vägrar");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Tak", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+        var document = (await (await client.PostAsync("/api/documents/upload", DriveUpload(property.Id)))
+            .Content.ReadFromJsonAsync<DocumentDto>())!;
+
+        _factory.Drive.ConnectionExpired = true;
+        var attach = await client.PutAsJsonAsync(
+            $"/api/documents/{document.Id}/project?propertyId={property.Id}",
+            new SetDocumentProjectRequest(project.Id));
+
+        Assert.Equal(HttpStatusCode.Conflict, attach.StatusCode);
+
+        // And nothing was recorded, so the two sides still agree.
+        _factory.Drive.ConnectionExpired = false;
+        var documents = await (await client.GetAsync($"/api/properties/{property.Id}/documents"))
+            .Content.ReadFromJsonAsync<List<DocumentDto>>();
+        Assert.Null(documents!.Single(d => d.Id == document.Id).ProjectId);
+    }
+
+    [Fact]
     public async Task Disconnecting_ForgetsTheProjectFoldersToo()
     {
         // They point into a tree that's being forgotten; reconnecting builds a fresh one, and stale
