@@ -91,6 +91,17 @@ export const documentsApi = {
     window.open(url, '_blank')
   },
 
+  /**
+   * The app's own record of the document — what it's called here, what kind of thing it is, and what
+   * date it represents. Metadata only: the stored file is untouched, and on Drive the file keeps the
+   * filename it was uploaded under regardless of the title.
+   */
+  update: (
+    id: string,
+    propertyId: string,
+    input: { title: string; date: string; category: DocumentCategory },
+  ) => apiClient.put<DocumentDto>(`/documents/${id}?propertyId=${encodeURIComponent(propertyId)}`, input),
+
   /** Attaches an existing document to a project, or detaches it with null. */
   setProject: (id: string, propertyId: string, projectId: string | null) =>
     apiClient.put<void>(`/documents/${id}/project?propertyId=${encodeURIComponent(propertyId)}`, { projectId }),

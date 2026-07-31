@@ -236,6 +236,47 @@ public class DocumentsController(
     }
 
     /// <summary>
+    /// Corrects the app's record of a document — its title, category and date.
+    ///
+    /// Metadata only: nothing here touches the stored file, so it behaves identically on Blob and
+    /// Drive. In particular the title is the app's label and is **not** the Drive file's name, which
+    /// stays as the filename it was uploaded under.
+    /// </summary>
+    [HttpPut("api/documents/{id}")]
+    public async Task<ActionResult<DocumentDto>> Update(
+        string id,
+        [FromQuery] string propertyId,
+        UpdateDocumentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
+        var document = await db.Documents
+            .Where(d => d.PropertyId == propertyId && d.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (document is null)
+        {
+            return NotFound();
+        }
+
+        // Same rule as upload. Documents predating titles have none, so editing one is where that
+        // finally gets filled in rather than an exception to the rule.
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "A title is required." });
+        }
+
+        document.Title = request.Title.Trim();
+        document.Date = request.Date;
+        document.Category = request.Category;
+        await db.SaveChangesAsync(cancellationToken);
+        return Ok(ToDto(document));
+    }
+
+    /// <summary>
     /// A URL to open the document with. Blob documents get a short-lived SAS URL; Drive documents get
     /// the link stored at upload, so opening one needs neither a Drive call nor a live connection.
     /// </summary>

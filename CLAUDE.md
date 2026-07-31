@@ -541,7 +541,13 @@ two-sources-of-truth problem `ActualCost` avoids.
 **`Document.Title` is an optional human label; `FileName` is what's on disk.** Filenames like
 "scan_0042.pdf" say nothing, so the UI shows `title ?? fileName` everywhere and the documents page
 keeps the filename visible underneath. Blank titles are normalised to null on write so that fallback
-works. Titles are set at upload only — there's no edit-document UI yet.
+works. `PUT /api/documents/{id}` edits the title, date and category after upload —
+`components/documents/EditDocumentModal.tsx`, offered from both the documents page and a project's
+attachment list. **Metadata only, and deliberately so**: `FileName`, `ContentType` and `SizeBytes`
+describe the stored file and would start lying if they were editable, and on Drive the title is the
+app's label rather than the file's name (the file keeps the filename it was uploaded under, so
+nothing there needs renaming). A title is required on edit as well as on upload, which is where
+documents predating titles finally get one.
 
 **Documents attach to projects by `Document.ProjectId`, saved immediately — not with the project
 form.** Documents live in their own container, so `components/projects/ProjectDocuments.tsx` uploads

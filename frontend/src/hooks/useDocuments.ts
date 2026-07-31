@@ -32,6 +32,22 @@ export function useUploadDocument(propertyId: string) {
   })
 }
 
+export function useUpdateDocument(propertyId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string
+      title: string
+      date: string
+      category: DocumentCategory
+    }) => documentsApi.update(id, propertyId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
+  })
+}
+
 export function useSetDocumentProject(propertyId: string) {
   const queryClient = useQueryClient()
   return useMutation({

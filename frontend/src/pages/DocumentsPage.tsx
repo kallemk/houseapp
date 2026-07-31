@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconDownload, IconFiles, IconTrash } from '@tabler/icons-react'
+import { IconDownload, IconEdit, IconFiles, IconTrash } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
@@ -26,6 +26,7 @@ import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/useDocuments'
 import { useProjects } from '../hooks/useProjects'
 import { DriveConnectionCard } from '../components/documents/DriveConnectionCard'
+import { EditDocumentModal } from '../components/documents/EditDocumentModal'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory, DocumentDto } from '../api/types'
 import { DOCUMENT_CATEGORY_LABELS } from '../utils/labels'
@@ -54,6 +55,7 @@ export function DocumentsPage() {
   const { data: projects } = useProjects(propertyId ?? '')
   const [pendingDelete, setPendingDelete] = useState<DocumentDto | null>(null)
   const [alsoDeleteFromDrive, setAlsoDeleteFromDrive] = useState(false)
+  const [editing, setEditing] = useState<DocumentDto | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const projectsById = new Map((projects ?? []).map((p) => [p.id, p]))
   const { sorted, sortProps } = useTableSort(documents ?? [], {
@@ -167,6 +169,9 @@ export function DocumentsPage() {
                       <ActionIcon variant="subtle" onClick={() => documentsApi.download(doc)} mr="xs">
                         <IconDownload size={16} />
                       </ActionIcon>
+                      <ActionIcon variant="subtle" title="Redigera" onClick={() => setEditing(doc)} mr="xs">
+                        <IconEdit size={16} />
+                      </ActionIcon>
                       <ActionIcon color="red" variant="subtle" onClick={() => setPendingDelete(doc)}>
                         <IconTrash size={16} />
                       </ActionIcon>
@@ -178,6 +183,12 @@ export function DocumentsPage() {
           </Table.ScrollContainer>
         </Card>
       )}
+
+      <EditDocumentModal
+        document={editing}
+        propertyId={property.id}
+        onClose={() => setEditing(null)}
+      />
 
       <ConfirmDialog
         opened={pendingDelete !== null}

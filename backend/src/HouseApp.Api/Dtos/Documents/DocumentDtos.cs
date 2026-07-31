@@ -51,6 +51,15 @@ public record CreateDocumentRequest(
     long SizeBytes,
     DocumentCategory Category);
 
+/// <summary>
+/// The parts of a document that are the app's own record of it, rather than the file: what it's
+/// called here, what kind of thing it is, and what date it represents. Editable after upload.
+///
+/// Deliberately not FileName, ContentType or SizeBytes — those describe the stored file and would
+/// start lying the moment they were edited.
+/// </summary>
+public record UpdateDocumentRequest(string? Title, DateOnly Date, DocumentCategory Category);
+
 public record DownloadUrlResponse(string DownloadUrl);
 
 /// <summary>Null detaches the document from whatever project it was on.</summary>

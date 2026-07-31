@@ -1,8 +1,10 @@
 import { ActionIcon, Anchor, Badge, Card, Group, Select, Stack, Table, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconPaperclip, IconX } from '@tabler/icons-react'
+import { IconEdit, IconPaperclip, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { documentsApi } from '../../api/documents'
+import type { DocumentDto } from '../../api/types'
+import { EditDocumentModal } from '../documents/EditDocumentModal'
 import { ApiError } from '../../api/client'
 import { useDocuments, useSetDocumentProject, useUploadDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_LABELS } from '../../utils/labels'
@@ -19,6 +21,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
   const uploadDocument = useUploadDocument(propertyId)
   const setDocumentProject = useSetDocumentProject(propertyId)
   const [attachingId, setAttachingId] = useState<string | null>(null)
+  const [editing, setEditing] = useState<DocumentDto | null>(null)
 
   const attached = (documents ?? []).filter((d) => d.projectId === projectId)
   const unattached = (documents ?? []).filter((d) => d.projectId === null)
@@ -86,6 +89,9 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
                     </Table.Td>
                     <Table.Td c="dimmed">{doc.date}</Table.Td>
                     <Table.Td>
+                      <ActionIcon variant="subtle" color="gray" title="Redigera" onClick={() => setEditing(doc)}>
+                        <IconEdit size={16} />
+                      </ActionIcon>
                       {/* Detaches only — deleting the file itself belongs on the documents page. */}
                       <ActionIcon variant="subtle" color="gray" title="Koppla loss" onClick={() => moveTo(doc.id, null)}>
                         <IconX size={16} />
@@ -118,6 +124,8 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
           </Group>
         )}
       </Stack>
+
+      <EditDocumentModal document={editing} propertyId={propertyId} onClose={() => setEditing(null)} />
     </Card>
   )
 }

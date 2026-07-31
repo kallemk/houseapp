@@ -176,4 +176,66 @@ public class DocumentsControllerTests : IClassFixture<HouseAppWebApplicationFact
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Update_ChangesTitleDateAndCategory_ButNotTheFile()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var document = (await (await CreateDocumentAsync(client, property.Id)).Content.ReadFromJsonAsync<DocumentDto>())!;
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/documents/{document.Id}?propertyId={property.Id}",
+            new UpdateDocumentRequest("Slutbesiktning", new DateOnly(2025, 12, 24), DocumentCategory.Invoice));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var updated = (await response.Content.ReadFromJsonAsync<DocumentDto>())!;
+        Assert.Equal("Slutbesiktning", updated.Title);
+        Assert.Equal(new DateOnly(2025, 12, 24), updated.Date);
+        Assert.Equal(DocumentCategory.Invoice, updated.Category);
+
+        // The stored file is untouched — editing metadata must not start describing a different file.
+        Assert.Equal(document.FileName, updated.FileName);
+        Assert.Equal(document.ContentType, updated.ContentType);
+        Assert.Equal(document.SizeBytes, updated.SizeBytes);
+        Assert.Equal(document.StorageKind, updated.StorageKind);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Update_WithoutATitle_IsRejected(string title)
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var document = (await (await CreateDocumentAsync(client, property.Id)).Content.ReadFromJsonAsync<DocumentDto>())!;
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/documents/{document.Id}?propertyId={property.Id}",
+            new UpdateDocumentRequest(title, new DateOnly(2026, 1, 1), DocumentCategory.Other));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_LeavesTheProjectAttachmentAlone()
+    {
+        // Attaching is its own endpoint, because it also re-files the document in Drive. Editing the
+        // label must not quietly detach it.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Dränering", "Drainage")))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+        var document = (await (await CreateDocumentAsync(client, property.Id, projectId: project.Id))
+            .Content.ReadFromJsonAsync<DocumentDto>())!;
+
+        var updated = await (await client.PutAsJsonAsync(
+                $"/api/documents/{document.Id}?propertyId={property.Id}",
+                new UpdateDocumentRequest("Nytt namn", new DateOnly(2026, 2, 2), DocumentCategory.Photo)))
+            .Content.ReadFromJsonAsync<DocumentDto>();
+
+        Assert.Equal(project.Id, updated!.ProjectId);
+    }
 }
