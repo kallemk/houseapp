@@ -27,6 +27,8 @@ jobs:
       SEED_USER_1: ${{ secrets.SEED_USER_1 }}
       SEED_USER_2: ${{ secrets.SEED_USER_2 }}
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      # Secret only, never a variable, unlike GOOGLE_CLIENT_ID above — this one is a real credential.
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,12 +42,19 @@ jobs:
       - name: Bicep build (lint/type-check)
         run: az bicep build --file infra/main.bicep
 
-      - name: Check Google client ID is available
+      - name: Check Google credentials are available
         run: |
           if [ -z "$GOOGLE_CLIENT_ID" ]; then
             echo "::warning::GOOGLE_CLIENT_ID is empty — Authentication__Google__ClientId will be blank and Google sign-in will return 503. Set it as a repo variable (Settings → Secrets and variables → Actions → Variables)."
           else
             echo "Google client ID is set (${#GOOGLE_CLIENT_ID} chars)."
+          fi
+          # Only Drive needs this; sign-in works without it, so an empty value is a warning rather
+          # than a failure.
+          if [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+            echo "::warning::GOOGLE_CLIENT_SECRET is empty — connecting Google Drive will return 503. Set it as a repo *secret*, not a variable."
+          else
+            echo "Google client secret is set (${#GOOGLE_CLIENT_SECRET} chars)."
           fi
 
       - name: What-if
@@ -54,7 +63,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET"
 
   deploy:
     needs: validate
@@ -65,6 +74,8 @@ jobs:
       SEED_USER_1: ${{ secrets.SEED_USER_1 }}
       SEED_USER_2: ${{ secrets.SEED_USER_2 }}
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      # Secret only, never a variable, unlike GOOGLE_CLIENT_ID above — this one is a real credential.
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -81,7 +92,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET"
 
       # Reads back what actually landed on the App Service, rather than trusting that the
       # parameter made it through — this whole class of bug was a value silently arriving empty.

@@ -19,8 +19,15 @@ param storageBlobEndpoint string
 param keyVaultUri string
 param appInsightsConnectionString string
 
-@description('Google OAuth client ID used to validate ID tokens. Deliberately NOT @secure() — it ships inside the frontend JS bundle and is public by design; this flow uses no client secret at all.')
+@description('Google OAuth client ID used to validate ID tokens. Deliberately NOT @secure() — it ships inside the frontend JS bundle and is public by design.')
 param googleClientId string = ''
+
+@description('Google OAuth client secret. Used only by the Google Drive connect flow — sign-in is an ID-token flow and never sees it.')
+@secure()
+param googleClientSecret string = ''
+
+@description('Where Google returns the browser after the Drive consent screen. Must be on the public front door, not this App Service hostname.')
+param driveRedirectUri string = ''
 
 @description('The accounts seeded on first startup, which bootstrap the sign-in allowlist. Further users are added in-app via the Users page rather than here.')
 @secure()
@@ -62,6 +69,8 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'KeyVault__Uri', value: keyVaultUri }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
         { name: 'Authentication__Google__ClientId', value: googleClientId }
+        { name: 'Authentication__Google__ClientSecret', value: googleClientSecret }
+        { name: 'Authentication__Google__DriveRedirectUri', value: driveRedirectUri }
         { name: 'Seed__Users__0__Email', value: seedUser1.email }
         { name: 'Seed__Users__0__DisplayName', value: seedUser1.displayName }
         { name: 'Seed__Users__0__TempPassword', value: seedUser1.tempPassword }

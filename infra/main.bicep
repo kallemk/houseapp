@@ -12,8 +12,15 @@ param staticWebAppLocation string = 'westeurope'
 @description('App Service Plan SKU — F1 is free; bump to B1 (~$13/mo, always-on) if the F1 daily quota becomes limiting')
 param appServiceSku string = 'F1'
 
-@description('Google OAuth client ID for Sign in with Google. Public by design (it ships in the frontend bundle) so it is not @secure() and can live in main.parameters.json; this flow uses no client secret.')
+@description('Google OAuth client ID for Sign in with Google. Public by design (it ships in the frontend bundle) so it is not @secure() and can live in main.parameters.json.')
 param googleClientId string = ''
+
+@description('Google OAuth client secret — used ONLY by the Google Drive connect flow, never by sign-in (that is an ID-token flow with no secret). The app\'s first real secret: it comes from the GOOGLE_CLIENT_SECRET GitHub secret and must never be committed or turned into a plain repo variable the way googleClientId is.')
+@secure()
+param googleClientSecret string = ''
+
+@description('Public origin the app is reached on. Used to build the Google Drive OAuth redirect URI, which Google sends the *browser* to — so it must be the Static Web App front door (custom domain), never the App Service hostname, or the callback lands on the wrong origin and the session cookie is not sent. The custom domain is configured outside Bicep, hence the default here.')
+param appBaseUrl string = 'https://housetracker.odenbulten.se'
 
 @description('First bootstrap account — seeded on first startup so someone can sign in and manage the rest via the in-app Users page')
 @secure()
@@ -122,6 +129,8 @@ module appService 'modules/appService.bicep' = {
     keyVaultUri: keyVault.outputs.uri
     appInsightsConnectionString: appInsights.outputs.connectionString
     googleClientId: googleClientId
+    googleClientSecret: googleClientSecret
+    driveRedirectUri: '${appBaseUrl}/api/drive/callback'
     seedUser1: seedUser1
     seedUser2: seedUser2
   }
