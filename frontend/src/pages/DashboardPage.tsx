@@ -193,7 +193,9 @@ export function DashboardPage() {
         </Text>
       )}
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} mt="md">
+      {/* Three across, not two — an odd card wrapping onto its own row reads as a separate section
+          rather than the third of a set. Stacked below sm, where three wouldn't fit. */}
+      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="md">
         <StatCard
           icon={IconHome2}
           label="Nuvarande värde"
