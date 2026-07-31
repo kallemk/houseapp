@@ -43,7 +43,6 @@ import {
   PROJECT_STATUS_COLORS,
   PROJECT_STATUS_LABELS,
 } from '../utils/labels'
-import { PropertyMap } from '../components/dashboard/PropertyMap'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
 import { BudgetProgressCard } from '../components/dashboard/BudgetProgressCard'
@@ -287,10 +286,6 @@ export function DashboardPage() {
             ))}
           </Stack>
         </Card>
-      )}
-
-      {property.latitude !== null && property.longitude !== null && (
-        <PropertyMap latitude={property.latitude} longitude={property.longitude} label={property.nickname} />
       )}
 
       {/* The one part of the app that says what to do next rather than what was done. Only shown

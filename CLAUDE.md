@@ -474,14 +474,18 @@ now by `DocumentsControllerTests.Create_WithProjectId_KeepsTheLink`.
 table horizontally instead of squashing or clipping it. New tables need the same treatment — the
 mobile layout has no other way to show a wide table.
 
-**The dashboard map is a keyless OpenStreetMap iframe** (`components/dashboard/PropertyMap.tsx`),
-driven by `Property.Latitude`/`Longitude`. No map library and no provider key: Leaflet would be a
-dependency for one static pin, and Google/Azure Maps/Mapbox each need a billing account and another
-secret to deploy. Coordinates are **stored, not geocoded on render** — geocoding is a third-party
-call that can fail or rate-limit, and the answer never changes once it's right.
-`utils/geocode.ts` fills the fields from the address via Nominatim behind an explicit button; it is
-a convenience, and the stored values remain the source of truth and stay editable. Both null ⇒ no
-map is rendered.
+**The property map is a keyless OpenStreetMap iframe** (`components/properties/PropertyMap.tsx`). No
+map library and no provider key: Leaflet would be a dependency for one static pin, and
+Google/Azure Maps/Mapbox each need a billing account and another secret to deploy. Coordinates are
+**stored, not geocoded on render** — geocoding is a third-party call that can fail or rate-limit, and
+the answer never changes once it's right. `utils/geocode.ts` fills the fields from the address via
+Nominatim behind an explicit button; it is a convenience, and the stored values remain the source of
+truth and stay editable.
+
+It lives **inside `PropertyForm`, not on the dashboard**, and renders from the live form values
+rather than the saved property — its job is to confirm the coordinates point at the right house
+before they're saved, which is precisely what the geocode button can get wrong. On the dashboard it
+was decoration that pushed the figures down the page. Either field empty or non-numeric ⇒ no map.
 
 **The dashboard timeline groups by year and expands to quarters on click.** A house owned for 20
 years is 80 quarter rows, nearly all empty. `utils/quarters.ts` keeps both groupings; the year is

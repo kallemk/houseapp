@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { geocodeAddress } from '../../utils/geocode'
 import { EMPTY_PROPERTY_FORM, type PropertyFormValues } from '../../utils/propertyForm'
 import { PROPERTY_TYPE_OPTIONS } from '../../utils/labels'
+import { PropertyMap } from './PropertyMap'
 
 export function PropertyForm({
   initial,
@@ -20,6 +21,18 @@ export function PropertyForm({
 }) {
   const form = useForm<PropertyFormValues>({ initialValues: initial ?? EMPTY_PROPERTY_FORM })
   const [locating, setLocating] = useState(false)
+
+  // Both fields must be filled and numeric — a half-typed "57." is NaN, and rendering a map from it
+  // would ask OSM for a bounding box of nothing.
+  const latitude = Number(form.values.latitude)
+  const longitude = Number(form.values.longitude)
+  const mapPosition =
+    form.values.latitude !== '' &&
+    form.values.longitude !== '' &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+      ? { latitude, longitude }
+      : null
 
   async function lookUpCoordinates() {
     const query = [form.values.address, form.values.postalCode, form.values.city, form.values.country]
@@ -87,6 +100,16 @@ export function PropertyForm({
         >
           Hämta koordinater från adressen
         </Button>
+        {/* Driven by the live form values, not the saved property: the map is here to check that the
+            coordinates point at the right house before saving them — which is exactly what the
+            geocode button above can get wrong. */}
+        {mapPosition && (
+          <PropertyMap
+            latitude={mapPosition.latitude}
+            longitude={mapPosition.longitude}
+            label={form.values.nickname || form.values.address}
+          />
+        )}
         <TextInput label="Köpdatum" type="date" required {...form.getInputProps('purchaseDate')} />
         <TextInput label="Köpeskilling (kr)" type="number" required {...form.getInputProps('purchasePrice')} />
         <Button type="submit" loading={submitting}>
