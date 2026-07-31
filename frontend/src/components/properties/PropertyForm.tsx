@@ -62,7 +62,9 @@ export function PropertyForm({
 
   return (
     <form onSubmit={form.onSubmit(onSubmit)}>
-      <Stack maw={420}>
+      {/* Capped rather than full-width because the picker page renders this in a card on an
+          otherwise wide page. Wide enough for the map underneath to be worth looking at. */}
+      <Stack maw={560}>
         <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
         <TextInput label="Adress" required {...form.getInputProps('address')} />
         <TextInput label="Adressrad 2" placeholder="valfritt" {...form.getInputProps('address2')} />

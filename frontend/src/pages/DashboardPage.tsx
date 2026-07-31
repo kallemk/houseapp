@@ -335,7 +335,7 @@ export function DashboardPage() {
 
       <QuickAddModal propertyId={property.id} request={quickAddRequest} onClose={() => setQuickAddRequest(null)} />
 
-      <Modal opened={editing} onClose={() => setEditing(false)} title="Redigera bostad" centered>
+      <Modal opened={editing} onClose={() => setEditing(false)} title="Redigera bostad" size="lg" centered>
         <PropertyForm
           initial={propertyToFormValues(property)}
           submitLabel="Spara"

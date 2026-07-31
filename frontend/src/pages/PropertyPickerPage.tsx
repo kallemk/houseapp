@@ -190,7 +190,7 @@ export function PropertyPickerPage() {
 
       <PropertyAccessModal property={managingAccess} onClose={() => setManagingAccess(null)} />
 
-      <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera bostad" centered>
+      <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera bostad" size="lg" centered>
         {editing && (
           <PropertyForm
             key={editing.id}
