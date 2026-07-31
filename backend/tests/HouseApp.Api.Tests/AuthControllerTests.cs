@@ -159,4 +159,57 @@ public class AuthControllerTests : IClassFixture<HouseAppWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    /// <summary>
+    /// The auth cookie must be *persistent* — carrying an Expires/Max-Age — not a session cookie.
+    ///
+    /// This is asserted on the raw header because the failure mode is an **absent** attribute, which
+    /// nothing else would notice: without AuthenticationProperties.IsPersistent the app still signs
+    /// people in perfectly, and ExpireTimeSpan/SlidingExpiration still read as a 14-day sliding
+    /// session in config. The cookie just quietly evaporates whenever the browser session ends,
+    /// which on Android Chrome is constantly.
+    /// </summary>
+    private static void AssertCookieOutlivesTheBrowserSession(HttpResponseMessage response)
+    {
+        var setCookie = Assert.Single(
+            response.Headers.GetValues("Set-Cookie").Where(c => c.StartsWith("houseapp.auth=", StringComparison.Ordinal)));
+
+        Assert.True(
+            setCookie.Contains("expires=", StringComparison.OrdinalIgnoreCase)
+            || setCookie.Contains("max-age=", StringComparison.OrdinalIgnoreCase),
+            $"The auth cookie has no expiry, so it is a session cookie the browser may drop at any time: {setCookie}");
+    }
+
+    [Fact]
+    public async Task Login_IssuesAPersistentCookie()
+    {
+        await SeedUserAsync("persistent-password@example.com", "Secret123!");
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("persistent-password@example.com", "Secret123!"));
+
+        AssertCookieOutlivesTheBrowserSession(response);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_IssuesAPersistentCookie()
+    {
+        // Both sign-in paths funnel through the same private SignInAsync, but that's exactly the
+        // kind of thing a refactor separates — so both are pinned.
+        const string email = "persistent-google@example.com";
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Users.Add(new ApplicationUser { Email = email, DisplayName = "Google Only" });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        AssertCookieOutlivesTheBrowserSession(response);
+    }
 }

@@ -153,6 +153,18 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
             new(ClaimTypes.Name, user.DisplayName),
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+
+        // IsPersistent is load-bearing and must not be dropped. Without it the handler writes
+        // Set-Cookie with no Expires/Max-Age — a *session* cookie the browser may discard whenever
+        // the browsing session ends. ExpireTimeSpan/SlidingExpiration in AddHouseAppCookieAuth do
+        // NOT cover this: they bound the ticket encrypted inside the cookie, not how long the
+        // browser keeps it. Without this line the server believes it is issuing 14-day sliding
+        // sessions while Android Chrome — which the OS kills routinely, and which has no desktop
+        // "continue where you left off" to restore session cookies — logs people out constantly.
+        var properties = new AuthenticationProperties { IsPersistent = true };
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(identity),
+            properties);
     }
 }
