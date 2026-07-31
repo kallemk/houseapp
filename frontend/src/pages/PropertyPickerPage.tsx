@@ -3,11 +3,9 @@ import {
   Badge,
   Button,
   Card,
-  Center,
   Checkbox,
   Container,
   Group,
-  Loader,
   Menu,
   Modal,
   SimpleGrid,
@@ -39,6 +37,7 @@ import { PropertyForm } from '../components/properties/PropertyForm'
 import { propertyFormToInput, propertyToFormValues, type PropertyFormValues } from '../utils/propertyForm'
 import { useSetDemoProperty } from '../hooks/usePropertyMembers'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { FullPageLoader } from '../components/common/FullPageLoader'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
 
@@ -84,12 +83,10 @@ export function PropertyPickerPage() {
     })
   }
 
+  // Full-height like ProtectedRoute's, so it gets the same self-explaining treatment — this is the
+  // other place a first load can land while the backend is still waking up.
   if (isLoading) {
-    return (
-      <Center h="100vh">
-        <Loader />
-      </Center>
-    )
+    return <FullPageLoader />
   }
 
   const hasProperties = !!properties && properties.length > 0
