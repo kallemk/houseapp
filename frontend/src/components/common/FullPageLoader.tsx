@@ -2,10 +2,34 @@ import { Center, Loader, Stack, Text, Transition } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
 /** Long enough that a warm backend never shows the message at all. */
-const EXPLAIN_AFTER_MS = 2500
+export const EXPLAIN_AFTER_MS = 2500
 
 /** By here it's not a blip, and a second nudge stops it feeling stuck. */
 const REASSURE_AFTER_MS = 12000
+
+/**
+ * The wording, shared with the login page so a cold start reads the same wherever it's waited out.
+ * Kept here because this is where it's explained: the App Service is F1 with alwaysOn disabled and
+ * unloads when nobody has visited for a while.
+ */
+export function WakingNotice({ persistent }: { persistent?: boolean }) {
+  return (
+    <Stack align="center" gap={4} maw={380}>
+      <Text fw={600} size="sm">
+        Väcker servern …
+      </Text>
+      <Text size="sm" c="dimmed" ta="center">
+        Den bor på billigaste möjliga abonnemang och somnar när ingen har tittat förbi på ett tag.
+        Första besöket tar därför en stund.
+      </Text>
+      {persistent && (
+        <Text size="sm" c="dimmed" ta="center" mt={4}>
+          Fortfarande på gång — den vaknar, den är bara lite morgontrött.
+        </Text>
+      )}
+    </Stack>
+  )
+}
 
 /**
  * The first-load spinner, with an explanation that appears only once the wait is genuinely long.
@@ -36,20 +60,9 @@ export function FullPageLoader() {
         <Loader />
         <Transition mounted={stage >= 1} transition="fade" duration={400}>
           {(styles) => (
-            <Stack align="center" gap={4} style={styles} maw={380} mt="md">
-              <Text fw={600} size="sm">
-                Väcker servern …
-              </Text>
-              <Text size="sm" c="dimmed" ta="center">
-                Den bor på billigaste möjliga abonnemang och somnar när ingen har tittat förbi på ett
-                tag. Första besöket tar därför en stund.
-              </Text>
-              {stage >= 2 && (
-                <Text size="sm" c="dimmed" ta="center" mt={4}>
-                  Fortfarande på gång — den vaknar, den är bara lite morgontrött.
-                </Text>
-              )}
-            </Stack>
+            <div style={{ ...styles, marginTop: 'var(--mantine-spacing-md)' }}>
+              <WakingNotice persistent={stage >= 2} />
+            </div>
           )}
         </Transition>
       </Stack>

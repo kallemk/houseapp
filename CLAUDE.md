@@ -143,6 +143,26 @@ Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookie
   errors, the fix is to preserve this same-origin proxying, not to add a CORS policy.
   Don't use `CookieSecurePolicy.Always`.
 
+**`AuthController.SignInAsync` must keep passing `AuthenticationProperties { IsPersistent = true }`,
+and `ExpireTimeSpan` is not a substitute.** Those two settings look like they cover cookie lifetime
+and don't: `ExpireTimeSpan`/`SlidingExpiration` bound the *ticket encrypted inside* the cookie, while
+`IsPersistent` is what makes the handler emit `Expires`/`Max-Age` at all. Without it every sign-in
+issues a **session cookie**, the app still works perfectly in every test and on desktop (Chrome's
+"continue where you left off" restores session cookies), and Android users get logged out constantly
+because the OS kills the browser and nothing restores them. It shipped that way and was only found by
+someone noticing they signed in more often on their phone. `AuthControllerTests` asserts the raw
+`Set-Cookie` header carries an expiry for both sign-in paths, because the failure is an *absent*
+attribute that nothing else notices.
+
+**Cold starts are retried, not eliminated** (`api/client.ts`). F1 + `alwaysOn: false` means the app
+unloads after ~20 minutes idle, and the proxy usually gives up before the cold start finishes.
+`request()` retries network errors and 502/503/504 — four attempts, backing off — but **only for GET
+by default**: a POST that times out may still have been processed, and retrying a Drive upload would
+create the file twice. The two sign-in calls opt in explicitly (`api/auth.ts`), since they're the
+requests most likely to meet a sleeping backend and are safe to repeat. 401/403/404/409 are never
+retried — they're answers. Before this, a cold start surfaced on the login page as *"Google-inloggningen
+misslyckades. Försök igen."*, which told the user to do the one thing that looked like it helped.
+
 ### Data layer: EF Core against Cosmos DB, not a relational DB
 
 `Data/AppDbContext.cs` is a plain `DbContext` (not `IdentityDbContext`) using the EF Core

@@ -15,10 +15,11 @@ import {
 import { useForm } from '@mantine/form'
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 import { IconHomeStar } from '@tabler/icons-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { EXPLAIN_AFTER_MS, WakingNotice } from '../components/common/FullPageLoader'
 
 // Vite inlines this at build time, so it must be set during `npm run build` (see
 // frontend-ci-cd.yml), not at runtime. Absent locally => the Google button is hidden and the
@@ -36,6 +37,23 @@ export function LoginPage() {
   const location = useLocation()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Tracked separately from `submitting` so a Google sign-in doesn't spin the password button.
+  const [googlePending, setGooglePending] = useState(false)
+  const [waking, setWaking] = useState(false)
+  const busy = submitting || googlePending
+
+  // A sign-in that's still going after a couple of seconds is almost always a cold backend rather
+  // than a slow answer, and apiClient is quietly retrying underneath. Saying so beats leaving a
+  // spinner that looks like nothing happened — which is what had people clicking the Google button
+  // over and over.
+  useEffect(() => {
+    if (!busy) {
+      setWaking(false)
+      return
+    }
+    const timer = setTimeout(() => setWaking(true), EXPLAIN_AFTER_MS)
+    return () => clearTimeout(timer)
+  }, [busy])
 
   const form = useForm<LoginFormValues>({
     initialValues: { email: '', password: '' },
@@ -69,6 +87,7 @@ export function LoginPage() {
       return
     }
     setError(null)
+    setGooglePending(true)
     try {
       await loginWithGoogle(credential)
       navigate('/', { replace: true })
@@ -83,6 +102,8 @@ export function LoginPage() {
       } else {
         setError('Google-inloggningen misslyckades. Försök igen.')
       }
+    } finally {
+      setGooglePending(false)
     }
   }
 
@@ -101,10 +122,18 @@ export function LoginPage() {
 
         <Paper withBorder shadow="md" p="xl" w={360}>
           <Stack>
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
+            {/* Never both: while a sign-in is in flight there is no failure to report yet, and the
+                waking notice would otherwise sit under a stale red alert from a previous attempt. */}
+            {waking ? (
+              <Alert color="gray" variant="light">
+                <WakingNotice />
               </Alert>
+            ) : (
+              error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )
             )}
 
             {GOOGLE_CLIENT_ID && (
