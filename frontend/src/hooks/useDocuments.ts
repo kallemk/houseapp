@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { documentsApi } from '../api/documents'
+import { documentsApi, driveApi } from '../api/documents'
 import type { DocumentCategory } from '../api/types'
 
 const key = (propertyId: string) => ['documents', propertyId]
@@ -44,7 +44,23 @@ export function useSetDocumentProject(propertyId: string) {
 export function useDeleteDocument(propertyId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => documentsApi.remove(id, propertyId),
+    mutationFn: ({ id, deleteFromDrive }: { id: string; deleteFromDrive?: boolean }) =>
+      documentsApi.remove(id, propertyId, deleteFromDrive),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key(propertyId) }),
+  })
+}
+
+/**
+ * Connecting or disconnecting changes where uploads go and what the property looks like, so both the
+ * property list and this property's documents are stale afterwards.
+ */
+export function useDisconnectDrive(propertyId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => driveApi.disconnect(propertyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+      queryClient.invalidateQueries({ queryKey: key(propertyId) })
+    },
   })
 }

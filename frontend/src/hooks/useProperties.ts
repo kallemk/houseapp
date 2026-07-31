@@ -26,7 +26,8 @@ export function useUpdateProperty() {
 export function useDeleteProperty() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => propertiesApi.remove(id),
+    mutationFn: ({ id, deleteFromDrive }: { id: string; deleteFromDrive?: boolean }) =>
+      propertiesApi.remove(id, deleteFromDrive),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   })
 }

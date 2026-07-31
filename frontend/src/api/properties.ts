@@ -22,5 +22,7 @@ export const propertiesApi = {
   getById: (id: string) => apiClient.get<PropertyDto>(`/properties/${id}`),
   create: (input: CreatePropertyInput) => apiClient.post<PropertyDto>('/properties', input),
   update: (id: string, input: CreatePropertyInput) => apiClient.put<void>(`/properties/${id}`, input),
-  remove: (id: string) => apiClient.delete<void>(`/properties/${id}`),
+  /** `deleteFromDrive` also clears the property's documents out of the connected Google Drive. */
+  remove: (id: string, deleteFromDrive = false) =>
+    apiClient.delete<void>(`/properties/${id}?deleteFromDrive=${deleteFromDrive}`),
 }

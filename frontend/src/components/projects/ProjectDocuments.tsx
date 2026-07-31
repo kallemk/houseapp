@@ -59,7 +59,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
                 {attached.map((doc) => (
                   <Table.Tr key={doc.id}>
                     <Table.Td>
-                      <Anchor onClick={() => documentsApi.download(doc.id, propertyId)} fw={500}>
+                      <Anchor onClick={() => documentsApi.download(doc)} fw={500}>
                         {doc.title ?? doc.fileName}
                       </Anchor>
                     </Table.Td>

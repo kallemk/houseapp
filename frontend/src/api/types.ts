@@ -39,6 +39,12 @@ export interface PropertyDto {
   isDemo: boolean
   /** False when you can only see this because it's the demo. Gates sharing and deletion. */
   isMember: boolean
+  /** Where this property's documents go. Blob unless someone has connected Google Drive. */
+  documentStorage: DocumentStorageKind
+  /** Link to the Drive folder. Null unless connected. */
+  driveFolderUrl: string | null
+  /** Whose Drive grant every upload uses — so a broken connection can name who must renew it. */
+  driveConnectedByName: string | null
   createdAt: string
 }
 
@@ -197,6 +203,12 @@ export interface DocumentDto {
   contentType: string
   sizeBytes: number
   category: DocumentCategory
+  storageKind: DocumentStorageKind
+  /** Drive's own link. Null on Blob documents, which go through a short-lived SAS URL instead. */
+  driveWebViewLink: string | null
   uploadedByUserId: string
   uploadedAt: string
 }
+
+/** Which backend holds a file's bytes. Chosen per property; recorded per document. */
+export type DocumentStorageKind = 'Blob' | 'Drive'

@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Center,
+  Checkbox,
   Container,
   Group,
   Loader,
@@ -18,6 +19,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import {
+  IconBrandGoogleDrive,
   IconDotsVertical,
   IconEdit,
   IconHome2,
@@ -29,6 +31,7 @@ import {
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { driveApi } from '../api/documents'
 import type { PropertyDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { PropertyAccessModal } from '../components/properties/PropertyAccessModal'
@@ -49,6 +52,7 @@ export function PropertyPickerPage() {
   const [editing, setEditing] = useState<PropertyDto | null>(null)
   const [managingAccess, setManagingAccess] = useState<PropertyDto | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PropertyDto | null>(null)
+  const [alsoDeleteFromDrive, setAlsoDeleteFromDrive] = useState(false)
   const setDemo = useSetDemoProperty()
 
   function toggleDemo(property: PropertyDto) {
@@ -72,8 +76,8 @@ export function PropertyPickerPage() {
     updateProperty.mutate({ id: editing.id, input: propertyFormToInput(values) }, { onSuccess: () => setEditing(null) })
   }
 
-  function handleDelete(property: PropertyDto) {
-    deleteProperty.mutate(property.id, {
+  function handleDelete(property: PropertyDto, deleteFromDrive: boolean) {
+    deleteProperty.mutate({ id: property.id, deleteFromDrive }, {
       // The deleted property may well be the one "/" would jump back into on next load.
       onSuccess: () => clearLastPropertyId(property.id),
       onError: () => notifications.show({ color: 'red', message: 'Bostaden kunde inte tas bort. Försök igen.' }),
@@ -154,6 +158,27 @@ export function PropertyPickerPage() {
                             Hantera åtkomst
                           </Menu.Item>
                         )}
+                        {/* Same reasoning: connecting binds your own Google account to the property,
+                            and every upload afterwards runs on that grant. */}
+                        {property.isMember && property.documentStorage === 'Blob' && (
+                          <Menu.Item
+                            leftSection={<IconBrandGoogleDrive size={14} />}
+                            onClick={() => driveApi.connect(property.id)}
+                          >
+                            Anslut Google Drive
+                          </Menu.Item>
+                        )}
+                        {property.isMember && property.documentStorage === 'Drive' && (
+                          <Menu.Item
+                            leftSection={<IconBrandGoogleDrive size={14} />}
+                            component="a"
+                            href={property.driveFolderUrl ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Öppna Drive-mappen
+                          </Menu.Item>
+                        )}
                         {user?.isAdmin && (
                           <Menu.Item
                             leftSection={<IconStar size={14} />}
@@ -210,14 +235,28 @@ export function PropertyPickerPage() {
             ? `"${pendingDelete.nickname}" tas bort tillsammans med alla värderingar, renoveringar och dokument som hör till bostaden. Detta kan inte ångras.`
             : ''
         }
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => {
+          setPendingDelete(null)
+          setAlsoDeleteFromDrive(false)
+        }}
         onConfirm={() => {
           if (pendingDelete) {
-            handleDelete(pendingDelete)
+            handleDelete(pendingDelete, alsoDeleteFromDrive)
           }
           setPendingDelete(null)
+          setAlsoDeleteFromDrive(false)
         }}
-      />
+      >
+        {/* Off by default, and asked rather than assumed — this would otherwise clear a folder's
+            worth of files out of someone's personal Drive as a side effect. */}
+        {pendingDelete?.documentStorage === 'Drive' && (
+          <Checkbox
+            label="Ta bort även bostadens filer från Google Drive"
+            checked={alsoDeleteFromDrive}
+            onChange={(e) => setAlsoDeleteFromDrive(e.currentTarget.checked)}
+          />
+        )}
+      </ConfirmDialog>
     </Container>
   )
 }
