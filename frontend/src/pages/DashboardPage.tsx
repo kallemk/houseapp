@@ -18,17 +18,14 @@ import { notifications } from '@mantine/notifications'
 import {
   IconBuildingCommunity,
   IconCalendarClock,
-  IconHammer,
   IconHome2,
   IconPencil,
   IconTag,
-  IconTool,
   IconTrendingDown,
   IconTrendingUp,
 } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import type { WorkType } from '../api/types'
 import { PropertyForm } from '../components/properties/PropertyForm'
 import { propertyFormToInput, propertyToFormValues } from '../utils/propertyForm'
 import { useUpdateProperty } from '../hooks/useProperties'
@@ -46,6 +43,7 @@ import {
 import { PropertyMap } from '../components/dashboard/PropertyMap'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
+import { SpendBreakdown } from '../components/dashboard/SpendBreakdown'
 import { formatCurrency, formatNumber } from '../utils/currency'
 
 interface StatCardProps {
@@ -135,15 +133,6 @@ export function DashboardPage() {
   const hasValuation = (valuations?.length ?? 0) > 0
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice
 
-  // Split by what kind of work it was, rather than lumping everything into "invested" — routine
-  // maintenance isn't money that went into the house's value.
-  const spentByWorkType = (workTypes: WorkType[]) =>
-    (projects ?? [])
-      .filter((p) => workTypes.includes(p.workType))
-      .reduce((sum, p) => sum + p.actualCost, 0)
-
-  const invested = spentByWorkType(['Renovation', 'Investment'])
-  const maintenance = spentByWorkType(['Maintenance'])
   const openProjects = (projects ?? []).filter((p) => p.status !== 'Completed' && p.status !== 'Cancelled')
   const needsAttention = (schedule ?? []).filter((i) => i.urgency === 'Overdue' || i.urgency === 'DueSoon')
 
@@ -180,7 +169,7 @@ export function DashboardPage() {
         </Text>
       )}
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mt="md">
+      <SimpleGrid cols={{ base: 1, sm: 2 }} mt="md">
         <StatCard
           icon={IconHome2}
           label="Nuvarande värde"
@@ -196,9 +185,11 @@ export function DashboardPage() {
           }
         />
         <StatCard icon={IconTag} label="Köpeskilling" value={formatCurrency(property.purchasePrice)} />
-        <StatCard icon={IconHammer} label="Renovering & investering" value={formatCurrency(invested)} />
-        <StatCard icon={IconTool} label="Underhållskostnad" value={formatCurrency(maintenance)} />
       </SimpleGrid>
+
+      {/* Replaces the two single-figure spend cards that used to sit above: the same totals are the
+          rightmost column here, with the years the cards couldn't show. */}
+      <SpendBreakdown projects={projects ?? []} />
 
       {openProjects.length > 0 && (
         <Card withBorder padding="lg">
