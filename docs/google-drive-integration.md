@@ -1,8 +1,14 @@
 # Google Drive as an alternative document store
 
-> **Status: designed, not built.** Parked on 2026-07-30 to do smaller things first. Nothing in the
-> codebase implements any of this yet — documents are still Blob-only. The decisions and the research
-> behind them are settled, so picking this up should not need the investigation repeating.
+> **Status: built** (2026-07-31). This document is kept for the *research* below — why the obvious
+> shapes don't work — which is what would otherwise get re-investigated. The as-built design is
+> summarised in CLAUDE.md ("Documents in Google Drive"); where the two differ, the code wins.
+>
+> One deliberate departure from the original design: it proposed a single `IDocumentStorage`
+> interface over both backends. That turned out to be a leaky fit — `GetUploadUrlAsync` is meaningless
+> for Drive, which never hands the browser a URL to write to — so `IBlobStorageService` was left alone
+> and `IGoogleDriveService` got its own honest shape, with `DocumentsController` branching in the
+> three places it matters.
 
 ## Context
 

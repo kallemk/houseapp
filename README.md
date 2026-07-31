@@ -63,16 +63,47 @@ One-time Google Cloud Console setup:
 1. Create a project at <https://console.cloud.google.com/>.
 2. **APIs & Services → OAuth consent screen**: User type **External**; fill in the
    app name and contact emails; keep the default non-sensitive scopes
-   (`openid`, `email`, `profile`) so no verification review is required; add each
-   person's Gmail address under **Test users**. Leaving publishing status on
-   **Testing** is fine indefinitely — the 7-day refresh-token limit doesn't apply
-   here because the app never uses refresh tokens.
+   (`openid`, `email`, `profile`); add each person's Gmail address under
+   **Test users**. Publishing status **Testing** is fine for sign-in alone — but
+   see the Drive section below, which needs the app published.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**,
    type **Web application**. Under **Authorized JavaScript origins** add the
-   Static Web App URL and `http://localhost:5173`. Leave **Authorized redirect
-   URIs empty** — the ID-token flow never redirects.
+   Static Web App URL and `http://localhost:5173`. Redirect URIs are only needed
+   for Google Drive (below) — sign-in never redirects.
 4. Copy the client ID into the `GOOGLE_CLIENT_ID` GitHub repo *variable* (see
    below). It feeds both the frontend build and the backend app setting.
+
+## Documents in Google Drive
+
+Each property stores its documents in Azure Blob Storage by default. A member can
+instead connect their **Google Drive**, and the app creates a folder in it and
+uploads there from then on. It's per property, opt-in, and reversible — existing
+documents keep working either way.
+
+Unlike sign-in, this is a real OAuth redirect flow and **does use a client
+secret**. Additional Console setup, on the same OAuth client:
+
+1. **Authorized redirect URIs** — add both
+   `https://<your-domain>/api/drive/callback` and
+   `http://localhost:5173/api/drive/callback`. The local one is the *Vite dev
+   server's* origin, not `https://localhost:7275`: Google redirects the browser,
+   and it has to come back through the same proxy the app is served from.
+2. **APIs & Services → Library** — enable the **Google Drive API**.
+3. **OAuth consent screen → Scopes** — add `.../auth/drive.file`. It's
+   non-sensitive, so this needs basic verification, not a security assessment.
+   (`drive` and `drive.readonly` are restricted and would need one — which is why
+   the app creates its own folder instead of accepting a folder URL.)
+4. **Publish the app** (Testing → In production). While it's in Testing, refresh
+   tokens expire after 7 days and every property has to be reconnected weekly.
+   This no longer only affects sign-in, which never used refresh tokens.
+5. **Create a client secret** on the OAuth client and put it in the
+   `GOOGLE_CLIENT_SECRET` GitHub **secret** (not a variable — unlike the client
+   ID, this one is a real credential).
+
+Locally, set `Authentication:Google:ClientSecret` in
+`appsettings.Development.json`; `DriveRedirectUri` is already pointed at the Vite
+dev server there. Leave the secret blank and the Drive endpoints return 503,
+which is the right behaviour on a machine that isn't set up for it.
 
 ## Deployment
 
@@ -98,6 +129,8 @@ that builds and deploys on push to `main`. See `.github/workflows/` for details.
      `{"email":"you@example.com","displayName":"You","tempPassword":"..."}`
      for the bootstrap accounts. Never commit real values of these into
      `infra/main.parameters.json`.
+   - `GOOGLE_CLIENT_SECRET` — only needed for the Google Drive integration.
+     Sign-in works without it; connecting Drive returns 503.
 3. **GitHub repo variables** (same page, *Variables* tab — not secrets):
    - `GOOGLE_CLIENT_ID` — the OAuth client ID from the Google setup above. It's a
      *variable* rather than a secret because it's public by design, and it's read

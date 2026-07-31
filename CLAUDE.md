@@ -116,11 +116,16 @@ membership-scoped, not an admin concern. `UsersController` is gated in full, lis
 
 Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
 token from Google Identity Services and posts it to the API, which verifies it via
-`IGoogleTokenValidator` (`Google.Apis.Auth`). This is why there is **no client secret anywhere**
-and no `AddGoogle()` handler. It was chosen specifically because a redirect flow behind the
+`IGoogleTokenValidator` (`Google.Apis.Auth`). **Sign-in therefore uses no client secret** and there's
+no `AddGoogle()` handler. It was chosen specifically because a redirect flow behind the
 Static Web App's linked-backend proxy would redirect to the App Service hostname and land the
 session cookie on the wrong domain. `IGoogleTokenValidator` is an interface purely so tests can
 substitute `FakeGoogleTokenValidator`, exactly as `IBlobStorageService` is handled.
+
+**The Google Drive integration does use a client secret** (`Authentication:Google:ClientSecret`, from
+the `GOOGLE_CLIENT_SECRET` GitHub *secret* — never a repo variable, unlike the public client id).
+That's the app's only stored credential, and it's confined to Drive: sign-in never touches it. See
+"Documents" below for why Drive can't use the ID-token shortcut.
 
 `ApplicationUser.PasswordHash` is **nullable**: users added for Google-only access have none, and
 `Login` must reject a null/empty hash rather than feeding it to the hasher.
@@ -206,18 +211,13 @@ is configured (`ConnectionStrings:Cosmos` / `ConnectionStrings:Storage`, set onl
 app settings wired from Bicep outputs). When touching auth/storage wiring, preserve both
 branches — don't assume a connection string always exists.
 
-**Storing documents in Google Drive instead of Blob has been designed but not built** — see
-`docs/google-drive-integration.md`. It's parked, and that document records why the obvious shapes
-don't work (a folder URL grants no API access; service accounts have no Drive storage quota) so the
-research doesn't get repeated. Two statements below would change if it's ever picked up: documents
-would pass through the API, and the app would gain its first client secret.
-
-Documents/photos never pass through the API: `DocumentsController.GetUploadUrl` /
+**Blob documents never pass through the API**: `DocumentsController.GetUploadUrl` /
 `GetDownloadUrl` issue short-lived SAS URLs (`Services/BlobStorageService.cs`), and the
 browser PUTs/GETs directly to Blob Storage. `BlobStorageService` transparently supports
 both a shared-key SAS (local dev via Azurite connection string,
 `BlobClient.CanGenerateSasUri == true`) and a user-delegation SAS (production, managed
-identity, no account key) — same code path, branched at runtime.
+identity, no account key) — same code path, branched at runtime. **Drive documents are the
+exception** — see below.
 
 **Data Protection key persistence is load-bearing, not optional infrastructure**: cookie
 auth encrypts the session cookie with the Data Protection key ring. `AddHouseAppDataProtection`
@@ -250,6 +250,58 @@ that was live when the transfer-validation fix above was verified, deliberately 
 float to latest untested. This does mean `BlobStorageService.GetUserDelegationKeyAsync` must
 use the older 2-arg `(DateTimeOffset?, DateTimeOffset)` overload, not the newer
 `BlobGetUserDelegationKeyOptions`-based one, which doesn't exist in 12.26.0.
+
+### Documents in Google Drive (opt-in, per property)
+
+A property's documents go to Blob Storage unless a member connects Google Drive, after which new
+uploads go to a folder in *their* Drive. `docs/google-drive-integration.md` holds the research; the
+decisions that constrain the code:
+
+**The scope is `drive.file`, and that choice shapes everything else.** It's non-sensitive (basic
+verification, no security assessment), unlike `drive`/`drive.readonly` which are restricted. The
+price is that it only reaches files the app itself created — which is why **the app creates the
+folder** rather than accepting a pasted folder URL (a URL grants no API access anyway), and why a
+file dropped into the folder from Drive's web UI stays invisible to the app. Accepted, not a bug.
+
+**One connection per property, not per member**, forced by the same scope: each user would only see
+files *they* created, so two members uploading under their own grants would each see half the folder.
+`Property.GoogleDriveConnectedByUserId` names whose token every upload uses; the token itself lives on
+`ApplicationUser.GoogleDriveRefreshTokenProtected` so one person connecting three properties needs one
+grant. `Services/DriveAccessTokenResolver.cs` is the only place that turns a property into a token.
+
+**This is a real redirect OAuth flow** (`DriveAuthController`), the thing sign-in deliberately avoids.
+It survives `SameSite=Lax` because `/api/drive/connect` is reached by **top-level navigation**, which
+Lax allows, and the callback returns to the same public origin — so
+`Authentication:Google:DriveRedirectUri` must be the Static Web App front door
+(`https://housetracker.odenbulten.se/api/drive/callback`), never the App Service hostname, and
+`http://localhost:5173/api/drive/callback` locally (the Vite proxy's origin, not the backend's).
+Both must be registered in the Google Console.
+
+**The `state` parameter is the CSRF defence** and carries the property and user, so the callback
+trusts nothing in the query string but the code. Both it and the refresh token go through
+`IDriveTokenProtector`, reusing the Data Protection key ring — which extends that key ring's
+blast radius: losing it already meant re-signing in, and now also means reconnecting Drive.
+`prompt=consent` + `access_type=offline` are both required or Google returns no refresh token; the
+callback **refuses to connect at all** rather than storing an access token that dies in an hour.
+
+**`DocumentStorageKind.Blob` must stay 0 and the enum is append-only** — EF Cosmos stores it as an
+int and every pre-existing document has no such property, so 0 is what makes this migration-free.
+Same trap as `DocumentCategory`.
+
+**Drive uploads pass through the API** (`POST /api/documents/upload`, multipart), because there's no
+equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — those bytes
+share the F1 plan's 60 CPU-min/day quota. **The server decides the path, not the client**:
+`POST /api/documents/upload-url` returns `Sas` or `Drive`, so `FileUpload` and its three call sites
+are backend-agnostic, and each write endpoint returns 409 for a property on the other backend so a
+stale client can't write a row pointing at a file nobody uploaded.
+
+**Deleting from Drive is opt-in per action**, on both the document and the property cascade, and
+defaults to off — the files are in someone's personal Drive. Disconnecting never touches the folder
+or its files, and documents uploaded while connected keep opening afterwards via the stored
+`DriveWebViewLink` (stored at upload precisely so opening needs no Drive call and no live grant).
+
+**A dead grant is a 409 with `code: "drive_connection_expired"`, not a 500** — nothing is broken, the
+connection needs remaking, and the UI says so.
 
 ### Property membership (multi-property, per-user)
 
