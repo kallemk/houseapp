@@ -90,6 +90,7 @@ public class GoogleDriveService(
     public async Task<DriveFolder> CreateFolderAsync(
         string accessToken,
         string name,
+        string? parentFolderId = null,
         CancellationToken cancellationToken = default)
     {
         using var drive = CreateDriveService(accessToken);
@@ -98,6 +99,9 @@ public class GoogleDriveService(
         {
             Name = name,
             MimeType = FolderMimeType,
+            // Null rather than an empty list when there's no parent: an empty Parents array is not
+            // the same as omitting it, and Drive rejects it.
+            Parents = parentFolderId is null ? null : [parentFolderId],
         });
         request.Fields = "id,webViewLink";
 

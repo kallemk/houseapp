@@ -34,7 +34,12 @@ public interface IGoogleDriveService
     /// <summary>Trades the stored refresh token for a short-lived access token. Every call below needs one.</summary>
     Task<string> GetAccessTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 
-    Task<DriveFolder> CreateFolderAsync(string accessToken, string name, CancellationToken cancellationToken = default);
+    /// <param name="parentFolderId">Null creates it at the root of the user's Drive.</param>
+    Task<DriveFolder> CreateFolderAsync(
+        string accessToken,
+        string name,
+        string? parentFolderId = null,
+        CancellationToken cancellationToken = default);
 
     Task<DriveUploadResult> UploadAsync(
         string accessToken,

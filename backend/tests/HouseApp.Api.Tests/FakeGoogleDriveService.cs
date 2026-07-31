@@ -16,7 +16,15 @@ public class FakeGoogleDriveService : IGoogleDriveService
     /// <summary>Drive file id → the folder it went into. What survives is what wasn't deleted.</summary>
     public ConcurrentDictionary<string, string> Files { get; } = new();
 
-    public ConcurrentBag<string> CreatedFolders { get; } = new();
+    /// <summary>Folder id → (name, parent folder id). Enough to assert the whole tree's shape.</summary>
+    public ConcurrentDictionary<string, (string Name, string? ParentId)> Folders { get; } = new();
+
+    /// <summary>Folder ids whose parent is <paramref name="parentId"/>, by name.</summary>
+    public string? FolderIdIn(string? parentId, string name) =>
+        Folders.FirstOrDefault(f => f.Value.ParentId == parentId && f.Value.Name == name).Key;
+
+    public string? FolderNameOf(string folderId) =>
+        Folders.TryGetValue(folderId, out var folder) ? folder.Name : null;
 
     /// <summary>Flip to make every call behave like a revoked grant.</summary>
     public bool ConnectionExpired { get; set; }
@@ -41,11 +49,15 @@ public class FakeGoogleDriveService : IGoogleDriveService
         return Task.FromResult("fake-access-token");
     }
 
-    public Task<DriveFolder> CreateFolderAsync(string accessToken, string name, CancellationToken cancellationToken = default)
+    public Task<DriveFolder> CreateFolderAsync(
+        string accessToken,
+        string name,
+        string? parentFolderId = null,
+        CancellationToken cancellationToken = default)
     {
         ThrowIfExpired();
         var id = $"folder-{Guid.NewGuid()}";
-        CreatedFolders.Add(name);
+        Folders[id] = (name, parentFolderId);
         return Task.FromResult(new DriveFolder(id, $"https://drive.local/folders/{id}"));
     }
 

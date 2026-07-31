@@ -288,6 +288,29 @@ callback **refuses to connect at all** rather than storing an access token that 
 int and every pre-existing document has no such property, so 0 is what makes this migration-free.
 Same trap as `DocumentCategory`.
 
+**The folder structure is built lazily, and `Services/DriveFolderResolver.cs` owns all of it:**
+
+```
+HusTracker – {property}
+  Allmänt                        ← documents with no project
+  Projekt
+    {project name} {yyyy-MM-dd}  ← one per project, created on its first upload
+```
+
+`Allmänt`/`Projekt` are created up front on connect so the folder looks organised immediately, but
+the resolver still creates them on demand — properties connected before this existed have a root and
+nothing else, and `Property.GoogleDriveGeneralFolderId`/`ProjectsFolderId` are null there. Project
+folders are created on the project's *first* upload, not with the project: most projects never get a
+document, and the property may not have been on Drive when the project was made. The date suffix is
+`Project.CreatedAt`, so the name is stable — a folder is **not** renamed when its project is, and a
+document attached to a project *after* upload (`PUT /api/documents/{id}/project`) is **not** moved.
+Ids are saved the moment a folder is made, before the upload that prompted it, so a failed upload
+can't orphan one.
+
+**Disconnecting clears every project's `GoogleDriveFolderId` too**, not just the property's. They
+point into the tree being forgotten, and reconnecting builds a fresh one — stale ids would file new
+documents into the old structure, outside the new root, where nobody would look.
+
 **Drive uploads pass through the API** (`POST /api/documents/upload`, multipart), because there's no
 equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — those bytes
 share the F1 plan's 60 CPU-min/day quota. **The server decides the path, not the client**:

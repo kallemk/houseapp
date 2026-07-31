@@ -3,6 +3,7 @@ using HouseApp.Api.Extensions;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Controllers;
 
@@ -117,11 +118,22 @@ public class DriveAuthController(
             var folder = await drive.CreateFolderAsync(
                 tokens.AccessToken,
                 $"HusTracker – {property.Nickname}",
+                parentFolderId: null,
                 cancellationToken);
+
+            // Made up front so the folder looks organised the moment you open it in Drive, rather
+            // than growing a structure as files happen to arrive. DriveFolderResolver still creates
+            // them on demand, for properties connected before this existed.
+            var general = await drive.CreateFolderAsync(
+                tokens.AccessToken, DriveFolderResolver.GeneralFolderName, folder.Id, cancellationToken);
+            var projects = await drive.CreateFolderAsync(
+                tokens.AccessToken, DriveFolderResolver.ProjectsFolderName, folder.Id, cancellationToken);
 
             user.GoogleDriveRefreshTokenProtected = protector.ProtectRefreshToken(tokens.RefreshToken);
             property.GoogleDriveFolderId = folder.Id;
             property.GoogleDriveFolderUrl = folder.WebViewLink;
+            property.GoogleDriveGeneralFolderId = general.Id;
+            property.GoogleDriveProjectsFolderId = projects.Id;
             property.GoogleDriveConnectedByUserId = user.Id;
             await db.SaveChangesAsync(cancellationToken);
 
@@ -135,7 +147,7 @@ public class DriveAuthController(
     }
 
     /// <summary>
-    /// Forgets the connection. **Never touches the Drive folder or the files in it** — they're in
+    /// Forgets the connection. **Never touches the Drive folders or the files in them** — they're in
     /// someone's own Drive, and the app's job here is to stop pointing at them, not to tidy up.
     ///
     /// Documents already uploaded keep their DriveFileId and webViewLink, so they still open; new
@@ -158,7 +170,18 @@ public class DriveAuthController(
 
         property.GoogleDriveFolderId = null;
         property.GoogleDriveFolderUrl = null;
+        property.GoogleDriveGeneralFolderId = null;
+        property.GoogleDriveProjectsFolderId = null;
         property.GoogleDriveConnectedByUserId = null;
+
+        // Project folders go too. They point into the folder tree we're forgetting, and reconnecting
+        // later builds a fresh one — leaving them would file new documents into the old structure,
+        // outside the new root, where nobody would think to look.
+        foreach (var project in await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync())
+        {
+            project.GoogleDriveFolderId = null;
+        }
+
         // The user's refresh token is deliberately left alone: it may still be connecting another
         // property, and it's cheap to keep. Revoking access is done in the Google account settings.
         await db.SaveChangesAsync();

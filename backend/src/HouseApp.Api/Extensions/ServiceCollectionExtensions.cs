@@ -155,8 +155,10 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient(nameof(GoogleDriveService));
         services.AddSingleton<IDriveTokenProtector, DriveTokenProtector>();
         services.AddScoped<IGoogleDriveService, GoogleDriveService>();
-        // Scoped: resolves AppDbContext to find the connecting user's token.
+        // Scoped: both resolve AppDbContext — one to find the connecting user's token, the other to
+        // read and record the folder ids it creates.
         services.AddScoped<IDriveAccessTokenResolver, DriveAccessTokenResolver>();
+        services.AddScoped<IDriveFolderResolver, DriveFolderResolver>();
         return services;
     }
 }

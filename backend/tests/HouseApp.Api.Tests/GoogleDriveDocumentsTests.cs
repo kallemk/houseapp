@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Auth;
 using HouseApp.Api.Dtos.Documents;
+using HouseApp.Api.Dtos.Projects;
 using HouseApp.Api.Dtos.Properties;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Identity;
@@ -126,12 +127,132 @@ public class GoogleDriveDocumentsTests : IClassFixture<HouseAppWebApplicationFac
 
         Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
         Assert.Contains("drive=connected", callback.Headers.Location!.ToString());
-        Assert.Contains(_factory.Drive.CreatedFolders, name => name.Contains("Villa Drive"));
+        Assert.Contains(_factory.Drive.Folders.Values, f => f.Name.Contains("Villa Drive"));
 
         var updated = await GetPropertyAsync(client, property.Id);
         Assert.Equal(DocumentStorageKind.Drive, updated.DocumentStorage);
         Assert.NotNull(updated.DriveFolderUrl);
         Assert.Equal("Drive Tester", updated.DriveConnectedByName);
+    }
+
+    [Fact]
+    public async Task Connecting_CreatesTheAllmantAndProjektSubfolders()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Struktur");
+        await ConnectDriveAsync(client, property.Id);
+
+        var root = _factory.Drive.Folders
+            .First(f => f.Value.Name.Contains("Villa Struktur")).Key;
+
+        // Both made up front, so the folder looks organised the moment it's opened in Drive.
+        Assert.NotNull(_factory.Drive.FolderIdIn(root, "Allmänt"));
+        Assert.NotNull(_factory.Drive.FolderIdIn(root, "Projekt"));
+    }
+
+    [Fact]
+    public async Task ADocumentWithNoProject_GoesToAllmant()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Allmän");
+        await ConnectDriveAsync(client, property.Id);
+
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id));
+
+        var root = _factory.Drive.Folders.First(f => f.Value.Name.Contains("Villa Allmän")).Key;
+        var general = _factory.Drive.FolderIdIn(root, "Allmänt");
+        Assert.Contains(_factory.Drive.Files.Values, folderId => folderId == general);
+    }
+
+    [Fact]
+    public async Task ADocumentOnAProject_GoesToAProjectFolderDatedWhenTheProjectWasCreated()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Projekt");
+        await ConnectDriveAsync(client, property.Id);
+
+        var componentId = Guid.NewGuid().ToString();
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Nytt tak", componentId)))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+
+        var root = _factory.Drive.Folders.First(f => f.Value.Name.Contains("Villa Projekt")).Key;
+        var projectsFolder = _factory.Drive.FolderIdIn(root, "Projekt");
+        var expectedName = $"Nytt tak {project.CreatedAt:yyyy-MM-dd}";
+        var projectFolder = _factory.Drive.FolderIdIn(projectsFolder, expectedName);
+
+        Assert.NotNull(projectFolder);
+        Assert.Contains(_factory.Drive.Files.Values, folderId => folderId == projectFolder);
+    }
+
+    [Fact]
+    public async Task ASecondDocumentOnTheSameProject_ReusesItsFolder()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Återbruk");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Fasadmålning", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Offert", projectId: project.Id));
+        var foldersAfterFirst = _factory.Drive.Folders.Count;
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Faktura", projectId: project.Id));
+
+        Assert.Equal(foldersAfterFirst, _factory.Drive.Folders.Count);
+    }
+
+    [Fact]
+    public async Task AnUnknownProjectId_FilesUnderAllmantRatherThanFailing()
+    {
+        // Better to store the file somewhere sensible than to lose the upload over its filing.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Okänd");
+        await ConnectDriveAsync(client, property.Id);
+
+        var response = await client.PostAsync(
+            "/api/documents/upload",
+            DriveUpload(property.Id, projectId: "no-such-project"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var root = _factory.Drive.Folders.First(f => f.Value.Name.Contains("Villa Okänd")).Key;
+        Assert.Contains(_factory.Drive.Files.Values, id => id == _factory.Drive.FolderIdIn(root, "Allmänt"));
+    }
+
+    [Fact]
+    public async Task Disconnecting_ForgetsTheProjectFoldersToo()
+    {
+        // They point into a tree that's being forgotten; reconnecting builds a fresh one, and stale
+        // ids would file new documents outside it where nobody would look.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, "Villa Om");
+        await ConnectDriveAsync(client, property.Id);
+        var project = (await (await client.PostAsJsonAsync(
+                $"/api/properties/{property.Id}/projects",
+                TestData.SaveProject("Dränering", Guid.NewGuid().ToString())))
+            .Content.ReadFromJsonAsync<ProjectDto>())!;
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+
+        await client.DeleteAsync($"/api/drive/connection?propertyId={property.Id}");
+        await ConnectDriveAsync(client, property.Id);
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Efter", projectId: project.Id));
+
+        // Reconnecting made a second root, so the old one can't be told apart by shape — both have a
+        // populated "Projekt". The property points at the current one.
+        var newRoot = (await GetPropertyAsync(client, property.Id)).DriveFolderUrl!.Split('/').Last();
+        Assert.Equal(2, _factory.Drive.Folders.Count(f => f.Value.Name.Contains("Villa Om")));
+
+        var newProjectsFolder = _factory.Drive.FolderIdIn(newRoot, "Projekt");
+        Assert.NotNull(newProjectsFolder);
+
+        // A fresh project folder under the *new* tree, and the second upload inside it.
+        var newProjectFolder = _factory.Drive.Folders
+            .Single(f => f.Value.ParentId == newProjectsFolder).Key;
+        Assert.Contains(_factory.Drive.Files.Values, folderId => folderId == newProjectFolder);
     }
 
     [Fact]

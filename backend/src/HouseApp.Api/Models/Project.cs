@@ -67,6 +67,17 @@ public class Project
     /// </summary>
     public List<ProjectMilestone>? Milestones { get; set; }
 
+    /// <summary>
+    /// This project's own folder inside the property's "Projekt" folder, when its documents go to
+    /// Google Drive. Created on the first upload for the project rather than when the project is
+    /// created — most projects never get a document, and a property may not be on Drive at all (or
+    /// may not have been when the project was made).
+    ///
+    /// Nullable for the usual reason, plus two more: projects created before Drive existed have no
+    /// such JSON property, and a project on a Blob-backed property never gets one.
+    /// </summary>
+    public string? GoogleDriveFolderId { get; set; }
+
     public required string CreatedByUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

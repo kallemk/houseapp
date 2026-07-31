@@ -94,6 +94,18 @@ public class Property
     public string? GoogleDriveFolderUrl { get; set; }
     public string? GoogleDriveConnectedByUserId { get; set; }
 
+    /// <summary>
+    /// "Allmänt" and "Projekt" inside the property's folder — general documents go in the first,
+    /// per-project subfolders live under the second.
+    ///
+    /// Nullable and created on demand rather than assumed: properties connected before this existed
+    /// have a root folder and no subfolders at all, so both <see cref="Services.DriveFolderResolver"/>
+    /// and anything else that needs them must be prepared to create them. Note that a null here means
+    /// "not made yet", never "the user deleted it in Drive" — that case shows up as a Drive error.
+    /// </summary>
+    public string? GoogleDriveGeneralFolderId { get; set; }
+    public string? GoogleDriveProjectsFolderId { get; set; }
+
     /// <summary>True when documents for this property go to Google Drive rather than Blob Storage.</summary>
     public bool UsesGoogleDrive => GoogleDriveFolderId is not null && GoogleDriveConnectedByUserId is not null;
 

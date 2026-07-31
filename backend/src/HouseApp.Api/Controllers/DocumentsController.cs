@@ -16,7 +16,8 @@ public class DocumentsController(
     AppDbContext db,
     IBlobStorageService blobStorage,
     IGoogleDriveService drive,
-    IDriveAccessTokenResolver driveTokens) : ControllerBase
+    IDriveAccessTokenResolver driveTokens,
+    IDriveFolderResolver driveFolders) : ControllerBase
 {
     /// <summary>
     /// Cap on files routed through the API, which only happens for Drive. Blob uploads go straight
@@ -171,10 +172,14 @@ public class DocumentsController(
         try
         {
             var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
+            // "Allmänt", or the project's own folder under "Projekt" — created on the way if needed.
+            var folderId = await driveFolders.GetUploadFolderIdAsync(
+                accessToken, property, form.ProjectId, cancellationToken);
+
             await using var stream = form.File.OpenReadStream();
             var uploaded = await drive.UploadAsync(
                 accessToken,
-                property.GoogleDriveFolderId!,
+                folderId,
                 form.File.FileName,
                 contentType,
                 stream,
