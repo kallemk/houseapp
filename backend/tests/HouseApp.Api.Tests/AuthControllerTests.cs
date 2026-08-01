@@ -172,7 +172,8 @@ public class AuthControllerTests : IClassFixture<HouseAppWebApplicationFactory>
     private static void AssertCookieOutlivesTheBrowserSession(HttpResponseMessage response)
     {
         var setCookie = Assert.Single(
-            response.Headers.GetValues("Set-Cookie").Where(c => c.StartsWith("houseapp.auth=", StringComparison.Ordinal)));
+            response.Headers.GetValues("Set-Cookie"),
+            c => c.StartsWith("houseapp.auth=", StringComparison.Ordinal));
 
         Assert.True(
             setCookie.Contains("expires=", StringComparison.OrdinalIgnoreCase)

@@ -6,11 +6,11 @@ param environmentName string = 'houseapp'
 @description('Azure region for most resources')
 param location string = resourceGroup().location
 
-@description('Azure region for the Static Web App — must be one of the limited set of supported regions')
-param staticWebAppLocation string = 'westeurope'
+@description('Resource group holding the shared App Service Plan. Deliberately not this deployment\'s own resource group — the plan is shared with other apps, so it is not created or owned here.')
+param appServicePlanResourceGroup string = 'rg-common'
 
-@description('App Service Plan SKU — F1 is free; bump to B1 (~$13/mo, always-on) if the F1 daily quota becomes limiting')
-param appServiceSku string = 'F1'
+@description('Name of the shared App Service Plan (B1, Linux, Always On capable). Referenced, never created: this deployment does not own its lifecycle.')
+param appServicePlanName string = 'plan-common-001'
 
 @description('Google OAuth client ID for Sign in with Google. Public by design (it ships in the frontend bundle) so it is not @secure() and can live in main.parameters.json.')
 param googleClientId string = ''
@@ -19,7 +19,7 @@ param googleClientId string = ''
 @secure()
 param googleClientSecret string = ''
 
-@description('Public origin the app is reached on. Used to build the Google Drive OAuth redirect URI, which Google sends the *browser* to — so it must be the Static Web App front door (custom domain), never the App Service hostname, or the callback lands on the wrong origin and the session cookie is not sent. The custom domain is configured outside Bicep, hence the default here.')
+@description('Public origin the app is reached on — the custom domain bound to the App Service. Used to build the Google Drive OAuth redirect URI, which Google sends the *browser* to, so it must be the hostname people actually use rather than the *.azurewebsites.net one. Domain binding and its certificate are done outside Bicep (the binding needs DNS to resolve first, and the managed certificate needs the binding to exist), hence the default here.')
 param appBaseUrl string = 'https://housetracker.odenbulten.se'
 
 @description('First bootstrap account — seeded on first startup so someone can sign in and manage the rest via the in-app Users page')
@@ -48,9 +48,7 @@ var names = {
   storage: take(toLower('${environmentName}st${uniqueSuffix}'), 24)
   logAnalytics: '${environmentName}-logs'
   appInsights: '${environmentName}-insights'
-  appServicePlan: '${environmentName}-plan'
   appService: '${environmentName}-api-${uniqueSuffix}'
-  staticWebApp: '${environmentName}-web'
 }
 
 module identity 'modules/identity.bicep' = {
@@ -106,21 +104,28 @@ module appInsights 'modules/appInsights.bicep' = {
   }
 }
 
-module appServicePlan 'modules/appServicePlan.bicep' = {
-  name: 'appServicePlan'
-  params: {
-    location: location
-    name: names.appServicePlan
-    sku: appServiceSku
-  }
+// Referenced, not created. The plan lives in another resource group and is shared with other apps,
+// so this deployment must never own or modify it — an `existing` reference is what keeps a
+// what-if/deploy here from proposing changes to something it doesn't own.
+resource sharedAppServicePlan 'Microsoft.Web/serverfarms@2023-12-01' existing = {
+  name: appServicePlanName
+  scope: resourceGroup(appServicePlanResourceGroup)
 }
 
 module appService 'modules/appService.bicep' = {
   name: 'appService'
   params: {
-    location: location
+    // The plan's region, not this resource group's: an App Service must sit in the same region as
+    // its plan, and the two are no longer guaranteed to match now the plan lives elsewhere.
+    //
+    // Migration trap, one-time: an existing App Service's location is **immutable**. If this plan is
+    // in a different region from the App Service that already exists, the deployment fails rather
+    // than moving it — that case needs the old app deleted and recreated, which changes the
+    // *.azurewebsites.net hostname. Check before deploying:
+    //   az appservice plan show -g rg-common -n plan-common-001 --query location
+    location: sharedAppServicePlan.location
     name: names.appService
-    appServicePlanId: appServicePlan.outputs.id
+    appServicePlanId: sharedAppServicePlan.id
     identityId: identity.outputs.id
     identityClientId: identity.outputs.clientId
     cosmosEndpoint: cosmos.outputs.endpoint
@@ -136,19 +141,13 @@ module appService 'modules/appService.bicep' = {
   }
 }
 
-module staticWebApp 'modules/staticWebApp.bicep' = {
-  name: 'staticWebApp'
-  params: {
-    location: staticWebAppLocation
-    name: names.staticWebApp
-    linkedBackendId: appService.outputs.id
-    linkedBackendLocation: location
-  }
-}
+// The Static Web App is gone: the App Service now serves the SPA itself, so there is nothing left to
+// proxy. Note that removing it from here does NOT delete the deployed resource — Azure deployments
+// are incremental — so it has to be deleted explicitly once the domain has moved:
+//   az staticwebapp delete -g <rg> -n houseapp-web
 
 output appServiceName string = appService.outputs.name
 output appServiceHostname string = appService.outputs.defaultHostName
-output staticWebAppHostname string = staticWebApp.outputs.hostname
 output cosmosEndpoint string = cosmos.outputs.endpoint
 output storageAccountName string = storage.outputs.name
 output keyVaultUri string = keyVault.outputs.uri

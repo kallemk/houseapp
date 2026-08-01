@@ -68,7 +68,7 @@ One-time Google Cloud Console setup:
    see the Drive section below, which needs the app published.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**,
    type **Web application**. Under **Authorized JavaScript origins** add the
-   Static Web App URL and `http://localhost:5173`. Redirect URIs are only needed
+   app's public URL and `http://localhost:5173`. Redirect URIs are only needed
    for Google Drive (below) — sign-in never redirects.
 4. Copy the client ID into the `GOOGLE_CLIENT_ID` GitHub repo *variable* (see
    below). It feeds both the frontend build and the backend app setting.
@@ -108,23 +108,28 @@ which is the right behaviour on a machine that isn't set up for it.
 ## Deployment
 
 Infra is defined in `infra/` (Bicep) and deployed via the `infra-deploy` GitHub
-Actions workflow. The backend and frontend each have their own CI/CD workflow
-that builds and deploys on push to `main`. See `.github/workflows/` for details.
+Actions workflow. Application code goes out through a single `ci-cd` workflow:
+the React build is copied into the API's `wwwroot`, so one App Service serves
+both the SPA and the API from one origin. See `.github/workflows/` for details.
+
+The App Service runs on a **shared B1 Linux plan** (`plan-common-001` in
+`rg-common`) that this deployment references but does not create — so the
+service principal needs rights on that resource group too, and the App Service
+inherits the plan's region.
 
 ### One-time setup
 
 1. **Azure AD app registration for OIDC**: create an app registration with a
    federated credential trusting this GitHub repo (no client secret needed).
-   Grant it `Contributor` on the target resource group.
+   Grant it `Contributor` on the target resource group, **and enough rights on
+   `rg-common` to join the shared App Service Plan** — without the second, the
+   first infra deploy fails.
 2. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
    - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` — from the
      app registration above.
    - `AZURE_RESOURCE_GROUP` — the resource group to deploy into.
    - `AZURE_APP_SERVICE_NAME` — the App Service name (from the infra deploy's
      `appServiceName` output, once the first infra deploy has run).
-   - `AZURE_STATIC_WEB_APPS_API_TOKEN` — from the Static Web App resource's
-     deployment token (`az staticwebapp secrets list`), once the first infra
-     deploy has run.
    - `SEED_USER_1`, `SEED_USER_2` — JSON strings like
      `{"email":"you@example.com","displayName":"You","tempPassword":"..."}`
      for the bootstrap accounts. Never commit real values of these into
@@ -134,9 +139,15 @@ that builds and deploys on push to `main`. See `.github/workflows/` for details.
 3. **GitHub repo variables** (same page, *Variables* tab — not secrets):
    - `GOOGLE_CLIENT_ID` — the OAuth client ID from the Google setup above. It's a
      *variable* rather than a secret because it's public by design, and it's read
-     by both `frontend-ci-cd` (inlined into the bundle at build time) and
-     `infra-deploy` (passed as the `googleClientId` Bicep param).
+     by both `ci-cd` (inlined into the bundle at build time) and `infra-deploy`
+     (passed as the `googleClientId` Bicep param).
 4. **GitHub environment**: create a `production` environment with required
    reviewers, so infra and deploy jobs pause for manual approval.
 5. Push to `main` (or run `infra-deploy` manually first) to provision
-   everything, then the backend/frontend workflows can deploy on top of it.
+   everything, then `ci-cd` deploys the app on top of it.
+6. **Custom domain** (not in Bicep — the binding needs DNS to resolve first, and
+   the managed certificate needs the binding to exist):
+   point a CNAME at the App Service hostname, add the `asuid.<sub>` TXT record,
+   then `az webapp config hostname add` → `az webapp config ssl create` →
+   `az webapp config ssl bind --ssl-type SNI`. The free App Service Managed
+   Certificate is available on B1.

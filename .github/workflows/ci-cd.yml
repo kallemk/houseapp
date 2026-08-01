@@ -1,0 +1,150 @@
+name: ci-cd
+
+# One workflow, because there is now one artifact: the React build ships inside the API's wwwroot and
+# both are deployed to the same App Service. The old path-filtered frontend/backend workflows would
+# race to deploy over each other.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "infra/**"
+      - "docs/**"
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "infra/**"
+      - "docs/**"
+      - "**.md"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # The client ID is public by design — it ships inside the JS bundle — so a repo *variable* is its
+  # intended home; the secret fallback just makes this work either way. Set at workflow level so both
+  # jobs get it, since both build the frontend.
+  VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Restore backend
+        run: dotnet restore
+        working-directory: backend
+
+      - name: Build backend
+        run: dotnet build --no-restore --configuration Release
+        working-directory: backend
+
+      - name: Test backend
+        run: dotnet test --no-build --configuration Release
+        working-directory: backend
+
+  deploy:
+    needs: build-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Verify Google client ID is present
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ]; then
+            echo "::warning::VITE_GOOGLE_CLIENT_ID is empty — the Google sign-in button will NOT render. Set the GOOGLE_CLIENT_ID repo variable (Settings → Secrets and variables → Actions → Variables)."
+          else
+            echo "Google client ID is set (${#VITE_GOOGLE_CLIENT_ID} chars)."
+          fi
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      # Vite inlines the client ID at build time, so a mis-scoped env var produces a silently
+      # broken bundle rather than a failed build. This caught exactly that once before.
+      - name: Confirm the client ID was inlined into the bundle
+        run: |
+          if grep -rq "apps.googleusercontent.com" frontend/dist/assets/*.js; then
+            echo "Client ID found in the built bundle."
+          else
+            echo "::warning::No Google client ID found in the built bundle — the sign-in button will be hidden."
+          fi
+
+      - name: Publish backend
+        run: dotnet publish src/HouseApp.Api/HouseApp.Api.csproj --configuration Release --output ./publish
+        working-directory: backend
+
+      # The API serves the SPA from wwwroot. Program.cs only registers the SPA fallback when
+      # index.html is actually there, so a failure here degrades to an API-only deployment rather
+      # than a crash — check the listing if the site starts 404ing at the root.
+      - name: Copy the frontend build into wwwroot
+        run: |
+          mkdir -p backend/publish/wwwroot
+          cp -r frontend/dist/. backend/publish/wwwroot/
+          test -f backend/publish/wwwroot/index.html || { echo "::error::index.html missing from wwwroot"; exit 1; }
+          ls backend/publish/wwwroot
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
+          package: backend/publish
+
+      # Required, not hygiene, and Always On does nothing about it. Zip deploy overwrites the DLLs in
+      # /home/site/wwwroot (an Azure Files mount) while the old process still has them memory-mapped.
+      # Methods already JIT'd keep working, but the first one compiled after the swap reads the new
+      # file at the old offsets and throws BadImageFormatException ("Bad binary signature") — a 500 on
+      # whichever endpoint is called first post-deploy, until something restarts the app. Hit
+      # DELETE /api/properties/{id} in production on 2026-07-28.
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets.AZURE_APP_SERVICE_NAME }}"

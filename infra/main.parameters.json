@@ -5,11 +5,11 @@
     "environmentName": {
       "value": "houseapp"
     },
-    "appServiceSku": {
-      "value": "F1"
+    "appServicePlanResourceGroup": {
+      "value": "rg-common"
     },
-    "staticWebAppLocation": {
-      "value": "westeurope"
+    "appServicePlanName": {
+      "value": "plan-common-001"
     },
     "seedUser1": {
       "value": {

@@ -117,9 +117,10 @@ membership-scoped, not an admin concern. `UsersController` is gated in full, lis
 Google sign-in uses the **ID-token flow**, not a server-side OAuth redirect: the browser gets a
 token from Google Identity Services and posts it to the API, which verifies it via
 `IGoogleTokenValidator` (`Google.Apis.Auth`). **Sign-in therefore uses no client secret** and there's
-no `AddGoogle()` handler. It was chosen specifically because a redirect flow behind the
-Static Web App's linked-backend proxy would redirect to the App Service hostname and land the
-session cookie on the wrong domain. `IGoogleTokenValidator` is an interface purely so tests can
+no `AddGoogle()` handler. It was chosen when the frontend was a Static Web App proxying to the API, where a redirect flow
+would have bounced to the App Service hostname and landed the session cookie on the wrong domain.
+That constraint is gone now everything is one origin, but the ID-token flow is kept: it's simpler
+and needs no client secret. `IGoogleTokenValidator` is an interface purely so tests can
 substitute `FakeGoogleTokenValidator`, exactly as `IBlobStorageService` is handled.
 
 **The Google Drive integration does use a client secret** (`Authentication:Google:ClientSecret`, from
@@ -137,11 +138,10 @@ New users must be **backfilled onto existing properties** (`UsersController.Crea
 Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookieAuth`) uses
 `SameSiteMode.Lax` and `CookieSecurePolicy.SameAsRequest` on purpose:
 - **Lax + no CORS works** because the frontend and backend are same-origin in both
-  environments: the Vite dev proxy forwards `/api` to the backend locally
-  (`vite.config.ts`), and the Static Web App's **linked backend** proxies `/api/*` to the
-  App Service in production (`infra/modules/staticWebApp.bicep`). If you ever see CORS
-  errors, the fix is to preserve this same-origin proxying, not to add a CORS policy.
-  Don't use `CookieSecurePolicy.Always`.
+  environments. In production that is now literal rather than arranged: the App Service serves the
+  SPA from its own `wwwroot`, so there is one origin and nothing to proxy. Locally the Vite dev
+  proxy forwards `/api` to the backend (`vite.config.ts`). If you ever see CORS errors, the fix is
+  to restore single-origin serving, not to add a CORS policy. Don't use `CookieSecurePolicy.Always`.
 
 **`AuthController.SignInAsync` must keep passing `AuthenticationProperties { IsPersistent = true }`,
 and `ExpireTimeSpan` is not a substitute.** Those two settings look like they cover cookie lifetime
@@ -154,9 +154,10 @@ someone noticing they signed in more often on their phone. `AuthControllerTests`
 `Set-Cookie` header carries an expiry for both sign-in paths, because the failure is an *absent*
 attribute that nothing else notices.
 
-**Cold starts are retried, not eliminated** (`api/client.ts`). F1 + `alwaysOn: false` means the app
-unloads after ~20 minutes idle, and the proxy usually gives up before the cold start finishes.
-`request()` retries network errors and 502/503/504 — four attempts, backing off — but **only for GET
+**Transient unavailability is retried** (`api/client.ts`). This was written for F1 cold starts,
+which `alwaysOn: true` on B1 has since removed — but it still earns its place: every deploy restarts
+the app (see `ci-cd.yml`), and the SPA now lives on that same App Service, so a reload mid-deploy
+hits a starting server. `request()` retries network errors and 502/503/504 — four attempts, backing off — but **only for GET
 by default**: a POST that times out may still have been processed, and retrying a Drive upload would
 create the file twice. The two sign-in calls opt in explicitly (`api/auth.ts`), since they're the
 requests most likely to meet a sleeping backend and are safe to repeat. 401/403/404/409 are never
@@ -243,8 +244,12 @@ exception** — see below.
 auth encrypts the session cookie with the Data Protection key ring. `AddHouseAppDataProtection`
 persists it to **local disk** (`PersistKeysToFileSystem`), not Blob Storage — on App Service
 Linux this resolves to `/home/data-protection-keys`, which is persistent across
-restarts/idle-unloads for a single instance (our F1 plan runs exactly one), so logins survive
-them. **Not** encrypted at rest with Key Vault — `ProtectKeysWithAzureKeyVault` needs a URI to
+restarts/idle-unloads for a single instance, so logins survive them. **This is only correct while
+the plan runs exactly one instance, and that is no longer guaranteed by the tier.** F1 could not
+scale out; the shared B1 can, and scaling is per *plan* — another app on `plan-common-001` could
+trigger it. If it ever runs more than one instance the key ring diverges and people get signed out
+at random as requests land on different instances. Keep it at one instance, or move key persistence
+to Blob/Key Vault before scaling. **Not** encrypted at rest with Key Vault — `ProtectKeysWithAzureKeyVault` needs a URI to
 a specific key inside the vault (`.../keys/<name>`), not the vault's own base URI, so wiring
 it up properly means provisioning a Key Vault key via Bicep too; skipped as unnecessary
 hardening for a 2-user app (this crashed startup with `Invalid ObjectIdentifier ... Bad number
@@ -292,7 +297,7 @@ grant. `Services/DriveAccessTokenResolver.cs` is the only place that turns a pro
 **This is a real redirect OAuth flow** (`DriveAuthController`), the thing sign-in deliberately avoids.
 It survives `SameSite=Lax` because `/api/drive/connect` is reached by **top-level navigation**, which
 Lax allows, and the callback returns to the same public origin — so
-`Authentication:Google:DriveRedirectUri` must be the Static Web App front door
+`Authentication:Google:DriveRedirectUri` must be the custom domain bound to the App Service
 (`https://housetracker.odenbulten.se/api/drive/callback`), never the App Service hostname, and
 `http://localhost:5173/api/drive/callback` locally (the Vite proxy's origin, not the backend's).
 Both must be registered in the Google Console.
@@ -341,8 +346,9 @@ point into the tree being forgotten, and reconnecting builds a fresh one — sta
 documents into the old structure, outside the new root, where nobody would look.
 
 **Drive uploads pass through the API** (`POST /api/documents/upload`, multipart), because there's no
-equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — those bytes
-share the F1 plan's 60 CPU-min/day quota. **The server decides the path, not the client**:
+equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — originally
+because those bytes shared F1's 60 CPU-min/day quota, which B1 doesn't have; the cap stays as a
+sanity bound on a request that streams through the API. **The server decides the path, not the client**:
 `POST /api/documents/upload-url` returns `Sas` or `Drive`, so `FileUpload` and its three call sites
 are backend-agnostic, and each write endpoint returns 409 for a property on the other backend so a
 stale client can't write a row pointing at a file nobody uploaded.
@@ -675,31 +681,23 @@ anymore. `NavBar` renders a property switcher (a `Menu` populated from `usePrope
 preserves the current sub-page when switching (e.g. switching properties while on Valuations
 stays on Valuations for the new property) by reusing the current path's suffix.
 
-**`frontend/public/staticwebapp.config.json` is what makes those client-side routes survive a
-page refresh** — it is not optional boilerplate. Without a `navigationFallback`, Azure Static
-Web Apps looks for a physical file at e.g. `/properties/<guid>` and serves its own 404; the
-routes only appear to work because in-app navigation never asks the server for them (this
-shipped broken and was caught by refreshing a property page). It lives in `public/` so Vite
-copies it to `dist/` — SWA reads it from the deployed output root, so putting it anywhere else
-silently does nothing. The `exclude` list matters as much as the rewrite: `/api/*` must be
-excluded so API calls still reach the linked backend instead of being handed `index.html`, and
-static assets are excluded so a genuinely missing file 404s properly rather than returning HTML
-under a `.js`/`.css` URL (which surfaces as a confusing MIME-type error, not an obvious 404).
+**Client-side routes surviving a page refresh is `Program.cs`'s job**, and the rules are not
+optional boilerplate. The App Service serves the SPA from `wwwroot`, so without a fallback it looks
+for a physical file at e.g. `/properties/<guid>` and 404s; the routes only appear to work because
+in-app navigation never asks the server for them. (This shipped broken once under the Static Web App
+for the same reason, and was caught by refreshing a property page.) Three rules, and the two
+exclusions matter as much as the rewrite:
+- Anything else → `index.html`, so a deep link reloads.
+- `/api/*` → **404**, never `index.html`. Handing HTML back from an API path turns "no such
+  endpoint" into a JSON parse error somewhere far from the cause.
+- Anything with a file extension → **404**, never `index.html`. A stale hashed bundle must fail as a
+  missing script rather than as HTML served under a `.js` URL, which surfaces as a confusing
+  MIME-type error instead of an obvious 404.
 
-**The Administration section (`/admin`) is reachable by everyone, and gates per page rather than at
-the route.** `pages/AdministrationPage.tsx` is a layout route holding the shared heading and the tab
-bar; each management page renders through its `Outlet`, and `/admin` alone redirects to the first
-tab. There used to be an `auth/AdminRoute.tsx` that bounced non-admins to `/properties` — it's gone,
-because the section now mixes pages with different rules: components is read-only for a regular user
-(the list is the vocabulary the projects page is built on, so it's worth reading), while users shows
-a plain "no permission" state. Silently redirecting away from a nav link everyone can see is worse
-than saying why. `useUsers(enabled)` takes a flag purely so the users page doesn't fire a request it
-knows will 403. **New management pages belong here as another tab**, and each one decides its own
-non-admin behaviour — the API is still the real gate either way.
-
-"Hantera komponenter" on the **maintenance** page (not the projects page) points at the property's
-own component list, not the central registry: the schedule is computed directly from that list's
-intervals, so that's both where wanting to change one arises and the list that would change.
+The fallback is registered **only when `wwwroot/index.html` exists**. Local `dotnet run` and the test
+host have no SPA build and boot the same `Program`, so the guard is what keeps them unaffected.
+`SpaFallbackTests` pins all of it — these rules previously lived in
+`frontend/public/staticwebapp.config.json`, which is deleted.
 
 ### UI language
 
@@ -732,50 +730,50 @@ would otherwise try to hit real/emulated Azure Storage at startup).
 ### Infra composition (`infra/main.bicep`)
 
 Module dependency order: `identity` → `keyVault`/`cosmos`/`storage`/`logAnalytics` →
-`appInsights` → `appServicePlan`/`appService` → `staticWebApp`. Notable non-obvious
+`appInsights` → `appService` (which joins the pre-existing shared plan). Notable non-obvious
 choices, don't "fix" these without re-reading why:
-- App Service Plan defaults to **F1 (free)**, not a paid tier — chosen over Container Apps
-  for deploy simplicity (plain `dotnet publish` + zip deploy, no Docker/registry) at
-  effectively the same $0 cost. `alwaysOn: false` is required by F1.
+- The App Service runs on a **shared B1 Linux plan that this deployment does not own**:
+  `plan-common-001` in resource group `rg-common`, referenced with an `existing` resource so a
+  deploy here can never modify it. Two consequences: the App Service takes its **region from the
+  plan**, not from `location` (an app must sit in its plan's region), and the deploying service
+  principal needs rights on `rg-common` to join it — a permission this deployment didn't need while
+  it created its own plan. B1 was chosen over Container Apps for deploy simplicity (plain
+  `dotnet publish` + zip deploy, no Docker/registry). `alwaysOn: true` is the point of it.
+- **There is no Static Web App any more, and the App Service serves the SPA itself.** This replaced
+  an F1 App Service + a Standard-tier SWA whose only real job was proxying `/api/*` same-origin.
+  Same-origin is now simply true rather than arranged, so the whole `linkedBackends` constraint that
+  forced the SWA onto Standard is gone. History worth keeping, because it explains the shape the app
+  had for most of its life: `linkedBackends` is Standard-only and fails with a misleading
+  `SkuCode 'Free' is invalid`; `staticwebapp.config.json` can't stand in, because `rewrite` values
+  [must be relative to the app root](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration);
+  and the reason "serve the SPA from the App Service" was rejected in July 2026 was that **F1 can't
+  have a custom domain** — which stopped being true the moment the plan became B1. If you ever go
+  back to a separate frontend host, `SameSite=None` + CORS is still the wrong answer: Safari blocks
+  third-party cookies by default and iOS is how this app mostly gets used.
 - Cosmos DB is **Serverless capacity mode**, not the "free tier" discount — avoids the
   one-per-subscription free-tier constraint and has no idle floor or cold-start/resume
   delay (unlike SQL Serverless-style auto-pause).
-- Static Web Apps only deploy in a limited set of regions — `staticWebAppLocation`
-  defaults to `westeurope` independently of the `location` param used for everything else.
-- The Static Web App SKU is **Standard**, not Free (~$9/mo) — this is required, not a
-  choice: `linkedBackends` (the `/api/*` proxy the whole cookie-auth design depends on) is
-  a Standard-tier-only feature ([plans](https://learn.microsoft.com/en-us/azure/static-web-apps/plans)
-  lists Free as managed Functions only) and deployment fails with `SkuCode 'Free' is invalid`
-  on Free. **The error message is misleading, and the obvious search result is a red herring:**
-  that error is most commonly caused by a `SystemAssigned` identity on the Static Web App, which
-  Free doesn't support — `modules/staticWebApp.bicep` has no `identity` block at all, so that fix
-  doesn't apply here. It's the `linkedBackends` child resource. Nor can
-  `staticwebapp.config.json` stand in for the proxy: `rewrite` values
-  [must be relative to the app root](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration),
-  so there's no external-host proxying.
-
-  This was re-examined in July 2026 with the explicit goal of getting to Free, and the answer
-  was to stay on Standard. Free *does* support custom domains (2 per app), so the domain isn't
-  what forces the SKU. What was rejected, and why:
-
-  | Alternative | Cost | Why not |
-  |---|---|---|
-  | Serve the SPA from the App Service, delete the SWA | $0 | Loses `housetracker.odenbulten.se` — App Service **F1 can't have a custom domain** ("make sure that your App Service app isn't in the Free tier"), and B1 to regain one is ~$13/mo, more than the SWA costs |
-  | SWA Free + CORS + `SameSite=None` | $0 | Cookies become third-party; Safari blocks those by default, so sign-in would likely fail on iOS — the main way this app gets used |
-  | Free proxy in front (Cloudflare Worker etc.) routing `/api/*` | $0 | Keeps both the domain and same-origin, but adds a non-Azure moving part outside Bicep |
+- **The custom domain and its certificate are deliberately not in Bicep.** Binding a hostname
+  requires DNS to already resolve, and an App Service Managed Certificate requires the binding to
+  already exist — a two-pass dependency that's easy to half-apply. `az webapp config hostname add`
+  → `az webapp config ssl create` → `az webapp config ssl bind`, with `appBaseUrl` in Bicep naming
+  the result so the Google Drive redirect URI matches.
 - Storage CORS allows `*` for origins deliberately (see comment in
   `modules/storage.bicep`): security for direct browser-to-blob SAS uploads comes from the
-  SAS signature/expiry, not origin restriction, since wiring the Static Web App's hostname
-  back into the storage module would create a circular module dependency.
+  SAS signature/expiry, not origin restriction. It predates the App Service serving the SPA, when
+  wiring the frontend's hostname back into the storage module would have created a circular module
+  dependency; now that there is a single origin it could be tightened, but the security argument
+  never depended on it.
 - The two seed accounts are passed as `@secure()` object params (`seedUser1`/`seedUser2`)
   from GitHub Actions secrets — never put real values in `infra/main.parameters.json`
   (committed placeholders are `"REPLACE_ME"`).
 
 ## CI/CD
 
-Three independent GitHub Actions workflows (`.github/workflows/`), each path-filtered to
-its own directory, using OIDC federated Azure login (no stored client secret):
-- `backend-ci-cd.yml` — build/test always; publish + deploy to App Service on push to `main`,
+Two GitHub Actions workflows (`.github/workflows/`), using OIDC federated Azure login (no stored
+client secret):
+- `ci-cd.yml` — lint/build/test the frontend and backend; on push to `main`, build the SPA, copy it
+  into the API's publish `wwwroot`, deploy both to App Service,
   **followed by an explicit `az webapp restart`**. That restart is load-bearing: zip deploy
   overwrites the DLLs in `/home/site/wwwroot` (an Azure Files mount) while the old process still
   has them memory-mapped, so the first method JIT'd after the swap reads the new file at stale
@@ -784,7 +782,13 @@ its own directory, using OIDC federated Azure login (no stored client secret):
   `ObjectMethodExecutor..ctor` *before* the controller is even constructed, so it looks nothing
   like an application bug. Don't remove the restart step. (`WEBSITE_RUN_FROM_PACKAGE=1` would fix
   this more fundamentally, and would also stop zip deploy leaving deleted files behind in
-  `wwwroot` — deliberately not adopted yet, the restart was the smaller change.)
-- `frontend-ci-cd.yml` — build/lint always; deploy to Static Web Apps on push to `main`.
+  `wwwroot` — deliberately not adopted yet, the restart was the smaller change. Now that the SPA
+  ships in `wwwroot` too, zip deploy also leaves old hashed bundles behind; harmless, since names are
+  content-hashed, but it's a second argument for it.)
+
+  **One workflow, because there is now one artifact.** The frontend and backend used to deploy
+  separately, path-filtered; they can't any more without racing to deploy the same App Service. The
+  cost is that every push redeploys both, and the SPA is briefly down during the restart — acceptable
+  at this scale, and the client's retry (see `api/client.ts`) covers a reload that lands mid-deploy.
 - `infra-deploy.yml` — `bicep build` + `what-if` always; `deployment group create` on push
   to `main`, gated behind the `production` GitHub Environment (manual approval required).

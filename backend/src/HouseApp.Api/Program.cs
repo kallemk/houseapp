@@ -59,10 +59,45 @@ if (app.Environment.EnvironmentName != "Testing")
 
 app.UseHttpsRedirection();
 
+// The built SPA is copied into wwwroot at publish time (see ci-cd.yml), so the API serves the
+// frontend itself. That's what makes the session cookie same-origin now — not a proxy in front of
+// it, which is what the Static Web App used to provide.
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Only when there is actually a SPA to serve. Local `dotnet run` has no wwwroot (Vite serves the
+// frontend on :5173 and proxies /api here), and the test host boots this same Program — without the
+// guard both would start answering unmatched routes with a missing file.
+var indexHtml = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "index.html");
+if (File.Exists(indexHtml))
+{
+    // Client-side routes have to survive a refresh: /properties/<id>/documents is not a file, so
+    // without this the server 404s a URL the app considers perfectly valid.
+    //
+    // The two exclusions matter as much as the rewrite, and are exactly what staticwebapp.config.json
+    // spelled out before this replaced it:
+    //  - /api/* must 404 rather than return index.html. Handing HTML back from an API path turns a
+    //    plain "no such endpoint" into a JSON parse error somewhere far away.
+    //  - anything that looks like a file must 404 too. A stale /assets/index-abc123.js should fail
+    //    as a missing script, not as HTML served under a .js URL — which surfaces as a baffling
+    //    MIME-type error instead of an obvious 404.
+    app.MapFallback(async context =>
+    {
+        var path = context.Request.Path;
+        if (path.StartsWithSegments("/api") || Path.HasExtension(path.Value))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(indexHtml);
+    });
+}
 
 app.Run();
 

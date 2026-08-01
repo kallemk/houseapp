@@ -58,7 +58,9 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|9.0'
-      alwaysOn: false // not supported on the F1 (free) plan tier
+      // The whole point of moving to B1: without this the app unloads after ~20 minutes idle and the
+      // next visitor waits 10-30s for a cold start. F1 could not offer it.
+      alwaysOn: true
       ftpsState: 'Disabled'
       appSettings: [
         { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
