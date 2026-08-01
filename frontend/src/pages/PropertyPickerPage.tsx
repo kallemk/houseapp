@@ -38,6 +38,7 @@ import { propertyFormToInput, propertyToFormValues, type PropertyFormValues } fr
 import { useSetDemoProperty } from '../hooks/usePropertyMembers'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FullPageLoader } from '../components/common/FullPageLoader'
+import { AppFooter } from '../components/layout/AppFooter'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
 
@@ -209,6 +210,8 @@ export function PropertyPickerPage() {
           </Card>
         </Stack>
       </Stack>
+
+      <AppFooter />
 
       <PropertyAccessModal property={managingAccess} onClose={() => setManagingAccess(null)} />
 

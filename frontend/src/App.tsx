@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
+import { CookiesPage } from './pages/CookiesPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
@@ -40,6 +41,9 @@ export default function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              {/* Public on purpose: deciding whether to sign in is exactly when someone would
+                  want to read what the app stores. */}
+              <Route path="/cookies" element={<CookiesPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route index element={<RootRedirect />} />
                 <Route path="properties" element={<PropertyPickerPage />} />

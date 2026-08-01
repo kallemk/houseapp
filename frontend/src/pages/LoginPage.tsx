@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { AppFooter } from '../components/layout/AppFooter'
 import { EXPLAIN_AFTER_MS, WakingNotice } from '../components/common/FullPageLoader'
 
 // Vite inlines this at build time, so it must be set during `npm run build` (see
@@ -114,7 +115,11 @@ export function LoginPage() {
   }
 
   return (
-    <Center h="100vh" style={{ background: 'linear-gradient(160deg, #fdf3f0 0%, #faf6f2 45%, #f3e8df 100%)' }}>
+    <Center
+      mih="100vh"
+      py="xl"
+      style={{ background: 'linear-gradient(160deg, #fdf3f0 0%, #faf6f2 45%, #f3e8df 100%)' }}
+    >
       <Stack align="center" gap="lg">
         <Stack align="center" gap={4}>
           <ThemeIcon variant="light" size={56} radius="xl">
@@ -171,6 +176,11 @@ export function LoginPage() {
             </form>
           </Stack>
         </Paper>
+
+        {/* Kept narrow so it sits under the card rather than spanning the whole viewport. */}
+        <div style={{ width: 360 }}>
+          <AppFooter />
+        </div>
       </Stack>
     </Center>
   )

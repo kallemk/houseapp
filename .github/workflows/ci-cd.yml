@@ -26,6 +26,9 @@ env:
   # intended home; the secret fallback just makes this work either way. Set at workflow level so both
   # jobs get it, since both build the frontend.
   VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+  # Shown in the footer so a bug report can name the exact build. Empty locally, where it would
+  # mean nothing.
+  VITE_APP_VERSION: ${{ github.sha }}
 
 jobs:
   build-and-test:

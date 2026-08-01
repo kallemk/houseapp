@@ -722,6 +722,26 @@ host have no SPA build and boot the same `Program`, so the guard is what keeps t
 `SpaFallbackTests` pins all of it — these rules previously lived in
 `frontend/public/staticwebapp.config.json`, which is deleted.
 
+### Footer, and the deliberate absence of a cookie banner
+
+`components/layout/AppFooter.tsx` sits on the app shell, the property picker and the login page:
+Odenbulten Consulting AB attribution, a link to the repo's `PITCH.md`, a link to `/cookies`, and the
+build's short commit sha (injected as `VITE_APP_VERSION` from `github.sha` in `ci-cd.yml`, empty
+locally). The sha is there so a bug report can name an exact build.
+
+**There is no cookie consent banner, and that is a decision rather than an omission.** The app stores
+exactly two things in the browser — the `houseapp.auth` session cookie and a `lastPropertyId` in
+local storage — and both are strictly necessary for it to work at all. Necessary storage of that kind
+doesn't require consent, so a banner would be asking permission for something the app cannot function
+without, which mostly teaches people to dismiss consent dialogs unread. **If anything non-essential is
+ever added — analytics, embedded video, advertising, any third-party pixel — that calculus changes and
+a real consent mechanism becomes necessary.** `pages/CookiesPage.tsx` documents the current state and
+is the place to notice; keep it accurate if the storage changes.
+
+That page is on a **public route, outside `ProtectedRoute`**, because deciding whether to sign in is
+exactly when someone wants to read what will be stored about them. It's written as a factual
+description of how the app behaves, not as legal advice.
+
 ### UI language
 
 All user-facing frontend text (labels, buttons, headings, messages, empty states) is in

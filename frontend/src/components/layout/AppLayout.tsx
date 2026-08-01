@@ -1,5 +1,6 @@
 import { AppShell, Container } from '@mantine/core'
 import { Outlet } from 'react-router-dom'
+import { AppFooter } from './AppFooter'
 import { NavBar } from './NavBar'
 
 export function AppLayout() {
@@ -12,6 +13,7 @@ export function AppLayout() {
         <Container size="lg" py="md">
           <Outlet />
         </Container>
+        <AppFooter />
       </AppShell.Main>
     </AppShell>
   )
