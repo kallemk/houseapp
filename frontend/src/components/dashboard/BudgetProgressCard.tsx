@@ -3,7 +3,7 @@ import { IconWallet } from '@tabler/icons-react'
 import { Link } from 'react-router-dom'
 import type { BudgetDto } from '../../api/types'
 import { formatCurrency } from '../../utils/currency'
-import { WORK_TYPE_COLORS, WORK_TYPE_LABELS } from '../../utils/labels'
+import { WORK_TYPE_LABELS } from '../../utils/labels'
 
 /**
  * How this year's plan is holding up. Rendered only when a budget has actually been set for the
@@ -48,7 +48,12 @@ export function BudgetProgressCard({ budget, propertyId }: { budget: BudgetDto; 
           const lineOver = line.remaining < 0
           return (
             <Group key={line.workType} justify="space-between" gap="xs" wrap="nowrap">
-              <Text size="sm" c={WORK_TYPE_COLORS[line.workType]} fw={500}>
+              {/* Plain text, not the work type's colour. The colours mean something where they sit
+                  next to each other as badges (the projects list) — here each name is alone on its
+                  row with nothing to distinguish it from, so the colour referred to nothing and
+                  "Renovering" in terracotta read like a warning. The spend table directly above this
+                  card on the dashboard already renders these plain; now they match. */}
+              <Text size="sm" fw={500}>
                 {WORK_TYPE_LABELS[line.workType]}
               </Text>
               <Text size="sm" c={lineOver ? 'red' : 'dimmed'} fw={lineOver ? 600 : undefined}>

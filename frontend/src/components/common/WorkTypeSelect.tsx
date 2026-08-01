@@ -21,7 +21,10 @@ export function WorkTypeSelect({ data = WORK_TYPE_OPTIONS, ...props }: SelectPro
   return (
     <Select
       data={data}
-      description={descriptionFor(props.value)}
+      // No `description` on the field itself. It rendered between the label and the input, which
+      // pushed this control out of line with the neighbouring selects in the same row — and it was
+      // redundant besides: the explanation is there in the dropdown at the moment you're choosing,
+      // which is the only moment it helps.
       renderOption={({ option }: ComboboxLikeRenderOptionInput<ComboboxItem>) => {
         const description = descriptionFor(option.value)
         return (

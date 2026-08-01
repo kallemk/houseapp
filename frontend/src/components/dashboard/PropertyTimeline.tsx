@@ -25,6 +25,9 @@ interface TimelineEvent {
   to: string
 }
 
+/** Below this, folding a run into one row saves nothing and just adds something to click. */
+const MIN_COLLAPSED_GAP = 3
+
 interface PropertyTimelineProps {
   propertyId: string
   purchaseDate: string
@@ -101,16 +104,20 @@ export function PropertyTimeline({
   // Years default to collapsed: a house owned for 20 years is 80 quarter rows, nearly all empty.
   // Expanding one year at a time is the only place quarter granularity actually earns its space.
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
+  const [expandedGaps, setExpandedGaps] = useState<Set<string>>(new Set())
 
-  function toggleYear(year: string) {
-    setExpandedYears((previous) => {
+  function toggle(setter: typeof setExpandedYears, key: string) {
+    setter((previous) => {
       const next = new Set(previous)
-      if (!next.delete(year)) {
-        next.add(year)
+      if (!next.delete(key)) {
+        next.add(key)
       }
       return next
     })
   }
+
+  const toggleYear = (year: string) => toggle(setExpandedYears, year)
+  const toggleGap = (key: string) => toggle(setExpandedGaps, key)
 
   const events: TimelineEvent[] = [
     ...valuations.map((v) => ({
@@ -158,13 +165,27 @@ export function PropertyTimeline({
   const from = purchaseYear <= thisYear ? purchaseYear : thisYear
   const years = enumerateYears(from, thisYear).reverse() // newest first
 
-  return (
-    <Timeline bulletSize={16} lineWidth={2}>
-      {years.map((year) => {
-        const yearEvents = byYear.get(year) ?? []
-        const expanded = expandedYears.has(year)
-        return (
-          <Timeline.Item key={year}>
+  // A house owned since 2000 is 27 rows, and on the demo property 20 of them said nothing but
+  // "Ingen aktivitet" — enough to bury the years that matter, and on a phone enough to make the
+  // dashboard mostly scrolling. Consecutive empty years collapse into one row you can open, so the
+  // quick-add for a quiet year is still reachable; short runs are left alone because folding one or
+  // two rows into one saves nothing and just adds a thing to click.
+  const rows: ({ kind: 'year'; year: string } | { kind: 'gap'; years: string[] })[] = []
+  for (const year of years) {
+    const isEmpty = (byYear.get(year) ?? []).length === 0
+    const previous = rows.at(-1)
+    if (isEmpty && previous?.kind === 'gap') {
+      previous.years.push(year)
+    } else {
+      rows.push(isEmpty ? { kind: 'gap', years: [year] } : { kind: 'year', year })
+    }
+  }
+
+  function renderYear(year: string) {
+    const yearEvents = byYear.get(year) ?? []
+    const expanded = expandedYears.has(year)
+    return (
+      <Timeline.Item key={year}>
             <Group justify="space-between" wrap="nowrap" mb={4}>
               <UnstyledButton onClick={() => toggleYear(year)}>
                 <Group gap={6} wrap="nowrap">
@@ -197,9 +218,37 @@ export function PropertyTimeline({
                   </div>
                 ))}
               </Stack>
-            ) : (
-              <EventList events={yearEvents} />
-            )}
+        ) : (
+          <EventList events={yearEvents} />
+        )}
+      </Timeline.Item>
+    )
+  }
+
+  return (
+    <Timeline bulletSize={16} lineWidth={2}>
+      {rows.flatMap((row) => {
+        if (row.kind === 'year') {
+          return renderYear(row.year)
+        }
+
+        const key = `gap-${row.years[0]}`
+        if (row.years.length < MIN_COLLAPSED_GAP || expandedGaps.has(key)) {
+          return row.years.map(renderYear)
+        }
+
+        const newest = row.years[0]
+        const oldest = row.years.at(-1)!
+        return (
+          <Timeline.Item key={key}>
+            <UnstyledButton onClick={() => toggleGap(key)}>
+              <Group gap={6} wrap="nowrap">
+                <IconChevronRight size={14} />
+                <Text size="sm" c="dimmed">
+                  {oldest}–{newest} · {row.years.length} år utan aktivitet
+                </Text>
+              </Group>
+            </UnstyledButton>
           </Timeline.Item>
         )
       })}
