@@ -1,8 +1,12 @@
 # houseapp
 
-A private app for tracking our house: value over time, a log of projects (underhåll, renovering
-och nyinvestering) with costs and contractors, a derived underhållsplan, yearly budgets, and
+A private app for tracking our house: value over time, a log of projects (underhåll, renovering,
+nyinvestering och inköp) with costs and contractors, a derived underhållsplan, yearly budgets, and
 documents/photos.
+
+> **[Vad appen gör och varför → PITCH.md](PITCH.md)** — the pitch, in Swedish: the problem it
+> solves, everything it does, and what you get out of it. Start there if you want the product rather
+> than the plumbing.
 
 ## Structure
 
