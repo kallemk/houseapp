@@ -29,6 +29,13 @@ param googleClientSecret string = ''
 @description('Where Google returns the browser after the Drive consent screen. Must be on the public front door, not this App Service hostname.')
 param driveRedirectUri string = ''
 
+@description('GitHub token for filing user suggestions as issues. Fine-grained, this repo only, Issues read/write.')
+@secure()
+param gitHubToken string = ''
+
+param gitHubOwner string = ''
+param gitHubRepo string = ''
+
 @description('The accounts seeded on first startup, which bootstrap the sign-in allowlist. Further users are added in-app via the Users page rather than here.')
 @secure()
 param seedUser1 {
@@ -73,6 +80,9 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'Authentication__Google__ClientId', value: googleClientId }
         { name: 'Authentication__Google__ClientSecret', value: googleClientSecret }
         { name: 'Authentication__Google__DriveRedirectUri', value: driveRedirectUri }
+        { name: 'GitHub__Token', value: gitHubToken }
+        { name: 'GitHub__Owner', value: gitHubOwner }
+        { name: 'GitHub__Repo', value: gitHubRepo }
         { name: 'Seed__Users__0__Email', value: seedUser1.email }
         { name: 'Seed__Users__0__DisplayName', value: seedUser1.displayName }
         { name: 'Seed__Users__0__TempPassword', value: seedUser1.tempPassword }

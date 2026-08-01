@@ -19,6 +19,14 @@ param googleClientId string = ''
 @secure()
 param googleClientSecret string = ''
 
+@description('GitHub personal access token used to file user suggestions as issues. Fine-grained, scoped to this repository only, Issues: read and write. Comes from the GH_ISSUES_TOKEN GitHub secret — NOT GITHUB_TOKEN, which Actions reserves and refuses to let you create.')
+@secure()
+param gitHubToken string = ''
+
+@description('Owner and repository that user suggestions are filed into.')
+param gitHubOwner string = 'kallemk'
+param gitHubRepo string = 'houseapp'
+
 @description('Public origin the app is reached on — the custom domain bound to the App Service. Used to build the Google Drive OAuth redirect URI, which Google sends the *browser* to, so it must be the hostname people actually use rather than the *.azurewebsites.net one. Domain binding and its certificate are done outside Bicep (the binding needs DNS to resolve first, and the managed certificate needs the binding to exist), hence the default here.')
 param appBaseUrl string = 'https://housetracker.odenbulten.se'
 
@@ -141,6 +149,9 @@ module appService 'modules/appService.bicep' = {
     googleClientId: googleClientId
     googleClientSecret: googleClientSecret
     driveRedirectUri: '${appBaseUrl}/api/drive/callback'
+    gitHubToken: gitHubToken
+    gitHubOwner: gitHubOwner
+    gitHubRepo: gitHubRepo
     seedUser1: seedUser1
     seedUser2: seedUser2
   }

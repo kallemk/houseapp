@@ -29,6 +29,8 @@ jobs:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
       # Secret only, never a variable, unlike GOOGLE_CLIENT_ID above — this one is a real credential.
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Not GITHUB_TOKEN — Actions reserves that name and won't let you create a secret with it.
+      GH_ISSUES_TOKEN: ${{ secrets.GH_ISSUES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +65,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN"
 
   deploy:
     needs: validate
@@ -76,6 +78,8 @@ jobs:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
       # Secret only, never a variable, unlike GOOGLE_CLIENT_ID above — this one is a real credential.
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Not GITHUB_TOKEN — Actions reserves that name and won't let you create a secret with it.
+      GH_ISSUES_TOKEN: ${{ secrets.GH_ISSUES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +96,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN"
 
       # Reads back what actually landed on the App Service, rather than trusting that the
       # parameter made it through — this whole class of bug was a value silently arriving empty.
