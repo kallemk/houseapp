@@ -192,4 +192,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDriveFolderResolver, DriveFolderResolver>();
         return services;
     }
+
+    /// <summary>
+    /// User suggestions, filed as issues in the app's own repository. The memory cache is not
+    /// incidental: without it every page load would be a pair of calls against a rate-limited API.
+    /// </summary>
+    public static IServiceCollection AddHouseAppFeedback(this IServiceCollection services)
+    {
+        services.AddHttpClient(nameof(GitHubIssueService));
+        services.AddMemoryCache();
+        services.AddScoped<IGitHubIssueService, GitHubIssueService>();
+        return services;
+    }
 }

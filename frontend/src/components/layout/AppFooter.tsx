@@ -33,6 +33,9 @@ export function AppFooter() {
         </Text>
 
         <Group gap="lg">
+          <Anchor component={Link} to="/feedback" size="xs" c="dimmed">
+            Förslag &amp; feedback
+          </Anchor>
           <Anchor component={Link} to="/cookies" size="xs" c="dimmed">
             Cookies &amp; data
           </Anchor>

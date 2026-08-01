@@ -214,3 +214,20 @@ export interface DocumentDto {
 
 /** Which backend holds a file's bytes. Chosen per property; recorded per document. */
 export type DocumentStorageKind = 'Blob' | 'Drive'
+
+/** Where a suggestion stands. Derived server-side from a `status:*` label, or the issue's state. */
+export type FeedbackStatus = 'New' | 'Planned' | 'InProgress' | 'Done' | 'Declined'
+
+export interface FeedbackItemDto {
+  number: number
+  title: string
+  body: string
+  status: FeedbackStatus
+  /** The owner's most recent reply, when there is one. */
+  reply: string | null
+  /** Your own suggestion — you see these whether published or not. */
+  isMine: boolean
+  /** False while only you (and admins) can see it. */
+  isPublished: boolean
+  createdAt: string
+}

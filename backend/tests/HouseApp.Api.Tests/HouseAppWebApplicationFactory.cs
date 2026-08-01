@@ -17,6 +17,9 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"houseapp-tests-{Guid.NewGuid()}";
 
+    /// <summary>Exposed so tests can seed issues and inspect what the app filed.</summary>
+    public FakeGitHubIssueService GitHub { get; } = new();
+
     /// <summary>
     /// Exposed so tests can assert what reached Drive and simulate a revoked grant. Registered as a
     /// singleton here even though the real service is scoped — the tests need one instance to look at.
@@ -26,6 +29,11 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Feedback caches the issue list for a couple of minutes in production, which would make
+        // tests depend on each other's timing — seeding an issue directly wouldn't be visible until
+        // the entry expired. Zero disables it.
+        builder.UseSetting("Feedback:CacheSeconds", "0");
 
         builder.ConfigureServices(services =>
         {
@@ -48,6 +56,10 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
             // controller, the protected state, the storage routing and the metadata writes are real.
             services.RemoveAll<IGoogleDriveService>();
             services.AddSingleton<IGoogleDriveService>(Drive);
+
+            // Same treatment again: the label contract and visibility rules stay real, GitHub doesn't.
+            services.RemoveAll<IGitHubIssueService>();
+            services.AddSingleton<IGitHubIssueService>(GitHub);
         });
     }
 }

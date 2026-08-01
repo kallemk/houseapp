@@ -722,6 +722,47 @@ host have no SPA build and boot the same `Program`, so the guard is what keeps t
 `SpaFallbackTests` pins all of it — these rules previously lived in
 `frontend/public/staticwebapp.config.json`, which is deleted.
 
+### User suggestions are GitHub issues
+
+`FeedbackController` files suggestions into `kallemk/houseapp` as issues and reads them back, so
+there's no feedback store of the app's own.
+
+**The `feedback` label is the whole safety mechanism, and it works by omission rather than by
+filtering.** The app only ever *asks* GitHub for issues carrying that label, so ordinary development
+issues aren't excluded further down — they're never fetched. A visibility condition somewhere in the
+controller could be edited away without anyone noticing until private planning notes appeared in the
+app; a query that never sees them can't. `FeedbackControllerTests` pins that an unlabelled issue is
+invisible **even to an admin**.
+
+Three labels form the contract:
+- `feedback` — applied by the app to everything it creates. Nothing without it is ever read.
+- `publik` — added by the owner in GitHub, and required before *other* users see a suggestion. Its
+  submitter always sees their own (so they know it arrived), and admins see everything labelled
+  `feedback` (so triage is possible from inside the app).
+- `status:planerad` / `status:pågår` / `status:klar` / `status:avvisad` — optional, shown as a badge.
+  Absent, the status falls back to the issue's open/closed state, so forgetting to label is harmless
+  rather than misleading.
+
+**Ownership lives in the issue body, not a container.** A `<!-- houseapp:submitter={userId} -->`
+marker is what makes "show me my own" and the daily submission cap work. That avoids a new Cosmos
+container, which would have meant a Bicep change and the two-push sequencing that goes with it. The
+marker is stripped before the body is shown back to the user.
+
+**The submitter's display name and id go to GitHub; their email deliberately never does.** That's why
+`CookiesPage` has a section about it — this is the one place user-entered data leaves Azure, and the
+page would otherwise be wrong. Note that if the repository were ever made public, every suggestion in
+it becomes public too.
+
+The list is cached briefly (`Feedback:CacheSeconds`, default 120) because otherwise every page load
+is a pair of calls against a rate-limited API; the tests set it to 0 so seeding is immediately
+visible. `POST` is capped per user per day — anyone can sign up now, and this endpoint writes into a
+private repo.
+
+**The GitHub secret is `GH_ISSUES_TOKEN`, not `GITHUB_TOKEN`** — Actions reserves that name and
+refuses to create a secret with it. The token should be a fine-grained PAT scoped to this repository
+alone with Issues read/write. Issues are authored by the token's owner, which is why the body names
+the real submitter.
+
 ### Footer, and the deliberate absence of a cookie banner
 
 `components/layout/AppFooter.tsx` sits on the app shell, the property picker and the login page:

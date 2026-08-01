@@ -142,10 +142,22 @@ export function CookiesPage() {
           </Text>
 
           <Title order={4} mt="md">
+            Om du skickar in ett förslag
+          </Title>
+          <Text size="sm">
+            Skickar du in ett förslag via <strong>Förslag &amp; feedback</strong> sparas det som ett
+            ärende i appens privata kodförråd hos GitHub — alltså utanför den lagring som beskrivs
+            ovan. Det som skickas med är din text, ditt namn och ditt användar-id.{' '}
+            <strong>Din e-postadress skickas aldrig dit.</strong> Förslag är privata tills vi väljer
+            att publicera dem i appen, och först då kan andra användare se dem. Skriv därför inte in
+            personuppgifter eller annat känsligt i ett förslag.
+          </Text>
+
+          <Title order={4} mt="md">
             Var det ligger, och hur du blir av med det
           </Title>
           <Text size="sm">
-            Uppgifterna lagras i Microsoft Azure inom EU. Vill du radera ditt konto och dina uppgifter,
+            Uppgifterna lagras i Microsoft Azure inom EU (undantaget förslag, se ovan). Vill du radera ditt konto och dina uppgifter,
             eller få veta vad som finns lagrat om dig, hör av dig till Odenbulten Consulting AB så
             ordnar vi det.
           </Text>

@@ -6,6 +6,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { CookiesPage } from './pages/CookiesPage'
+import { FeedbackPage } from './pages/FeedbackPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
@@ -47,6 +48,7 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route index element={<RootRedirect />} />
                 <Route path="properties" element={<PropertyPickerPage />} />
+                <Route path="feedback" element={<FeedbackPage />} />
                 <Route path="properties/:propertyId" element={<AppLayout />}>
                   <Route index element={<DashboardPage />} />
                   <Route path="valuations" element={<ValuationsPage />} />

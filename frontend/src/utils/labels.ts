@@ -5,6 +5,7 @@
 // PropertyComponentsPage), not hardcoded here.
 import type {
   CostType,
+  FeedbackStatus,
   DocumentCategory,
   MaintenanceUrgency,
   ProjectPriority,
@@ -124,4 +125,20 @@ export const MAINTENANCE_URGENCY_COLORS: Record<MaintenanceUrgency, string> = {
   Ok: 'green',
   Unknown: 'gray',
   NotScheduled: 'gray',
+}
+
+export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  New: 'Inskickat',
+  Planned: 'Planerat',
+  InProgress: 'Pågår',
+  Done: 'Klart',
+  Declined: 'Avvisat',
+}
+
+export const FEEDBACK_STATUS_COLORS: Record<FeedbackStatus, string> = {
+  New: 'gray',
+  Planned: 'blue',
+  InProgress: 'orange',
+  Done: 'green',
+  Declined: 'red',
 }
