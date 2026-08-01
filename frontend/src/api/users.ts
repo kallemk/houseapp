@@ -11,6 +11,7 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   displayName: string
   isAdmin: boolean
+  isBlocked: boolean
 }
 
 export const usersApi = {

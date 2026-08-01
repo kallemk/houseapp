@@ -11,10 +11,11 @@ using Microsoft.EntityFrameworkCore;
 namespace HouseApp.Api.Controllers;
 
 /// <summary>
-/// Manages who may sign in: the users container doubles as the allowlist, so having a row here is
-/// exactly what makes a Google account acceptable at /api/auth/google. Admin-only in full —
-/// including the listing — because write access here is effectively the power to grant and revoke
-/// access to the whole app.
+/// Manages accounts. This container is **no longer an allowlist** — Google sign-in creates an account
+/// for anyone who doesn't have one, because the app is published. So the meaningful power here is
+/// IsBlocked (keep someone out) and IsAdmin (let someone manage), not the existence of the row:
+/// deleting a user no longer revokes anything, since they'd get a fresh account on their next
+/// sign-in. Still admin-only in full, listing included.
 /// </summary>
 [ApiController]
 [Route("api/users")]
@@ -84,6 +85,13 @@ public class UsersController(AppDbContext db) : ControllerBase
         }
 
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (id == currentUserId && request.IsBlocked)
+        {
+            // Same family of guard as the two below: blocking yourself takes effect on the very next
+            // request, so you'd be locked out mid-action with no way back in.
+            return Conflict(new { message = "You can't block your own account." });
+        }
+
         if (id == currentUserId && !request.IsAdmin)
         {
             // Keeps "at least one admin exists" true for good: the only account you can demote is
@@ -95,6 +103,7 @@ public class UsersController(AppDbContext db) : ControllerBase
 
         user.DisplayName = request.DisplayName.Trim();
         user.IsAdmin = request.IsAdmin;
+        user.IsBlocked = request.IsBlocked;
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -125,5 +134,5 @@ public class UsersController(AppDbContext db) : ControllerBase
     }
 
     private static UserDto ToDto(ApplicationUser u) =>
-        new(u.Id, u.Email, u.DisplayName, !string.IsNullOrEmpty(u.PasswordHash), u.IsAdmin, u.CreatedAt);
+        new(u.Id, u.Email, u.DisplayName, !string.IsNullOrEmpty(u.PasswordHash), u.IsAdmin, u.IsBlocked, u.CreatedAt);
 }

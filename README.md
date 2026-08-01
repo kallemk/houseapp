@@ -33,9 +33,10 @@ documents/photos.
 4. Seed accounts: on first run the API creates the bootstrap accounts defined in
    `backend/src/HouseApp.Api/appsettings.Development.json` under `Seed:Users`
    (email + temp password). Log in and change the password via
-   `POST /api/auth/change-password`. Everyone else is added in-app on the
-   **Användare** page. Seed accounts are admins; everyone added afterwards is a
-   regular user until an admin ticks their **Admin** switch.
+   `POST /api/auth/change-password`. Everyone else gets an account by signing in
+   with Google; you can also add someone ahead of time on the **Användare**
+   page. Seed accounts are admins; everyone else is a regular user until an
+   admin ticks their **Admin** switch.
 5. Properties are private to their members. Creating one connects only you; you
    share it from **Hantera åtkomst** on the property card, searching by name or
    email. Everyone additionally sees the shared **Demo** property, a sandbox any
@@ -53,10 +54,16 @@ and posts it to `POST /api/auth/google`, which verifies it and issues the app's
 normal session cookie. There is **no client secret** and no OAuth redirect — only
 a client ID, which is public because it ships inside the frontend bundle.
 
-Only people who already exist in the `users` container may sign in; an
-unrecognised Google account gets a 403. Manage that list on the **Användare**
-page (it is also where you revoke access, by removing someone). That page is
-admin-only, as is editing the list of property components.
+**Registration is open.** The app is published on Google, so anyone signing in
+with a verified Google account gets one created automatically — as a regular
+user, never an admin. A new account belongs to no property and sees only the
+demo one until someone shares a real property with them.
+
+To keep someone out, **block** their account on the **Användare** page.
+Deleting it doesn't revoke anything: it reappears the next time they sign in.
+Blocking is refused at sign-in and also ends any session they already hold, so
+it takes effect immediately. That page is admin-only, as is the central
+component registry.
 
 One-time Google Cloud Console setup:
 

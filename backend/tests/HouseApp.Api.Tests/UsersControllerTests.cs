@@ -134,20 +134,44 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Delete_OtherAccount_RemovesThemFromTheAllowlist()
+    public async Task Delete_NoLongerRevokesAccess_Blocking_Does()
     {
+        // This used to assert that deleting a user revoked Google sign-in, back when the users
+        // container was the allowlist. With open registration a deleted account simply reappears on
+        // the next sign-in, so blocking is what revocation means now. Pinned in both directions
+        // because reaching for Delete to remove someone is the obvious mistake.
         var (client, _) = await CreateAuthenticatedClientAsync();
-        var newEmail = $"removeme-{Guid.NewGuid()}@example.com";
-        var create = await client.PostAsJsonAsync("/api/users", new CreateUserRequest(newEmail, "Temp Person", null));
-        var created = await create.Content.ReadFromJsonAsync<UserDto>();
+        var email = $"removeme-{Guid.NewGuid()}@example.com";
+        var created = await (await client.PostAsJsonAsync(
+            "/api/users", new CreateUserRequest(email, "Temp Person", null))).Content.ReadFromJsonAsync<UserDto>();
 
-        var delete = await client.DeleteAsync($"/api/users/{created!.Id}");
-        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/users/{created!.Id}")).StatusCode);
 
-        // Removal from the users container must actually revoke Google sign-in.
-        var googleClient = _factory.CreateClient();
-        var googleLogin = await googleClient.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(newEmail));
-        Assert.Equal(HttpStatusCode.Forbidden, googleLogin.StatusCode);
+        var afterDelete = await _factory.CreateClient()
+            .PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        Assert.Equal(HttpStatusCode.OK, afterDelete.StatusCode);
+
+        // ...whereas blocking the account it just recreated does keep them out.
+        var recreated = (await afterDelete.Content.ReadFromJsonAsync<MeResponse>())!;
+        var block = await client.PutAsJsonAsync(
+            $"/api/users/{recreated.Id}", new UpdateUserRequest("Temp Person", false, true));
+        Assert.Equal(HttpStatusCode.NoContent, block.StatusCode);
+
+        var afterBlock = await _factory.CreateClient()
+            .PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        Assert.Equal(HttpStatusCode.Forbidden, afterBlock.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_CannotBlockYourself()
+    {
+        // Takes effect on the very next request, so you'd be locked out mid-action with no way back.
+        var (client, userId) = await CreateAuthenticatedClientAsync();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/users/{userId}", new UpdateUserRequest("Test User", true, true));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
     [Fact]
@@ -175,7 +199,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
             (await client.PostAsJsonAsync("/api/users", new CreateUserRequest("x@example.com", "X", null))).StatusCode);
         Assert.Equal(
             HttpStatusCode.Forbidden,
-            (await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("X", true))).StatusCode);
+            (await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("X", true, false))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync($"/api/users/{userId}")).StatusCode);
     }
 
@@ -192,7 +216,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
         var (adminClient, _) = await CreateAuthenticatedClientAsync();
         var promote = await adminClient.PutAsJsonAsync(
             $"/api/users/{regularUserId}",
-            new UpdateUserRequest("Test User", true));
+            new UpdateUserRequest("Test User", true, false));
         Assert.Equal(HttpStatusCode.NoContent, promote.StatusCode);
 
         // Same client, same cookie, no second login.
@@ -206,7 +230,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
         // someone else, and that requires still being an admin yourself.
         var (client, userId) = await CreateAuthenticatedClientAsync();
 
-        var response = await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("Test User", false));
+        var response = await client.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest("Test User", false, false));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var stillAdmin = await (await client.GetAsync("/api/users")).Content.ReadFromJsonAsync<List<UserDto>>();
@@ -221,7 +245,7 @@ public class UsersControllerTests : IClassFixture<HouseAppWebApplicationFactory>
 
         var demote = await adminClient.PutAsJsonAsync(
             $"/api/users/{otherUserId}",
-            new UpdateUserRequest("Test User", false));
+            new UpdateUserRequest("Test User", false, false));
         Assert.Equal(HttpStatusCode.NoContent, demote.StatusCode);
 
         // Takes effect immediately rather than lasting until their 14-day cookie expires.

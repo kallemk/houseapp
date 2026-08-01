@@ -23,6 +23,19 @@ public class ApplicationUser
     public bool IsAdmin { get; set; }
 
     /// <summary>
+    /// Refuses this account at sign-in and kills any session it already holds.
+    ///
+    /// This exists because the `users` container stopped being the sign-in allowlist. Google sign-in
+    /// now creates an account for anyone who doesn't have one, so *deleting* a user no longer revokes
+    /// anything — they'd simply get a fresh account on their next sign-in. Blocking is what revocation
+    /// means now, and deleting is only for tidying up.
+    ///
+    /// A plain non-nullable bool: accounts written before this field existed have no such JSON
+    /// property, which reads as false, and "not blocked" is the right reading of every one of them.
+    /// </summary>
+    public bool IsBlocked { get; set; }
+
+    /// <summary>
     /// Google Drive OAuth refresh token, encrypted with the app's Data Protection key ring before it
     /// gets here — see <c>DriveTokenProtector</c>. Never leaves the server: no DTO exposes it, and
     /// nothing reads it except the code exchanging it for a short-lived access token.

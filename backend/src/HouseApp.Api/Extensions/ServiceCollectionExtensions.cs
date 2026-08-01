@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
 using HouseApp.Api.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -39,6 +41,35 @@ public static class ServiceCollectionExtensions
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(14);
                 options.SlidingExpiration = true;
+
+                // Blocking has to take effect now, not in up to 14 days. The cookie carries a
+                // 14-day sliding session, so without this a blocked account keeps working until it
+                // happens to expire — which makes "blocked" nearly meaningless as a way to remove
+                // someone. Same argument as AdminAuthorizationHandler reading IsAdmin from the
+                // database rather than a claim, and it matters more here: that one governs extra
+                // powers, this one governs access at all.
+                //
+                // The cost is a point read per authenticated request. On Cosmos that's ~1 RU and a
+                // couple of milliseconds, which is the right trade for a revocation that works.
+                options.Events.OnValidatePrincipal = async context =>
+                {
+                    var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if (userId is null)
+                    {
+                        return;
+                    }
+
+                    var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                    var user = await db.Users.FindAsync(userId);
+
+                    // Deleted accounts are rejected here too, which is what makes deletion take
+                    // effect immediately rather than leaving a live session behind it.
+                    if (user is null || user.IsBlocked)
+                    {
+                        context.RejectPrincipal();
+                        await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                    }
+                };
 
                 // This is a JSON API — return status codes instead of redirecting to a login page.
                 options.Events.OnRedirectToLogin = context =>

@@ -42,15 +42,29 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
             return Unauthorized();
         }
 
+        // Checked after the password, not before: answering "blocked" to a wrong password would tell
+        // an attacker the account exists. Whoever got this far already knew the password.
+        if (user.IsBlocked)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
         await SignInAsync(user);
         return Ok(new MeResponse(user.Id, user.Email, user.DisplayName, user.IsAdmin));
     }
 
     /// <summary>
-    /// Exchanges a Google ID token for the app's own session cookie. Deliberately does NOT create
-    /// users: the users container doubles as the sign-in allowlist, and matching an existing row by
-    /// email is what preserves ApplicationUser.Id — the id already stored in Property.MemberUserIds
-    /// and every *CreatedByUserId. Minting a new id here would orphan all of it.
+    /// Exchanges a Google ID token for the app's own session cookie, creating an account for anyone
+    /// who doesn't have one yet.
+    ///
+    /// **Matching an existing row by email comes first, and that ordering is load-bearing.**
+    /// ApplicationUser.Id is stored in Property.MemberUserIds and every *CreatedByUserId, with no
+    /// migration mechanism to rewrite it. If someone who already has an account (added by email, or
+    /// created here earlier) got a fresh id on a later sign-in, they would silently lose sight of
+    /// every property they belong to. Only create when the lookup genuinely finds nothing.
+    ///
+    /// The app is published on Google, so this is open registration by design — the users container
+    /// is no longer an allowlist. IsBlocked is what keeps someone out now.
     /// </summary>
     [HttpPost("google")]
     [AllowAnonymous]
@@ -79,17 +93,34 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
 
         if (user is null)
         {
-            // 403 rather than 401: the Google account is genuine, it just isn't on the allowlist.
-            // The frontend distinguishes these to show "not invited" vs "sign-in failed".
-            // StatusCode() rather than Forbid() — the latter routes through the cookie handler's
-            // forbid path, and this is a plain JSON API response.
-            return StatusCode(StatusCodes.Status403Forbidden);
+            user = new ApplicationUser
+            {
+                Email = googleUser.Email,
+                // Google usually supplies a name; fall back to the local part rather than leaving it
+                // blank, since DisplayName is what every list in the app shows.
+                DisplayName = string.IsNullOrWhiteSpace(googleUser.Name)
+                    ? googleUser.Email.Split('@')[0]
+                    : googleUser.Name,
+                GoogleSubjectId = googleUser.Subject,
+                // No PasswordHash: Google-only account. Login refuses a null/empty hash outright.
+                // Not an admin — that stays something an existing admin grants deliberately.
+            };
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
         }
-
-        if (string.IsNullOrEmpty(user.GoogleSubjectId))
+        else if (string.IsNullOrEmpty(user.GoogleSubjectId))
         {
             user.GoogleSubjectId = googleUser.Subject;
             await db.SaveChangesAsync();
+        }
+
+        // 403 rather than 401: the Google account is genuine, it's this app that's refusing it. The
+        // frontend distinguishes these to say "blocked" rather than "sign-in failed". StatusCode()
+        // rather than Forbid() — the latter routes through the cookie handler's forbid path, and
+        // this is a plain JSON API response.
+        if (user.IsBlocked)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         await SignInAsync(user);

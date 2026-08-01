@@ -77,13 +77,36 @@ same-origin design — is identical regardless of how you signed in.
 That id is stored in `Property.MemberUserIds`, `ValuationEntry.CreatedByUserId`,
 `Project.CreatedByUserId` and `Document.UploadedByUserId`, and there is no migration
 mechanism to rewrite them. Google sign-in therefore **matches an existing user by email
-(case-insensitively) and never creates one** — if it minted new rows, both users would silently
-lose sight of every existing property.
+(case-insensitively) before considering creating one**, and that ordering is the load-bearing part:
+if a returning person got a fresh id, they would silently lose sight of every property they belong
+to. Pinned by `GoogleLogin_Twice_ReusesTheSameAccount` and
+`GoogleLogin_ForAnExistingPasswordAccount_KeepsItsId`.
 
-**The `users` container doubles as the sign-in allowlist.** A Google account is accepted iff a
-user row with that email exists; otherwise `/api/auth/google` returns **403** (deliberately not
-401 — the frontend distinguishes "not invited" from "sign-in failed"). Deleting a user in the
-admin page is therefore how you revoke access.
+**The `users` container is no longer a sign-in allowlist — registration is open.** The app is
+published on Google, so `/api/auth/google` **creates an account** for any verified email it doesn't
+recognise (regular, never admin). It used to answer 403 to anyone not already in the container, and
+a lot of the surrounding design still assumes small, known membership — read the next paragraph
+before adding anything that trusts "signed in" to mean "someone we know".
+
+**`ApplicationUser.IsBlocked` is what revocation means now, and deleting a user is not.** A deleted
+account simply reappears on that person's next sign-in, so `Delete` is for tidying up, not for
+keeping someone out. Blocking is refused at both sign-in paths (403) **and enforced per request** by
+`OnValidatePrincipal` in `AddHouseAppCookieAuth`, which rejects the principal and signs the session
+out — the cookie is a 14-day sliding session, so without that a block would take effect up to a
+fortnight later. Same reasoning as `AdminAuthorizationHandler` reading `IsAdmin` from the database
+rather than a claim, and it matters more here: that one governs extra powers, this one governs access
+at all. The cost is a point read per authenticated request (~1 RU on Cosmos). That same check makes
+*deletion* take effect immediately too, since a missing user is rejected as well. `UsersController`
+refuses to let you block yourself, for the same reason it refuses self-demotion and self-deletion.
+
+**What open registration exposes, and what was accepted:** a brand-new account is a member of no
+property, so it sees only the demo — which is **editable by everyone**, and "everyone" is now the
+internet rather than a handful of invited people. That was a deliberate call (the demo is a sandbox
+and accumulating other people's experiments is the point). Likewise `member-candidates` still
+substring-searches names and emails, so anyone who creates a property can use it to explore the user
+directory; also deliberate, because inviting someone whose address you half-remember matters more
+here than hiding a list of names. Both are worth revisiting if the app attracts strangers rather
+than friends-of-friends.
 
 ### Roles: one `IsAdmin` flag, checked against the database
 

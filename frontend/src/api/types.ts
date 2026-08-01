@@ -12,6 +12,8 @@ export interface UserDto {
   displayName: string
   hasPassword: boolean
   isAdmin: boolean
+  /** Refused at sign-in and signed out immediately. Blocking, not deletion, is how access is revoked. */
+  isBlocked: boolean
   createdAt: string
 }
 

@@ -49,6 +49,7 @@ export function UsersPage() {
     email: (u) => u.email,
     login: (u) => (u.hasPassword ? 'Lösenord + Google' : 'Endast Google'),
     admin: (u) => (u.isAdmin ? 1 : 0),
+    blocked: (u) => (u.isBlocked ? 1 : 0),
   })
 
   const createForm = useForm<CreateFormValues>({
@@ -90,17 +91,27 @@ export function UsersPage() {
   function handleUpdate(values: { displayName: string }) {
     if (!editing) return
     updateUser.mutate(
-      { id: editing.id, input: { displayName: values.displayName, isAdmin: editing.isAdmin } },
+      {
+        id: editing.id,
+        input: { displayName: values.displayName, isAdmin: editing.isAdmin, isBlocked: editing.isBlocked },
+      },
       { onSuccess: () => setEditing(null), onError: (error) => showError(error, '') },
     )
   }
 
+  // displayName is sent along because the endpoint takes the whole record. It comes from the same
+  // query that renders this row, so there's nothing stale to clobber.
   function handleToggleAdmin(user: UserDto) {
-    // displayName is sent along because the endpoint takes the whole record. It comes from the same
-    // query that renders this row, so there's nothing stale to clobber.
     updateUser.mutate(
-      { id: user.id, input: { displayName: user.displayName, isAdmin: !user.isAdmin } },
+      { id: user.id, input: { displayName: user.displayName, isAdmin: !user.isAdmin, isBlocked: user.isBlocked } },
       { onError: (error) => showError(error, 'Du kan inte ta bort dina egna adminrättigheter.') },
+    )
+  }
+
+  function handleToggleBlocked(user: UserDto) {
+    updateUser.mutate(
+      { id: user.id, input: { displayName: user.displayName, isAdmin: user.isAdmin, isBlocked: !user.isBlocked } },
+      { onError: (error) => showError(error, 'Du kan inte spärra ditt eget konto.') },
     )
   }
 
@@ -132,7 +143,10 @@ export function UsersPage() {
   return (
     <Stack>
       <Text c="dimmed" size="sm">
-        Endast personer i den här listan kan logga in. Lämna lösenordet tomt om personen ska logga in med Google.
+        Alla som loggar in med Google får automatiskt ett konto — appen är publik. Listan visar vilka
+        som har varit inne. Spärra ett konto för att stänga ute någon; att ta bort det räcker inte,
+        eftersom kontot skapas på nytt nästa gång personen loggar in. Du kan också lägga till någon i
+        förväg här, med eller utan lösenord.
       </Text>
 
       <Card withBorder padding="md">
@@ -154,7 +168,7 @@ export function UsersPage() {
       </Card>
 
       <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-        <Table.ScrollContainer minWidth={640}>
+        <Table.ScrollContainer minWidth={760}>
           <Table striped highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
@@ -162,6 +176,7 @@ export function UsersPage() {
                 <SortableTh {...sortProps('email')}>E-post</SortableTh>
                 <SortableTh {...sortProps('login')}>Inloggning</SortableTh>
                 <SortableTh {...sortProps('admin')}>Admin</SortableTh>
+                <SortableTh {...sortProps('blocked')}>Spärrad</SortableTh>
                 <Table.Th />
               </Table.Tr>
             </Table.Thead>
@@ -190,6 +205,17 @@ export function UsersPage() {
                       disabled={user.id === currentUser?.id}
                       onChange={() => handleToggleAdmin(user)}
                       aria-label={`Admin: ${user.displayName}`}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    {/* Your own switch is disabled for the same reason as the admin one: blocking
+                        yourself takes effect on the next request, locking you out mid-action. */}
+                    <Switch
+                      checked={user.isBlocked}
+                      disabled={user.id === currentUser?.id}
+                      onChange={() => handleToggleBlocked(user)}
+                      color="red"
+                      aria-label={`Spärrad: ${user.displayName}`}
                     />
                   </Table.Td>
                   <Table.Td>
@@ -228,7 +254,7 @@ export function UsersPage() {
       <ConfirmDialog
         opened={pendingDeleteId !== null}
         title="Ta bort användare"
-        message="Personen kommer inte längre kunna logga in. Detta kan inte ångras."
+        message="Kontot tas bort ur listan, men personen kan logga in igen med Google och får då ett nytt konto. Vill du stänga ute någon ska du spärra kontot i stället."
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {
           if (pendingDeleteId) {

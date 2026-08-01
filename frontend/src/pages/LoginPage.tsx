@@ -74,8 +74,12 @@ export function LoginPage() {
     try {
       await login(values.email, values.password)
       navigate('/', { replace: true })
-    } catch {
-      setError('Fel e-post eller lösenord.')
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 403
+          ? 'Det här kontot är spärrat. Kontakta en administratör om du tror att det är fel.'
+          : 'Fel e-post eller lösenord.',
+      )
     } finally {
       setSubmitting(false)
     }
@@ -93,10 +97,12 @@ export function LoginPage() {
       navigate('/', { replace: true })
     } catch (err) {
       // Three genuinely different situations, so say which one it is rather than one vague
-      // "it failed": not invited (403), server not set up (503), or a real auth failure (401).
+      // "it failed": blocked (403), server not set up (503), or a real auth failure (401). 403 used
+      // to mean "not on the allowlist", but signing in now creates an account for anyone — so the
+      // only way to get one is a deliberately blocked account.
       const status = err instanceof ApiError ? err.status : undefined
       if (status === 403) {
-        setError('Det här kontot har inte behörighet. Be någon lägga till din e-postadress.')
+        setError('Det här kontot är spärrat. Kontakta en administratör om du tror att det är fel.')
       } else if (status === 503) {
         setError('Google-inloggning är inte konfigurerad på servern. Kontakta administratören.')
       } else {

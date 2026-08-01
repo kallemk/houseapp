@@ -14,9 +14,6 @@ export function useCreateUser() {
     mutationFn: (input: CreateUserInput) => usersApi.create(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: KEY })
-      // Creating a user backfills them onto every existing property, so cached property lists
-      // (which are membership-filtered server-side) are now stale.
-      queryClient.invalidateQueries({ queryKey: ['properties'] })
     },
   })
 }

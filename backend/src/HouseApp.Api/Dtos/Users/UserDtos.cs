@@ -1,7 +1,15 @@
 namespace HouseApp.Api.Dtos.Users;
 
 /// <summary>Never carries PasswordHash — HasPassword just tells the UI whether they can sign in with one.</summary>
-public record UserDto(string Id, string Email, string DisplayName, bool HasPassword, bool IsAdmin, DateTimeOffset CreatedAt);
+public record UserDto(
+    string Id,
+    string Email,
+    string DisplayName,
+    bool HasPassword,
+    bool IsAdmin,
+    /// <summary>Refused at sign-in and signed out immediately. This is what revocation means now.</summary>
+    bool IsBlocked,
+    DateTimeOffset CreatedAt);
 
 /// <summary>
 /// A blank InitialPassword means "Google sign-in only" — no password is set. New users are always
@@ -9,4 +17,4 @@ public record UserDto(string Id, string Email, string DisplayName, bool HasPassw
 /// </summary>
 public record CreateUserRequest(string Email, string DisplayName, string? InitialPassword);
 
-public record UpdateUserRequest(string DisplayName, bool IsAdmin);
+public record UpdateUserRequest(string DisplayName, bool IsAdmin, bool IsBlocked);

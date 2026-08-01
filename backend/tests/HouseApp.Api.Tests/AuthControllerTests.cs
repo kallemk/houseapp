@@ -4,6 +4,7 @@ using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Auth;
 using HouseApp.Api.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -110,15 +111,97 @@ public class AuthControllerTests : IClassFixture<HouseAppWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GoogleLogin_WithEmailNotOnAllowlist_ReturnsForbidden()
+    public async Task GoogleLogin_WithAnUnknownEmail_CreatesTheAccount()
     {
+        // The app is published on Google, so this is open registration: the users container stopped
+        // being an allowlist. It used to answer 403 here.
+        var email = $"newcomer-{Guid.NewGuid()}@example.com";
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest("stranger@example.com"));
+        var response = await client.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
 
-        // 403, not 401 — a real Google account that simply hasn't been invited. Also proves the
-        // endpoint never auto-creates users.
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var me = await response.Content.ReadFromJsonAsync<MeResponse>();
+        Assert.Equal(email, me!.Email);
+        // Never an admin by default — that stays something an existing admin grants deliberately.
+        Assert.False(me.IsAdmin);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_Twice_ReusesTheSameAccount()
+    {
+        // The id is stored in Property.MemberUserIds and every *CreatedByUserId with no way to
+        // rewrite it, so minting a second account for the same person on their next sign-in would
+        // silently cut them off from everything they belong to.
+        var email = $"returning-{Guid.NewGuid()}@example.com";
+
+        var first = await _factory.CreateClient().PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        var second = await _factory.CreateClient().PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+
+        var firstMe = await first.Content.ReadFromJsonAsync<MeResponse>();
+        var secondMe = await second.Content.ReadFromJsonAsync<MeResponse>();
+        Assert.Equal(firstMe!.Id, secondMe!.Id);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_ForAnExistingPasswordAccount_KeepsItsId()
+    {
+        // The same guarantee from the other direction: someone added by email who later signs in
+        // with Google must land on their existing account, not a fresh one.
+        var email = $"existing-{Guid.NewGuid()}@example.com";
+        await SeedUserAsync(email, "Secret123!");
+
+        var password = await _factory.CreateClient()
+            .PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Secret123!"));
+        var viaPassword = await password.Content.ReadFromJsonAsync<MeResponse>();
+
+        var google = await _factory.CreateClient().PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        var viaGoogle = await google.Content.ReadFromJsonAsync<MeResponse>();
+
+        Assert.Equal(viaPassword!.Id, viaGoogle!.Id);
+    }
+
+    [Fact]
+    public async Task ABlockedAccount_IsRefusedOnBothSignInPaths()
+    {
+        var email = $"blocked-{Guid.NewGuid()}@example.com";
+        await SeedUserAsync(email, "Secret123!");
+        await SetBlockedAsync(email, true);
+
+        var google = await _factory.CreateClient()
+            .PostAsJsonAsync("/api/auth/google", new GoogleLoginRequest(email));
+        var password = await _factory.CreateClient()
+            .PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Secret123!"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, google.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, password.StatusCode);
+    }
+
+    [Fact]
+    public async Task BlockingSomeoneEndsTheSessionTheyAlreadyHold()
+    {
+        // The cookie is a 14-day sliding session. Without a per-request check, "blocked" would mean
+        // "blocked in up to two weeks", which is no use at all for removing someone.
+        var email = $"blocked-live-{Guid.NewGuid()}@example.com";
+        await SeedUserAsync(email, "Secret123!");
+
+        var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Secret123!"));
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/auth/me")).StatusCode);
+
+        await SetBlockedAsync(email, true);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
+    }
+
+    private async Task SetBlockedAsync(string email, bool blocked)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = (await db.Users.ToListAsync())
+            .Single(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
+        user.IsBlocked = blocked;
+        await db.SaveChangesAsync();
     }
 
     [Fact]
