@@ -15,6 +15,7 @@ on:
       - "infra/**"
       - "docs/**"
       - "**.md"
+  workflow_dispatch: {}
 
 permissions:
   id-token: write
@@ -68,7 +69,10 @@ jobs:
 
   deploy:
     needs: build-and-test
-    if: github.event_name == 'push'
+    # Everything except pull requests, rather than pushes only — otherwise a manual run from the
+    # Actions tab would run the tests and silently skip the deploy, which is the one thing you'd
+    # dispatch it for. PRs still only build and test.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: production
     steps:
