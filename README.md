@@ -129,7 +129,9 @@ inherits the plan's region.
      app registration above.
    - `AZURE_RESOURCE_GROUP` — the resource group to deploy into.
    - `AZURE_APP_SERVICE_NAME` — the App Service name (from the infra deploy's
-     `appServiceName` output, once the first infra deploy has run).
+     `appServiceName` output, once the first infra deploy has run). It changes if
+     `environmentName` or the resource group changes, since the name is derived
+     from the resource group id.
    - `SEED_USER_1`, `SEED_USER_2` — JSON strings like
      `{"email":"you@example.com","displayName":"You","tempPassword":"..."}`
      for the bootstrap accounts. Never commit real values of these into

@@ -48,7 +48,12 @@ var names = {
   storage: take(toLower('${environmentName}st${uniqueSuffix}'), 24)
   logAnalytics: '${environmentName}-logs'
   appInsights: '${environmentName}-insights'
-  appService: '${environmentName}-api-${uniqueSuffix}'
+  // No "-api" suffix any more: this App Service serves the SPA as well as the API, so naming it
+  // after half its job was misleading. The rename is also what makes the move to the shared plan
+  // safe — a new name means a *create* rather than a plan change on the existing site, which Azure
+  // refuses across resource groups (error 59602), so the old app keeps serving until this one is
+  // verified and can then be deleted.
+  appService: '${environmentName}-${uniqueSuffix}'
 }
 
 module identity 'modules/identity.bicep' = {

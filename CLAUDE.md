@@ -737,7 +737,17 @@ choices, don't "fix" these without re-reading why:
   deploy here can never modify it. Two consequences: the App Service takes its **region from the
   plan**, not from `location` (an app must sit in its plan's region), and the deploying service
   principal needs rights on `rg-common` to join it — a permission this deployment didn't need while
-  it created its own plan. B1 was chosen over Container Apps for deploy simplicity (plain
+  it created its own plan.
+
+  **An existing app can never be moved onto a plan in another resource group, and the app was
+  therefore recreated rather than repointed.** Azure deploys each plan into a *webspace* keyed by
+  resource group + region + OS, and
+  [an app can only move between plans in the same webspace](https://learn.microsoft.com/en-us/azure/app-service/app-service-plan-manage#move-an-app-to-another-app-service-plan);
+  plans can't change webspace afterwards, so moving the plan doesn't help either. Attempting it fails
+  with a uselessly vague `Conflict / 59602: Cannot change the site ... due to hosting constraints`.
+  Creating a *new* app against a cross-resource-group plan is a different operation and is fine —
+  which is why dropping the `-api` suffix mattered for more than tidiness: the new name made the
+  migration a create, letting the old app serve traffic until the new one was verified. B1 was chosen over Container Apps for deploy simplicity (plain
   `dotnet publish` + zip deploy, no Docker/registry). `alwaysOn: true` is the point of it.
 - **There is no Static Web App any more, and the App Service serves the SPA itself.** This replaced
   an F1 App Service + a Standard-tier SWA whose only real job was proxying `/api/*` same-origin.
