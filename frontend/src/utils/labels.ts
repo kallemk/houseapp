@@ -32,6 +32,19 @@ export const WORK_TYPE_LABELS: Record<WorkType, string> = {
   Maintenance: 'Underhåll',
   Renovation: 'Renovering',
   Investment: 'Nyinvestering',
+  Purchase: 'Inköp',
+}
+
+/**
+ * What each type actually means. The four are easy to confuse — the line between renovating and
+ * investing in particular — and picking the wrong one quietly moves money between the dashboard's
+ * figures, so the distinction is spelled out wherever a type is chosen.
+ */
+export const WORK_TYPE_DESCRIPTIONS: Record<WorkType, string> = {
+  Maintenance: 'Bevara eller ersätta befintligt',
+  Renovation: 'Förbättra befintligt',
+  Investment: 'Tillföra något nytt till fastigheten',
+  Purchase: 'Köpa lös egendom eller utrustning',
 }
 
 export const WORK_TYPE_OPTIONS = toOptions(WORK_TYPE_LABELS)
@@ -40,6 +53,7 @@ export const WORK_TYPE_COLORS: Record<WorkType, string> = {
   Maintenance: 'blue',
   Renovation: 'terracotta',
   Investment: 'teal',
+  Purchase: 'grape',
 }
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {

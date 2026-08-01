@@ -82,7 +82,7 @@ public class PropertyAccessTests : IClassFixture<HouseAppWebApplicationFactory>
             ("GET budgets", await client.GetAsync($"/api/properties/{propertyId}/budgets")),
             ("GET budget year", await client.GetAsync($"/api/properties/{propertyId}/budgets/2026")),
             ("PUT budget", await client.PutAsJsonAsync($"/api/properties/{propertyId}/budgets/2026",
-                new SaveBudgetRequest(2026, 1m, 1m, 1m))),
+                new SaveBudgetRequest(2026, 1m, 1m, 1m, 0m))),
             ("GET maintenance-schedule", await client.GetAsync($"/api/properties/{propertyId}/maintenance-schedule")),
             ("GET components", await client.GetAsync($"/api/properties/{propertyId}/components")),
             ("POST components", await client.PostAsJsonAsync($"/api/properties/{propertyId}/components",

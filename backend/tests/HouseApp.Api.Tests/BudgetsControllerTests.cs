@@ -58,7 +58,7 @@ public class BudgetsControllerTests : IClassFixture<HouseAppWebApplicationFactor
 
         var save = await client.PutAsJsonAsync(
             $"/api/properties/{property.Id}/budgets/2026",
-            new SaveBudgetRequest(2026, 30000m, 150000m, 50000m));
+            new SaveBudgetRequest(2026, 30000m, 150000m, 50000m, 0m));
         Assert.Equal(HttpStatusCode.OK, save.StatusCode);
 
         var budget = await (await client.GetAsync($"/api/properties/{property.Id}/budgets/2026"))
@@ -76,10 +76,10 @@ public class BudgetsControllerTests : IClassFixture<HouseAppWebApplicationFactor
 
         await client.PutAsJsonAsync(
             $"/api/properties/{property.Id}/budgets/2026",
-            new SaveBudgetRequest(2026, 1000m, 0m, 0m));
+            new SaveBudgetRequest(2026, 1000m, 0m, 0m, 0m));
         await client.PutAsJsonAsync(
             $"/api/properties/{property.Id}/budgets/2026",
-            new SaveBudgetRequest(2026, 2000m, 0m, 0m));
+            new SaveBudgetRequest(2026, 2000m, 0m, 0m, 0m));
 
         var all = await (await client.GetAsync($"/api/properties/{property.Id}/budgets"))
             .Content.ReadFromJsonAsync<List<BudgetDto>>();
@@ -118,6 +118,31 @@ public class BudgetsControllerTests : IClassFixture<HouseAppWebApplicationFactor
         Assert.Equal(180000m, SpentOn(budget, WorkType.Renovation));
         Assert.Equal(0m, SpentOn(budget, WorkType.Investment));
         Assert.Equal(188000m, budget.TotalSpent);
+    }
+
+    [Fact]
+    public async Task Purchase_IsBudgetedAndSpentLikeAnyOtherWorkType()
+    {
+        // It's excluded from the property's capital position on the dashboard, but that's a
+        // dashboard concern — as far as the yearly plan goes it's money like any other.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        await client.PutAsJsonAsync(
+            $"/api/properties/{property.Id}/budgets/2026",
+            new SaveBudgetRequest(2026, 0m, 0m, 0m, 25000m));
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Ny gräsklippare", "Garden", workType: WorkType.Purchase,
+                costs: [new ProjectCostRequest(CostType.Materials, null, 9000m, new DateOnly(2026, 5, 1), true)]));
+
+        var budget = (await (await client.GetAsync($"/api/properties/{property.Id}/budgets/2026"))
+            .Content.ReadFromJsonAsync<BudgetDto>())!;
+
+        var line = budget.Lines.Single(l => l.WorkType == WorkType.Purchase);
+        Assert.Equal(25000m, line.Budgeted);
+        Assert.Equal(9000m, line.Spent);
+        Assert.Equal(16000m, line.Remaining);
     }
 
     /// <summary>
@@ -195,7 +220,7 @@ public class BudgetsControllerTests : IClassFixture<HouseAppWebApplicationFactor
 
         var response = await client.PutAsJsonAsync(
             $"/api/properties/{property.Id}/budgets/2026",
-            new SaveBudgetRequest(2027, 0m, 0m, 0m));
+            new SaveBudgetRequest(2027, 0m, 0m, 0m, 0m));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -207,7 +232,7 @@ public class BudgetsControllerTests : IClassFixture<HouseAppWebApplicationFactor
         var a = await TestData.CreatePropertyAsync(client, "House A");
         var b = await TestData.CreatePropertyAsync(client, "House B");
 
-        await client.PutAsJsonAsync($"/api/properties/{a.Id}/budgets/2026", new SaveBudgetRequest(2026, 5000m, 0m, 0m));
+        await client.PutAsJsonAsync($"/api/properties/{a.Id}/budgets/2026", new SaveBudgetRequest(2026, 5000m, 0m, 0m, 0m));
 
         var budgetB = await (await client.GetAsync($"/api/properties/{b.Id}/budgets/2026"))
             .Content.ReadFromJsonAsync<BudgetDto>();

@@ -30,6 +30,7 @@ interface BudgetFormValues {
   maintenanceBudget: number | string
   renovationBudget: number | string
   investmentBudget: number | string
+  purchaseBudget: number | string
 }
 
 interface NewYearFormValues extends BudgetFormValues {
@@ -45,10 +46,11 @@ function toAmounts(values: BudgetFormValues) {
     maintenanceBudget: Number(values.maintenanceBudget) || 0,
     renovationBudget: Number(values.renovationBudget) || 0,
     investmentBudget: Number(values.investmentBudget) || 0,
+    purchaseBudget: Number(values.purchaseBudget) || 0,
   }
 }
 
-/** The same three inputs in the inline edit card and in the "new year" modal. */
+/** The same amount inputs in the inline edit card and in the "new year" modal. */
 function BudgetAmountFields({
   getInputProps,
 }: {
@@ -59,6 +61,7 @@ function BudgetAmountFields({
       <NumberInput label="Underhåll (kr)" min={0} {...getInputProps('maintenanceBudget')} />
       <NumberInput label="Renovering (kr)" min={0} {...getInputProps('renovationBudget')} />
       <NumberInput label="Nyinvestering (kr)" min={0} {...getInputProps('investmentBudget')} />
+      <NumberInput label="Inköp (kr)" min={0} {...getInputProps('purchaseBudget')} />
     </>
   )
 }
@@ -75,11 +78,11 @@ export function BudgetPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const form = useForm<BudgetFormValues>({
-    initialValues: { maintenanceBudget: '', renovationBudget: '', investmentBudget: '' },
+    initialValues: { maintenanceBudget: '', renovationBudget: '', investmentBudget: '', purchaseBudget: '' },
   })
 
   const newYearForm = useForm<NewYearFormValues>({
-    initialValues: { year: '', maintenanceBudget: '', renovationBudget: '', investmentBudget: '' },
+    initialValues: { year: '', maintenanceBudget: '', renovationBudget: '', investmentBudget: '', purchaseBudget: '' },
     validate: {
       year: (value) => {
         const year = Number(value)
@@ -129,6 +132,7 @@ export function BudgetPage() {
       maintenanceBudget: budgetedFor(budget, 'Maintenance') || '',
       renovationBudget: budgetedFor(budget, 'Renovation') || '',
       investmentBudget: budgetedFor(budget, 'Investment') || '',
+      purchaseBudget: budgetedFor(budget, 'Purchase') || '',
     })
     setEditing(true)
   }
@@ -150,6 +154,7 @@ export function BudgetPage() {
       maintenanceBudget: '',
       renovationBudget: '',
       investmentBudget: '',
+      purchaseBudget: '',
     })
     newYearForm.clearErrors()
     setAddingYear(true)

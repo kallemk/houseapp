@@ -88,6 +88,7 @@ public class BudgetsController(AppDbContext db) : ControllerBase
         budget.MaintenanceBudget = request.MaintenanceBudget;
         budget.RenovationBudget = request.RenovationBudget;
         budget.InvestmentBudget = request.InvestmentBudget;
+        budget.PurchaseBudget = request.PurchaseBudget;
         await db.SaveChangesAsync();
 
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
@@ -121,6 +122,7 @@ public class BudgetsController(AppDbContext db) : ControllerBase
             Line(WorkType.Maintenance, budget?.MaintenanceBudget ?? 0m, projects, year),
             Line(WorkType.Renovation, budget?.RenovationBudget ?? 0m, projects, year),
             Line(WorkType.Investment, budget?.InvestmentBudget ?? 0m, projects, year),
+            Line(WorkType.Purchase, budget?.PurchaseBudget ?? 0m, projects, year),
         };
 
         return new BudgetDto(

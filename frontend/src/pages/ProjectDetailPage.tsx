@@ -31,13 +31,13 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { ProjectDocuments } from '../components/projects/ProjectDocuments'
 import { useCreateProject, useDeleteProject, useProject, useUpdateProject } from '../hooks/useProjects'
 import { usePropertyComponentList } from '../hooks/usePropertyComponents'
+import { WorkTypeSelect } from '../components/common/WorkTypeSelect'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import {
   COST_TYPE_OPTIONS,
   PRIORITY_OPTIONS,
   PROJECT_STATUS_OPTIONS,
-  WORK_TYPE_OPTIONS,
 } from '../utils/labels'
 
 interface CostFormValues {
@@ -319,9 +319,8 @@ export function ProjectDetailPage() {
               <Textarea label="Beskrivning" autosize minRows={2} {...form.getInputProps('description')} />
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 4 }}>
-                  <Select
+                  <WorkTypeSelect
                     label="Typ av arbete"
-                    data={WORK_TYPE_OPTIONS}
                     allowDeselect={false}
                     {...form.getInputProps('workType')}
                   />

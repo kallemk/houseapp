@@ -21,5 +21,12 @@ public class Budget
     public decimal RenovationBudget { get; set; }
     public decimal InvestmentBudget { get; set; }
 
+    /// <summary>
+    /// Movable property and equipment. Added after budgets already existed, so budgets written
+    /// before it have no such JSON property and read as 0 — which is exactly right for a year nobody
+    /// planned any purchases in.
+    /// </summary>
+    public decimal PurchaseBudget { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

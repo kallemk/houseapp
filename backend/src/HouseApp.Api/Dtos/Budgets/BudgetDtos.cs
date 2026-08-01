@@ -26,4 +26,5 @@ public record SaveBudgetRequest(
     int Year,
     decimal MaintenanceBudget,
     decimal RenovationBudget,
-    decimal InvestmentBudget);
+    decimal InvestmentBudget,
+    decimal PurchaseBudget);

@@ -95,7 +95,7 @@ export interface ValuationEntryDto {
   createdAt: string
 }
 
-export type WorkType = 'Maintenance' | 'Renovation' | 'Investment'
+export type WorkType = 'Maintenance' | 'Renovation' | 'Investment' | 'Purchase'
 export type ProjectStatus = 'Planned' | 'InProgress' | 'Completed' | 'OnHold' | 'Cancelled'
 export type ProjectPriority = 'Low' | 'Medium' | 'High' | 'Critical'
 export type CostType = 'Materials' | 'Labor' | 'Tools' | 'Permits' | 'Other'

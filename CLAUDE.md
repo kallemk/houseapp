@@ -436,9 +436,25 @@ properties" surface both `NavBar` entry points link to.
 A `Project` is a piece of work on the house — planned, ongoing or finished. It replaced
 `RenovationEntry`, which could only say "on this date we spent this much". Two classifications:
 
-- **`WorkType`** (`Maintenance` / `Renovation` / `Investment`) — a hardcoded enum. This is what
-  `DashboardPage` splits its totals on; before it existed, "Totalt investerat" summed every entry
-  including routine upkeep and furniture.
+- **`WorkType`** (`Maintenance` / `Renovation` / `Investment` / `Purchase`) — a hardcoded enum, and
+  **append-only**: EF Cosmos stores it as an integer (the string values are only the wire contract),
+  so reordering reclassifies every stored project. This is what `DashboardPage` splits its totals on;
+  before it existed, "Totalt investerat" summed every entry including routine upkeep and furniture.
+  The four are meaningfully different and each is worded in `WORK_TYPE_DESCRIPTIONS`
+  (`utils/labels.ts`), shown in every work-type dropdown via `components/common/WorkTypeSelect.tsx` —
+  picking the wrong one silently moves money between dashboard figures, so the distinction isn't left
+  to be guessed:
+  - `Maintenance` — bevara eller ersätta befintligt
+  - `Renovation` — förbättra befintligt
+  - `Investment` — tillföra något nytt till fastigheten
+  - `Purchase` — köpa lös egendom eller utrustning
+
+  **`Purchase` is budgeted like the rest but is deliberately excluded from "Mot insatt kapital"** on
+  the dashboard: it buys movable things that can leave with you, so it doesn't raise what the
+  property is worth. That figure is an **allowlist** (`Renovation` + `Investment` in `DashboardPage`),
+  not an exclusion list, so a future work type has to be argued into it rather than landing there by
+  default. `Purchase` is out of the maintenance schedule for the same reason `Investment` is — buying
+  a mower doesn't service anything.
 - **`ComponentId`** → a component — *which part of the house*. Admin-managed data (Tak, Fasad, VVS, …),
   deliberately not an enum so the list is editable in-app, and since split into a central registry
   plus a per-property copy — see below.

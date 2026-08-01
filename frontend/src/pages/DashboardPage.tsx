@@ -139,9 +139,12 @@ export function DashboardPage() {
   const hasValuation = (valuations?.length ?? 0) > 0
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice
 
-  // Capital put into the house: the purchase plus work that adds to it. Maintenance is deliberately
-  // excluded — it's upkeep that's consumed, not money that's still sitting in the building. Same
-  // Renovation/Investment split the rest of the app makes.
+  // Capital put into the house: the purchase plus work that adds to it.
+  //
+  // An allowlist rather than an exclusion list, and deliberately so — a new WorkType must be argued
+  // into this figure rather than landing in it by default. Two are out today: Maintenance is upkeep
+  // that's consumed rather than money still sitting in the building, and Purchase buys movable
+  // things that can leave with you, so neither raises what the property is worth.
   const capitalWork = (projects ?? [])
     .filter((p) => p.workType === 'Renovation' || p.workType === 'Investment')
     .reduce((sum, p) => sum + p.actualCost, 0)

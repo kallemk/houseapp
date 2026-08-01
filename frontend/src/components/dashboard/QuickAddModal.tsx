@@ -4,9 +4,9 @@ import { FileUpload, type UploadMeta } from '../common/FileUpload'
 import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateProject } from '../../hooks/useProjects'
 import { usePropertyComponentList } from '../../hooks/usePropertyComponents'
+import { WorkTypeSelect } from '../common/WorkTypeSelect'
 import { useUploadDocument } from '../../hooks/useDocuments'
 import type { WorkType } from '../../api/types'
-import { WORK_TYPE_OPTIONS } from '../../utils/labels'
 
 export type QuickAddType = 'valuation' | 'project' | 'document'
 
@@ -134,9 +134,8 @@ function QuickAddProjectForm({
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <TextInput label="Namn" required {...form.getInputProps('name')} />
-        <Select
+        <WorkTypeSelect
           label="Typ av arbete"
-          data={WORK_TYPE_OPTIONS}
           allowDeselect={false}
           {...form.getInputProps('workType')}
         />

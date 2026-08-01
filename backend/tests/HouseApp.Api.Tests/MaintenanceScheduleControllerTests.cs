@@ -240,6 +240,27 @@ public class MaintenanceScheduleControllerTests : IClassFixture<HouseAppWebAppli
         Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
     }
 
+    [Fact]
+    public async Task PurchaseWorkDoesNotResetTheClock()
+    {
+        // Buying a mower doesn't service anything, so it must not stand in for the component's
+        // last maintenance the way a repair or a renovation does.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+        var componentId = await CreateComponentAsync(client, intervalMonths: 12);
+
+        await client.PostAsJsonAsync(
+            $"/api/properties/{property.Id}/projects",
+            TestData.SaveProject("Ny gräsklippare", componentId, workType: WorkType.Purchase,
+                status: ProjectStatus.Completed, completedDate: new DateOnly(2025, 6, 1)));
+
+        var item = (await GetScheduleAsync(client, property.Id, new DateOnly(2026, 1, 1)))
+            .Single(i => i.ComponentId == componentId);
+
+        Assert.Equal(MaintenanceBaseline.None, item.Baseline);
+        Assert.Equal(MaintenanceUrgency.Unknown, item.Urgency);
+    }
+
     /// <summary>
     /// Minor work — patching a few tiles — shouldn't push the next roof service out by the whole
     /// interval just because it touched the roof.

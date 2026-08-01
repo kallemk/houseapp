@@ -22,6 +22,7 @@ import { SortableTh } from '../components/common/SortableTh'
 import { useTableSort } from '../hooks/useTableSort'
 import { useProjects } from '../hooks/useProjects'
 import { usePropertyComponentList } from '../hooks/usePropertyComponents'
+import { WorkTypeSelect } from '../components/common/WorkTypeSelect'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import {
@@ -105,7 +106,7 @@ export function ProjectsPage() {
         </Button>
       </Group>
       <Text c="dimmed" size="sm">
-        Underhåll, renoveringar och nyinvesteringar i bostaden.
+        Underhåll, renoveringar, nyinvesteringar och inköp till bostaden.
       </Text>
 
       <Card withBorder padding="md">
@@ -126,7 +127,7 @@ export function ProjectsPage() {
             w={120}
             data={[{ value: ALL, label: 'Alla' }, ...years.map((y) => ({ value: y, label: y }))]}
           />
-          <Select
+          <WorkTypeSelect
             label="Typ av arbete"
             value={workType}
             onChange={(value) => setWorkType(value ?? ALL)}

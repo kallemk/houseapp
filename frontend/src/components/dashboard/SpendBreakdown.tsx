@@ -4,7 +4,7 @@ import type { ProjectDto, WorkType } from '../../api/types'
 import { formatCurrency, formatNumber } from '../../utils/currency'
 import { WORK_TYPE_LABELS } from '../../utils/labels'
 
-const WORK_TYPES: WorkType[] = ['Maintenance', 'Renovation', 'Investment']
+const WORK_TYPES: WorkType[] = ['Maintenance', 'Renovation', 'Investment', 'Purchase']
 
 /** A rough industry rule of thumb for annual upkeep on a Swedish house, as a share of its value. */
 const MAINTENANCE_RULE_OF_THUMB_PERCENT = 1

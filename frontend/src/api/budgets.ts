@@ -6,6 +6,7 @@ export interface SaveBudgetInput {
   maintenanceBudget: number
   renovationBudget: number
   investmentBudget: number
+  purchaseBudget: number
 }
 
 export const budgetsApi = {
