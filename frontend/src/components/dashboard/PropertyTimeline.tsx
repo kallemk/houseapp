@@ -36,9 +36,25 @@ interface PropertyTimelineProps {
   onQuickAdd: (request: QuickAddRequest) => void
 }
 
-/** A project sits where it happened, or where it's planned to — created-at is a fallback, not a date. */
+/**
+ * Where a project sits on the timeline, or null if it doesn't belong on one at all.
+ *
+ * **Only completed work appears.** The timeline is a record of what has happened to the house, and a
+ * planned job hasn't happened — putting it here made intentions look like history, and a job planned
+ * for later this year turned up among the things that were actually done. (Worse, one planned for a
+ * future year vanished entirely, since the timeline only runs up to the current year.) Nothing is
+ * lost by leaving them out: the dashboard already lists open work separately under "Pågående och
+ * planerade projekt", which is where a plan belongs.
+ *
+ * A completed project normally carries its completion date; actual start is the fallback for one
+ * finished without the date filled in. Cancelled and on-hold work never appears.
+ */
 function projectDate(project: ProjectDto): string | null {
-  return project.completedDate ?? project.plannedStartDate ?? project.actualStartDate
+  if (project.status !== 'Completed') {
+    return null
+  }
+
+  return project.completedDate ?? project.actualStartDate
 }
 
 function EventList({ events }: { events: TimelineEvent[] }) {

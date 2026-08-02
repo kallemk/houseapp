@@ -645,9 +645,20 @@ was decoration that pushed the figures down the page. Either field empty or non-
 **The dashboard timeline groups by year and expands to quarters on click.** A house owned for 20
 years is 80 quarter rows, nearly all empty. `utils/quarters.ts` keeps both groupings; the year is
 the default and the quarter view is opt-in per year. Both levels carry the same quick-add menu, just
-seeding a different default date. It shows **valuations and projects only** — documents were dropped
-because they crowded out the two things worth seeing, and the quick-add went with them so nothing
-can be added there that then leaves no trace. Every row is dated and links somewhere.
+seeding a different default date. It shows **valuations and completed projects only** — documents
+were dropped because they crowded out the two things worth seeing, and the quick-add went with them
+so nothing can be added there that then leaves no trace. Every row is dated and links somewhere.
+
+**Planned and in-progress work is deliberately absent.** The timeline is a record of what *happened*,
+so `projectDate` returns null for anything that isn't `Completed`. Including plans made intentions
+look like history — a job planned for later this year sat among the things actually done, and one
+planned for a future year vanished silently, since the timeline only enumerates up to the current
+year. Open work has its own card on the dashboard, which is where a plan belongs. Note that
+`QuickAddModal` creates projects as `Completed`, so quick-added items still appear.
+
+**Runs of three or more empty years collapse into one expandable row.** A house owned since 2000 was
+27 rows, most of them "Ingen aktivitet". Shorter runs are left alone — folding two rows into one
+saves nothing and adds something to click.
 
 ### The renovation → project migration (done, and removed — don't re-add it)
 
