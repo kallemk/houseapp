@@ -82,7 +82,7 @@ public class FeedbackController(
         {
             // Only for issues that actually have comments — the list endpoint tells us the count, so
             // the common case costs no extra call at all.
-            var reply = issue.CommentCount > 0
+            var comment = issue.CommentCount > 0
                 ? await gitHub.GetLatestCommentAsync(issue.Number, cancellationToken)
                 : null;
 
@@ -91,7 +91,8 @@ public class FeedbackController(
                 issue.Title,
                 StripMarker(issue.Body),
                 StatusOf(issue),
-                reply,
+                issue.IsOpen,
+                comment is null ? null : new FeedbackReplyDto(comment.Body, comment.Author, comment.CreatedAt),
                 IsSubmittedBy(issue.Body, userId),
                 issue.Labels.Contains(PublishedLabel),
                 issue.CreatedAt));
@@ -152,6 +153,7 @@ public class FeedbackController(
             issue.Title,
             request.Body.Trim(),
             FeedbackStatus.New,
+            IsOpen: true,
             Reply: null,
             IsMine: true,
             IsPublished: false,

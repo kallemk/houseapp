@@ -738,10 +738,17 @@ Three labels form the contract:
 - `feedback` — applied by the app to everything it creates. Nothing without it is ever read.
 - `publik` — added by the owner in GitHub, and required before *other* users see a suggestion. Its
   submitter always sees their own (so they know it arrived), and admins see everything labelled
-  `feedback` (so triage is possible from inside the app).
+  `feedback` (so triage is possible from inside the app). The latest comment is shown as the reply,
+  with its author and date — a bare quote left people wondering when it had been answered.
 - `status:planerad` / `status:pågår` / `status:klar` / `status:avvisad` — optional, shown as a badge.
   Absent, the status falls back to the issue's open/closed state, so forgetting to label is harmless
   rather than misleading.
+
+**Open/closed is reported separately from the status, and has to be.** A `status:*` label *overrides*
+the derived status, so a closed issue labelled `status:pågår` would otherwise read as ongoing with no
+sign it had been shut — which is exactly what made the model hard to follow before `IsOpen` was
+surfaced. The two answer different questions: the label says what you decided, the state says whether
+it's still being worked on. The page shows both badges and says so in a sentence.
 
 **Ownership lives in the issue body, not a container.** A `<!-- houseapp:submitter={userId} -->`
 marker is what makes "show me my own" and the daily submission cap work. That avoids a new Cosmos

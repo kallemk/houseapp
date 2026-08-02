@@ -77,7 +77,9 @@ export function FeedbackPage() {
           </Group>
           <Text c="dimmed" size="sm">
             Saknar du något, eller har något gått sönder? Skriv här så hamnar det direkt hos den som
-            bygger appen.
+            bygger appen. Varje förslag får en <strong>status</strong> som visar vad som händer med
+            det, och märks <strong>Öppet</strong> eller <strong>Stängt</strong> beroende på om det
+            fortfarande är under arbete.
           </Text>
 
           {notConfigured ? (
@@ -147,20 +149,31 @@ export function FeedbackPage() {
                           <Badge size="sm" variant="light" color={FEEDBACK_STATUS_COLORS[item.status]}>
                             {FEEDBACK_STATUS_LABELS[item.status]}
                           </Badge>
+                          {/* Shown separately from the status: a status label overrides the derived
+                              status, so a closed suggestion labelled "pågår" would otherwise look
+                              like it was still being worked on. */}
+                          <Badge size="sm" variant="outline" color={item.isOpen ? 'blue' : 'gray'}>
+                            {item.isOpen ? 'Öppet' : 'Stängt'}
+                          </Badge>
                         </Group>
                       </Group>
                       <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                         {item.body}
                       </Text>
                       {item.reply && (
-                        <Alert variant="light" color="blue" mt="sm" title="Svar">
+                        <Alert
+                          variant="light"
+                          color="blue"
+                          mt="sm"
+                          title={`Svar från ${item.reply.author} · ${item.reply.createdAt.slice(0, 10)}`}
+                        >
                           <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                            {item.reply}
+                            {item.reply.body}
                           </Text>
                         </Alert>
                       )}
                       <Text size="xs" c="dimmed" mt="xs">
-                        {item.createdAt.slice(0, 10)}
+                        Inskickat {item.createdAt.slice(0, 10)}
                       </Text>
                     </Card>
                   ))}

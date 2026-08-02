@@ -58,7 +58,7 @@ public class GitHubIssueService(
         return issues.Where(i => i.PullRequest is null).Select(ToIssue).ToList();
     }
 
-    public async Task<string?> GetLatestCommentAsync(int issueNumber, CancellationToken cancellationToken = default)
+    public async Task<GitHubComment?> GetLatestCommentAsync(int issueNumber, CancellationToken cancellationToken = default)
     {
         var client = CreateClient();
         var response = await client.GetAsync(
@@ -67,7 +67,10 @@ public class GitHubIssueService(
 
         await ThrowIfFailedAsync(response, "read comments", cancellationToken);
         var comments = await response.Content.ReadFromJsonAsync<List<CommentResponse>>(cancellationToken) ?? [];
-        return comments.LastOrDefault()?.Body;
+        var latest = comments.LastOrDefault();
+        return latest is null
+            ? null
+            : new GitHubComment(latest.Body, latest.User?.Login ?? "okänd", latest.CreatedAt);
     }
 
     private HttpClient CreateClient()
@@ -117,5 +120,10 @@ public class GitHubIssueService(
 
     private record LabelResponse([property: JsonPropertyName("name")] string Name);
 
-    private record CommentResponse([property: JsonPropertyName("body")] string Body);
+    private record CommentResponse(
+        [property: JsonPropertyName("body")] string Body,
+        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("user")] UserResponse? User);
+
+    private record UserResponse([property: JsonPropertyName("login")] string Login);
 }

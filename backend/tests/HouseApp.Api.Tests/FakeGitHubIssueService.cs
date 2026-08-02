@@ -13,7 +13,7 @@ public class FakeGitHubIssueService : IGitHubIssueService
     private int _nextNumber = 1;
 
     public ConcurrentDictionary<int, GitHubIssue> Issues { get; } = new();
-    public ConcurrentDictionary<int, string> Comments { get; } = new();
+    public ConcurrentDictionary<int, GitHubComment> Comments { get; } = new();
 
     public bool IsConfigured { get; set; } = true;
 
@@ -36,7 +36,7 @@ public class FakeGitHubIssueService : IGitHubIssueService
     public Task<IReadOnlyList<GitHubIssue>> ListIssuesAsync(string label, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GitHubIssue>>(Issues.Values.Where(i => i.Labels.Contains(label)).ToList());
 
-    public Task<string?> GetLatestCommentAsync(int issueNumber, CancellationToken cancellationToken = default) =>
+    public Task<GitHubComment?> GetLatestCommentAsync(int issueNumber, CancellationToken cancellationToken = default) =>
         Task.FromResult(Comments.GetValueOrDefault(issueNumber));
 
     // --- helpers for arranging test state -------------------------------------------------------
@@ -56,9 +56,14 @@ public class FakeGitHubIssueService : IGitHubIssueService
         Issues[number] = issue with { Labels = [.. issue.Labels, label] };
     }
 
-    public void AddComment(int number, string body)
+    public void Close(int number)
     {
-        Comments[number] = body;
+        Issues[number] = Issues[number] with { IsOpen = false };
+    }
+
+    public void AddComment(int number, string body, string author = "kallemk")
+    {
+        Comments[number] = new GitHubComment(body, author, DateTimeOffset.UtcNow);
         var issue = Issues[number];
         Issues[number] = issue with { CommentCount = issue.CommentCount + 1 };
     }

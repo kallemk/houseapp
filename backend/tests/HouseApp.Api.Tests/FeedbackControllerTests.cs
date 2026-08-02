@@ -154,7 +154,27 @@ public class FeedbackControllerTests : IClassFixture<HouseAppWebApplicationFacto
         var number = _factory.GitHub.Issues.Keys.Single();
         _factory.GitHub.AddComment(number, "Ja — det finns redan under Hantera åtkomst.");
 
-        Assert.Equal("Ja — det finns redan under Hantera åtkomst.", (await ListAsync(client)).Single().Reply);
+        var reply = (await ListAsync(client)).Single().Reply;
+        Assert.NotNull(reply);
+        Assert.Equal("Ja — det finns redan under Hantera åtkomst.", reply!.Body);
+        Assert.Equal("kallemk", reply.Author);
+        Assert.True(reply.CreatedAt > DateTimeOffset.UtcNow.AddMinutes(-5));
+    }
+
+    [Fact]
+    public async Task OpenOrClosedIsReportedSeparatelyFromTheStatusLabel()
+    {
+        // The confusing case: a status label overrides the derived status, so without a separate
+        // IsOpen a closed-but-labelled-"pågår" issue would read as ongoing with no sign it was shut.
+        var (client, _) = await CreateClientAsync();
+        await SubmitAsync(client, "Något");
+        var number = _factory.GitHub.Issues.Keys.Single();
+        _factory.GitHub.AddLabel(number, "status:pågår");
+        _factory.GitHub.Close(number);
+
+        var item = (await ListAsync(client)).Single();
+        Assert.Equal(FeedbackStatus.InProgress, item.Status);
+        Assert.False(item.IsOpen);
     }
 
     [Fact]
