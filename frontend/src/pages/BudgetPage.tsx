@@ -21,7 +21,9 @@ import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import type { BudgetDto, WorkType } from '../api/types'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { UpcomingExpenses } from '../components/budget/UpcomingExpenses'
 import { useBudgets, useDeleteBudget, useSaveBudget } from '../hooks/useBudgets'
+import { useProjects } from '../hooks/useProjects'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import { WORK_TYPE_COLORS, WORK_TYPE_LABELS } from '../utils/labels'
@@ -70,6 +72,7 @@ export function BudgetPage() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: budgets, isLoading } = useBudgets(propertyId ?? '')
+  const { data: projects } = useProjects(propertyId ?? '')
   const saveBudget = useSaveBudget(propertyId ?? '')
   const deleteBudget = useDeleteBudget(propertyId ?? '')
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -301,6 +304,10 @@ export function BudgetPage() {
           </Table.ScrollContainer>
         </Card>
       )}
+
+      {/* Below the budget on purpose: the budget is what you decided to spend, this is what the
+          projects you've already entered are going to cost. Reading them in that order is the point. */}
+      <UpcomingExpenses projects={projects ?? []} propertyId={propertyId ?? ''} />
 
       <Modal
         opened={addingYear}

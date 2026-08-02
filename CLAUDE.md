@@ -554,6 +554,27 @@ household's projects are none of its business. There is no per-property "postpon
 — lengthening or clearing the interval locally is how that's expressed today (a cleared interval
 makes the component `NotScheduled`).
 
+### Kommande utgifter (the upcoming-expense bars on the budget page)
+
+`components/budget/UpcomingExpenses.tsx` shows what unfinished work is going to cost, grouped by
+year and expanding into quarters. It sits below the budget table on purpose: the budget is what you
+decided to spend, this is what the projects you've already entered will cost, and reading them in
+that order is the point.
+
+- **Counts every open status** — `Planned`, `InProgress` *and* `OnHold`. On-hold work is the easiest
+  to forget precisely because it's paused, and it's still money ahead of you. Completed work has
+  already been paid and cancelled work never will be.
+- **Uses `estimatedCost`, not cost rows.** An unpriced project counts as 0, so the total is a lower
+  bound — the card says so, otherwise a 0 reads as "free" rather than "nobody has priced it".
+- **Only years that have work get a row.** A continuous range would render a decade of empty rows
+  the moment someone plans a roof for 2036.
+- **Past years are kept, not folded into the current one**, and badged *Försenat*. Open work planned
+  for last year is worth seeing as exactly that rather than being quietly relabelled as upcoming.
+- Undated work gets its own "Utan datum" row rather than being dropped — it still costs money.
+- **Drawn with `Progress` bars, not a charting library.** Adding `@mantine/charts`/Recharts would
+  have cost 100 KB+ gzipped on a bundle already past Vite's warning threshold, for one screen; the
+  same bar treatment `SpendByComponent` uses cost ~20 KB and matches the rest of the app.
+
 ### Derived data: the maintenance schedule and budget actuals
 
 Two features deliberately store less than they display, for the same reason `Project.ActualCost`
