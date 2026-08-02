@@ -1,7 +1,7 @@
 import { Anchor, Card, Container, Group, List, Stack, Table, Text, ThemeIcon, Title } from '@mantine/core'
 import { IconArrowLeft, IconCookie } from '@tabler/icons-react'
 import { Link } from 'react-router-dom'
-import { AppFooter } from '../components/layout/AppFooter'
+import { AppFooter, CONTACT_EMAIL } from '../components/layout/AppFooter'
 
 /**
  * Public on purpose — reachable without signing in, since deciding whether to sign in is exactly
@@ -35,8 +35,8 @@ export function CookiesPage() {
           </Group>
 
           <Text c="dimmed" size="sm">
-            HusTracker drivs av Odenbulten Consulting AB. Den här sidan beskriver exakt vad appen
-            sparar i din webbläsare och vad som lagras om dig — inget mer, inget mindre.
+            HusTracker drivs av Odenbulten Consulting AB (org.nr 559289-6285). Den här sidan beskriver
+            exakt vad appen sparar i din webbläsare och vad som lagras om dig — inget mer, inget mindre.
           </Text>
 
           <Title order={4} mt="md">
@@ -157,9 +157,9 @@ export function CookiesPage() {
             Var det ligger, och hur du blir av med det
           </Title>
           <Text size="sm">
-            Uppgifterna lagras i Microsoft Azure inom EU (undantaget förslag, se ovan). Vill du radera ditt konto och dina uppgifter,
-            eller få veta vad som finns lagrat om dig, hör av dig till Odenbulten Consulting AB så
-            ordnar vi det.
+            Uppgifterna lagras i Microsoft Azure inom EU (undantaget förslag, se ovan). Vill du radera
+            ditt konto och dina uppgifter, eller få veta vad som finns lagrat om dig, mejla{' '}
+            <Anchor href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</Anchor> så ordnar vi det.
           </Text>
 
           <Text size="xs" c="dimmed" mt="md">
