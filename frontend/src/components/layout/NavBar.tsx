@@ -1,17 +1,17 @@
 import { Burger, Divider, Drawer, Group, Menu, Stack, Text, ThemeIcon, UnstyledButton } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
-  IconCalendarClock,
-  IconChartLine,
+  IconBulb,
   IconChevronDown,
   IconFiles,
   IconHammer,
   IconHome2,
   IconHomeStar,
+  IconListCheck,
   IconLogout,
+  IconPigMoney,
   IconPlus,
   IconSettings,
-  IconWallet,
 } from '@tabler/icons-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
@@ -50,16 +50,15 @@ export function NavBar() {
   const currentProperty = properties?.find((p) => p.id === propertyId)
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false)
 
+  // Five, each owning one subject completely. Värderingar folded into Ekonomi and Administration
+  // moved to the account menu below — the latter was never property-scoped despite its URL, since
+  // it manages the central component registry and every user in the app.
   const links = [
     { to: `/properties/${propertyId}`, label: 'Översikt', icon: IconHome2, end: true },
-    { to: `/properties/${propertyId}/valuations`, label: 'Värderingar', icon: IconChartLine, end: false },
     { to: `/properties/${propertyId}/projects`, label: 'Projekt', icon: IconHammer, end: false },
-    { to: `/properties/${propertyId}/maintenance`, label: 'Underhållsplan', icon: IconCalendarClock, end: false },
-    { to: `/properties/${propertyId}/budget`, label: 'Budget', icon: IconWallet, end: false },
+    { to: `/properties/${propertyId}/maintenance`, label: 'Underhåll', icon: IconListCheck, end: false },
+    { to: `/properties/${propertyId}/finances`, label: 'Ekonomi', icon: IconPigMoney, end: false },
     { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
-    // Visible to everyone: the components list is worth reading even if you can't change it, and
-    // the users page inside says plainly that it's admin-only rather than hiding.
-    { to: `/properties/${propertyId}/admin`, label: 'Administration', icon: IconSettings, end: false },
   ]
 
   // Preserves which sub-page you're on (dashboard/valuations/renovations/documents) when
@@ -140,25 +139,42 @@ export function NavBar() {
           </Group>
         </Group>
 
+        {/* Everything that isn't about *this property* lives behind the name: administration (the
+            central registry and the user list), feedback, and signing out. */}
         <Group gap="sm" visibleFrom="sm" wrap="nowrap">
-          <Text size="sm" c="dimmed">
-            {user?.displayName}
-          </Text>
-          <UnstyledButton
-            onClick={() => logout()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 10px',
-              borderRadius: 'var(--mantine-radius-md)',
-              fontSize: 'var(--mantine-font-size-sm)',
-              color: 'var(--mantine-color-gray-6)',
-            }}
-          >
-            <IconLogout size={16} />
-            Logga ut
-          </UnstyledButton>
+          <Menu position="bottom-end" withArrow shadow="md">
+            <Menu.Target>
+              <UnstyledButton
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '6px 10px',
+                  borderRadius: 'var(--mantine-radius-md)',
+                  fontSize: 'var(--mantine-font-size-sm)',
+                  color: 'var(--mantine-color-gray-6)',
+                }}
+              >
+                {user?.displayName}
+                <IconChevronDown size={14} />
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {/* Open to everyone: the components list is worth reading even if you can't change
+                  it, and the users page inside says plainly that it's admin-only rather than
+                  hiding. */}
+              <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => navigate('/admin')}>
+                Administration
+              </Menu.Item>
+              <Menu.Item leftSection={<IconBulb size={14} />} onClick={() => navigate('/feedback')}>
+                Förslag &amp; feedback
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<IconLogout size={14} />} onClick={() => logout()}>
+                Logga ut
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
 
         <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="sm" size="sm" />
@@ -214,21 +230,33 @@ export function NavBar() {
             </UnstyledButton>
           ))}
 
-          <Divider mt="sm" />
-          <UnstyledButton
-            onClick={() => logout()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '10px 12px',
-              borderRadius: 'var(--mantine-radius-md)',
-              color: 'var(--mantine-color-gray-6)',
-            }}
-          >
-            <IconLogout size={18} />
-            Logga ut
-          </UnstyledButton>
+          {/* The drawer's counterpart to the desktop account menu — same three entries, since a
+              dropdown inside a drawer is a worse version of a list. */}
+          <Divider label="Konto" labelPosition="left" mt="sm" />
+          {[
+            { label: 'Administration', icon: IconSettings, onClick: () => navigate('/admin') },
+            { label: 'Förslag & feedback', icon: IconBulb, onClick: () => navigate('/feedback') },
+            { label: 'Logga ut', icon: IconLogout, onClick: () => logout() },
+          ].map((entry) => (
+            <UnstyledButton
+              key={entry.label}
+              onClick={() => {
+                closeDrawer()
+                entry.onClick()
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 'var(--mantine-radius-md)',
+                color: 'var(--mantine-color-gray-6)',
+              }}
+            >
+              <entry.icon size={18} />
+              {entry.label}
+            </UnstyledButton>
+          ))}
         </Stack>
       </Drawer>
     </>

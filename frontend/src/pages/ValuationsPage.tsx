@@ -10,8 +10,6 @@ import {
   Table,
   Textarea,
   TextInput,
-  ThemeIcon,
-  Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -130,13 +128,7 @@ export function ValuationsPage() {
 
   return (
     <Stack>
-      <Group gap="sm">
-        <ThemeIcon variant="light" size={36} radius="md">
-          <IconChartLine size={20} />
-        </ThemeIcon>
-        <Title order={2}>Värderingar</Title>
-      </Group>
-
+      {/* No heading of its own — this is the Värdering tab under Ekonomi. */}
       <Card withBorder padding="md">
         {/* key resets the inline form after each successful add. */}
         <ValuationForm

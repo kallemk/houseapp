@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Alert,
   Anchor,
   Badge,
   Card,
@@ -16,9 +15,9 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import {
-  IconBuildingCommunity,
-  IconCalendarClock,
+  IconCoins,
   IconHome2,
+  IconListCheck,
   IconPencil,
   IconPigMoney,
   IconTag,
@@ -35,7 +34,6 @@ import { useValuations } from '../hooks/useValuations'
 import { useProjects } from '../hooks/useProjects'
 import { useMaintenanceSchedule } from '../hooks/useMaintenanceSchedule'
 import { useBudgets } from '../hooks/useBudgets'
-import { usePropertyComponentList } from '../hooks/usePropertyComponents'
 import { formatAddress } from '../utils/address'
 import {
   MAINTENANCE_URGENCY_COLORS,
@@ -45,10 +43,11 @@ import {
 } from '../utils/labels'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
-import { BudgetProgressCard } from '../components/dashboard/BudgetProgressCard'
-import { SpendBreakdown } from '../components/dashboard/SpendBreakdown'
-import { SpendByComponent } from '../components/dashboard/SpendByComponent'
 import { formatCurrency, formatNumber } from '../utils/currency'
+import { anyDate, inYear, spent } from '../utils/spend'
+
+/** Enough to see what's pressing without turning into the projects table. */
+const MAX_TODOS = 6
 
 interface StatCardProps {
   icon: typeof IconHome2
@@ -112,6 +111,24 @@ function ValueChange({ purchasePrice, currentValue }: { purchasePrice: number; c
   )
 }
 
+/**
+ * One row of "Att göra" — overdue upkeep and open projects reduced to the same shape.
+ *
+ * `rank` is the sort order, and the interleaving is the point: work that's already late comes first,
+ * then anything you've flagged as brådskande, then upkeep that's merely approaching, then the rest.
+ * These were two separate blocks before — a maintenance Alert and a projects Card — which split one
+ * conversation ("taket är försenat" / "projekt: byte tak, planerat") across two places on the page.
+ */
+interface TodoItem {
+  key: string
+  rank: number
+  date: string | null
+  badges: { label: string; color: string }[]
+  label: string
+  note?: string
+  to: string
+}
+
 export function DashboardPage() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const { property, isLoading, notFound } = useSelectedProperty(propertyId)
@@ -119,7 +136,6 @@ export function DashboardPage() {
   const { data: projects } = useProjects(propertyId ?? '')
   const { data: schedule } = useMaintenanceSchedule(propertyId ?? '')
   const { data: budgets } = useBudgets(propertyId ?? '')
-  const { data: components } = usePropertyComponentList(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
   const [editing, setEditing] = useState(false)
   const updateProperty = useUpdateProperty()
@@ -152,15 +168,45 @@ export function DashboardPage() {
   const netPosition = currentValue - investedTotal
 
   const openProjects = (projects ?? []).filter((p) => p.status !== 'Completed' && p.status !== 'Cancelled')
-  const needsAttention = (schedule ?? []).filter((i) => i.urgency === 'Overdue' || i.urgency === 'DueSoon')
-  // Money committed but not yet paid out. Estimates rather than cost rows on purpose: these are
-  // projects that mostly haven't been invoiced yet, so the estimate is all there is.
-  const pipeline = openProjects.reduce((sum, p) => sum + (p.actualCost > 0 ? p.actualCost : p.estimatedCost), 0)
-  const thisYearsBudget = (budgets ?? []).find((b) => b.year === new Date().getFullYear() && b.id)
-  // Both cards below hide themselves when they'd say nothing; this keeps the grid from rendering
-  // empty, and drops it to one column when only one of them has anything to show.
-  const hasSpend = (projects ?? []).some((p) => p.actualCost > 0)
-  const lowerCards = [thisYearsBudget !== undefined, hasSpend].filter(Boolean).length
+
+  const todos: TodoItem[] = [
+    ...(schedule ?? [])
+      .filter((i) => i.urgency === 'Overdue' || i.urgency === 'DueSoon')
+      .map((item) => ({
+        key: `maintenance-${item.componentId}`,
+        rank: item.urgency === 'Overdue' ? 0 : 2,
+        date: item.nextDueDate,
+        badges: [
+          { label: MAINTENANCE_URGENCY_LABELS[item.urgency], color: MAINTENANCE_URGENCY_COLORS[item.urgency] },
+        ],
+        label: item.componentName,
+        note: item.hasUpcomingProject ? 'projekt planerat' : undefined,
+        to: `/properties/${property.id}/maintenance/schedule`,
+      })),
+    ...openProjects.map((p) => ({
+      key: `project-${p.id}`,
+      rank: p.isUrgent ? 1 : 3,
+      date: p.plannedStartDate,
+      badges: [
+        { label: PROJECT_STATUS_LABELS[p.status], color: PROJECT_STATUS_COLORS[p.status] },
+        ...(p.isUrgent ? [{ label: 'Brådskande', color: 'red' }] : []),
+      ],
+      label: p.name,
+      to: `/properties/${property.id}/projects/${p.id}`,
+    })),
+    // Undated work sorts last within its rank rather than first, which is what an empty string would
+    // have done.
+  ].sort((a, b) => a.rank - b.rank || (a.date ?? '9999').localeCompare(b.date ?? '9999'))
+
+  const thisYear = new Date().getFullYear()
+  const spentThisYear = spent(projects ?? [], inYear(thisYear))
+  const spentLastYear = spent(projects ?? [], inYear(thisYear - 1))
+  const spentTotal = spent(projects ?? [], anyDate)
+  const thisYearsBudget = (budgets ?? []).find((b) => b.year === thisYear && b.id)
+  // Estimates, matching the Kommande tab exactly — these are mostly projects nobody has invoiced
+  // yet, so the estimate is all there is.
+  const upcoming = openProjects.reduce((sum, p) => sum + p.estimatedCost, 0)
+  const hasFinances = spentTotal > 0 || thisYearsBudget !== undefined || upcoming > 0
 
   return (
     <Stack>
@@ -233,94 +279,129 @@ export function DashboardPage() {
         />
       </SimpleGrid>
 
-      {/* Replaces the two single-figure spend cards that used to sit above: the same totals are the
-          rightmost column here, with the years the cards couldn't show. */}
-      <SpendBreakdown
-        projects={projects ?? []}
-        purchaseDate={property.purchaseDate}
-        currentValue={currentValue}
-      />
-
-      {lowerCards > 0 && (
-        <SimpleGrid cols={{ base: 1, lg: lowerCards > 1 ? 2 : 1 }}>
-          {thisYearsBudget && <BudgetProgressCard budget={thisYearsBudget} propertyId={property.id} />}
-          <SpendByComponent projects={projects ?? []} components={components ?? []} />
-        </SimpleGrid>
-      )}
-
-      {openProjects.length > 0 && (
+      {/* The one part of the app that says what to do next rather than what was done. Hidden
+          entirely when there's nothing — an empty "allt är i ordning" panel is just noise. */}
+      {todos.length > 0 && (
         <Card withBorder padding="lg">
           <Group gap="sm" mb="sm">
             <ThemeIcon variant="light" size={40} radius="md">
-              <IconBuildingCommunity size={20} />
+              <IconListCheck size={20} />
             </ThemeIcon>
             <div>
               <Text size="sm" c="dimmed">
-                Pågående och planerade projekt
+                Att göra
               </Text>
               <Text size="xl" fw={700}>
-                {openProjects.length} st
+                {todos.length} st
               </Text>
-              {pipeline > 0 && (
-                <Text size="xs" c="dimmed">
-                  {formatCurrency(pipeline)} beräknad kostnad kvar att betala
-                </Text>
-              )}
+              <Text size="xs" c="dimmed">
+                Underhåll som behöver ses över, och projekt som inte är klara.
+              </Text>
             </div>
           </Group>
+
           <Stack gap={6}>
-            {openProjects.map((p) => (
-              <Group key={p.id} gap="xs" wrap="nowrap">
-                <Badge size="sm" variant="light" color={PROJECT_STATUS_COLORS[p.status]}>
-                  {PROJECT_STATUS_LABELS[p.status]}
-                </Badge>
-                {p.isUrgent && (
-                  <Badge size="sm" variant="light" color="red">
-                    Brådskande
+            {todos.slice(0, MAX_TODOS).map((todo) => (
+              <Group key={todo.key} gap="xs" wrap="nowrap">
+                {todo.badges.map((badge) => (
+                  <Badge key={badge.label} size="sm" variant="light" color={badge.color}>
+                    {badge.label}
                   </Badge>
-                )}
-                <Anchor component={Link} to={`/properties/${property.id}/projects/${p.id}`} size="sm">
-                  {p.name}
+                ))}
+                <Anchor component={Link} to={todo.to} size="sm" truncate>
+                  {todo.label}
                 </Anchor>
-                <Text size="xs" c="dimmed">
-                  {p.plannedStartDate ?? ''}
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {todo.date ?? ''}
+                  {todo.note && ` (${todo.note})`}
                 </Text>
               </Group>
             ))}
           </Stack>
+
+          <Group gap="md" mt="sm">
+            {todos.length > MAX_TODOS && (
+              <Text size="xs" c="dimmed">
+                +{todos.length - MAX_TODOS} till
+              </Text>
+            )}
+            <Anchor component={Link} to={`/properties/${property.id}/projects`} size="sm">
+              Alla projekt
+            </Anchor>
+            <Anchor component={Link} to={`/properties/${property.id}/maintenance`} size="sm">
+              Hela underhållsplanen
+            </Anchor>
+          </Group>
         </Card>
       )}
 
-      {/* The one part of the app that says what to do next rather than what was done. Only shown
-          when something actually needs attention — an empty "all ok" panel is just noise. */}
-      {needsAttention.length > 0 && (
-        <Alert
-          variant="light"
-          color={needsAttention.some((i) => i.urgency === 'Overdue') ? 'red' : 'orange'}
-          icon={<IconCalendarClock size={18} />}
-          title="Underhåll att se över"
-        >
-          <Stack gap={4} mt="xs">
-            {needsAttention.slice(0, 5).map((item) => (
-              <Group key={item.componentId} gap="xs">
-                <Badge size="sm" variant="light" color={MAINTENANCE_URGENCY_COLORS[item.urgency]}>
-                  {MAINTENANCE_URGENCY_LABELS[item.urgency]}
-                </Badge>
-                <Text size="sm">
-                  {item.componentName} — {item.nextDueDate}
+      {/* A summary, not an analysis. The work-type × period matrix and the per-component breakdown
+          both moved to Ekonomi — this says whether it's worth going there. */}
+      {hasFinances && (
+        <Card withBorder padding="lg">
+          <Group justify="space-between" mb="md" wrap="nowrap">
+            <Group gap="sm">
+              <ThemeIcon variant="light" size={40} radius="md">
+                <IconCoins size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm" c="dimmed">
+                  Ekonomi i korthet
                 </Text>
-                {item.hasUpcomingProject && (
-                  <Text size="xs" c="dimmed">
-                    (projekt planerat)
-                  </Text>
-                )}
-              </Group>
-            ))}
-            <Anchor component={Link} to={`/properties/${property.id}/maintenance`} size="sm" mt={4}>
-              Visa hela underhållsplanen
+                <Text size="xs" c="dimmed">
+                  Utbetalt, räknat efter datumet på varje kostnadspost.
+                </Text>
+              </div>
+            </Group>
+            <Anchor component={Link} to={`/properties/${property.id}/finances`} size="sm">
+              Till ekonomin
             </Anchor>
-          </Stack>
-        </Alert>
+          </Group>
+
+          <SimpleGrid cols={{ base: 1, xs: 3 }}>
+            <div>
+              <Text size="xs" c="dimmed">
+                I år ({thisYear})
+              </Text>
+              <Text size="lg" fw={700}>
+                {formatCurrency(spentThisYear)}
+              </Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">
+                Förra året ({thisYear - 1})
+              </Text>
+              <Text size="lg" fw={700}>
+                {formatCurrency(spentLastYear)}
+              </Text>
+            </div>
+            <div>
+              <Text size="xs" c="dimmed">
+                Totalt
+              </Text>
+              <Text size="lg" fw={700}>
+                {formatCurrency(spentTotal)}
+              </Text>
+            </div>
+          </SimpleGrid>
+
+          {(thisYearsBudget || upcoming > 0) && (
+            <Stack gap={2} mt="sm">
+              {thisYearsBudget && (
+                <Text size="xs" c={thisYearsBudget.totalSpent > thisYearsBudget.totalBudgeted ? 'red' : 'dimmed'}>
+                  Budget {thisYearsBudget.year}:{' '}
+                  {formatCurrency(thisYearsBudget.totalBudgeted - thisYearsBudget.totalSpent)} kvar av{' '}
+                  {formatCurrency(thisYearsBudget.totalBudgeted)}
+                </Text>
+              )}
+              {upcoming > 0 && (
+                <Text size="xs" c="dimmed">
+                  Kommande utgifter: {formatCurrency(upcoming)} för projekt som inte är klara
+                </Text>
+              )}
+            </Stack>
+          )}
+        </Card>
       )}
 
       <Title order={4} mt="lg">

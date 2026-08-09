@@ -143,7 +143,7 @@ export function PropertyTimeline({
       color: 'terracotta',
       label: `Värdering: ${formatCurrency(v.value)}`,
       // There's no per-valuation page, so this goes to the list where it can be edited.
-      to: `/properties/${propertyId}/valuations`,
+      to: `/properties/${propertyId}/finances/valuations`,
     })),
     ...projects.flatMap((p) => {
       const date = projectDate(p)

@@ -11,19 +11,15 @@ import {
   Stack,
   Table,
   Text,
-  ThemeIcon,
-  Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconPlus, IconWallet } from '@tabler/icons-react'
+import { IconPlus } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import type { BudgetDto, WorkType } from '../api/types'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
-import { UpcomingExpenses } from '../components/budget/UpcomingExpenses'
 import { useBudgets, useDeleteBudget, useSaveBudget } from '../hooks/useBudgets'
-import { useProjects } from '../hooks/useProjects'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import { WORK_TYPE_COLORS, WORK_TYPE_LABELS } from '../utils/labels'
@@ -72,7 +68,6 @@ export function BudgetPage() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: budgets, isLoading } = useBudgets(propertyId ?? '')
-  const { data: projects } = useProjects(propertyId ?? '')
   const saveBudget = useSaveBudget(propertyId ?? '')
   const deleteBudget = useDeleteBudget(propertyId ?? '')
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -190,13 +185,13 @@ export function BudgetPage() {
 
   return (
     <Stack>
+      {/* No heading of its own — this is the Budget tab under Ekonomi. The year picker and the
+          buttons stay as a toolbar row, since they act on what's below them. */}
       <Group justify="space-between">
-        <Group gap="sm">
-          <ThemeIcon variant="light" size={36} radius="md">
-            <IconWallet size={20} />
-          </ThemeIcon>
-          <Title order={2}>Budget</Title>
-        </Group>
+        <Text c="dimmed" size="sm" maw={520}>
+          Utfallet räknas fram från projektens kostnadsposter — en kostnad hör till året den
+          betalades, så ett projekt över årsskiftet delas mellan åren.
+        </Text>
         <Group>
           <Select
             value={String(year)}
@@ -218,10 +213,6 @@ export function BudgetPage() {
           )}
         </Group>
       </Group>
-      <Text c="dimmed" size="sm">
-        Utfallet räknas fram från projektens kostnadsposter — en kostnad hör till året den betalades,
-        så ett projekt över årsskiftet delas mellan åren.
-      </Text>
 
       {editing ? (
         <Card withBorder padding="lg">
@@ -304,10 +295,6 @@ export function BudgetPage() {
           </Table.ScrollContainer>
         </Card>
       )}
-
-      {/* Below the budget on purpose: the budget is what you decided to spend, this is what the
-          projects you've already entered are going to cost. Reading them in that order is the point. */}
-      <UpcomingExpenses projects={projects ?? []} propertyId={propertyId ?? ''} />
 
       <Modal
         opened={addingYear}

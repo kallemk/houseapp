@@ -467,11 +467,11 @@ A `Project` is a piece of work on the house — planned, ongoing or finished. It
 
 - **`WorkType`** (`Maintenance` / `Renovation` / `Investment` / `Purchase`) — a hardcoded enum, and
   **append-only**: EF Cosmos stores it as an integer (the string values are only the wire contract),
-  so reordering reclassifies every stored project. This is what `DashboardPage` splits its totals on;
-  before it existed, "Totalt investerat" summed every entry including routine upkeep and furniture.
-  The four are meaningfully different and each is worded in `WORK_TYPE_DESCRIPTIONS`
+  so reordering reclassifies every stored project. This is what `SpendBreakdown` and the budget split
+  their totals on; before it existed, "Totalt investerat" summed every entry including routine upkeep
+  and furniture. The four are meaningfully different and each is worded in `WORK_TYPE_DESCRIPTIONS`
   (`utils/labels.ts`), shown in every work-type dropdown via `components/common/WorkTypeSelect.tsx` —
-  picking the wrong one silently moves money between dashboard figures, so the distinction isn't left
+  picking the wrong one silently moves money between reported figures, so the distinction isn't left
   to be guessed:
   - `Maintenance` — bevara eller ersätta befintligt
   - `Renovation` — förbättra befintligt
@@ -513,7 +513,7 @@ next — a flat has no roof, and one household's roof interval isn't another's.
   a component any project references.
 - **A property's own list** — `Property.LocalComponents`, an `OwnsMany` collection nested in the
   property document (no container of its own: it's never read without the property and holds a dozen
-  rows). Managed by any member on `/properties/:id/components` via
+  rows). Managed by any member on `/properties/:id/maintenance/components` via
   `PropertyLocalComponentsController`. **Not admin-gated** — it affects one property and only the
   people already in it, so the check is the ordinary `CanAccessPropertyAsync`. Admin rights govern
   the shared registry, not what someone does inside their own house.
@@ -554,12 +554,15 @@ household's projects are none of its business. There is no per-property "postpon
 — lengthening or clearing the interval locally is how that's expressed today (a cleared interval
 makes the component `NotScheduled`).
 
-### Kommande utgifter (the upcoming-expense bars on the budget page)
+### Kommande utgifter (the upcoming-expense bars, Ekonomi → Kommande)
 
-`components/budget/UpcomingExpenses.tsx` shows what unfinished work is going to cost, grouped by
-year and expanding into quarters. It sits below the budget table on purpose: the budget is what you
-decided to spend, this is what the projects you've already entered will cost, and reading them in
-that order is the point.
+`components/finances/UpcomingExpenses.tsx` shows what unfinished work is going to cost, grouped by
+year and expanding into quarters. It's the third tab under Ekonomi, and the tab order is the point:
+budget is what you decided to spend, utgifter is what you have spent, kommande is what's still
+ahead. (It sat directly below the budget table before Ekonomi existed, for the same reason.) The
+empty state lives in `pages/UpcomingPage.tsx` rather than in the component — `UpcomingExpenses`
+renders nothing when no project is open, which was fine under a budget table that still had
+something to say and would leave a blank tab here.
 
 - **Counts every open status** — `Planned`, `InProgress` *and* `OnHold`. On-hold work is the easiest
   to forget precisely because it's paused, and it's still money ahead of you. Completed work has
@@ -674,8 +677,8 @@ so nothing can be added there that then leaves no trace. Every row is dated and 
 so `projectDate` returns null for anything that isn't `Completed`. Including plans made intentions
 look like history — a job planned for later this year sat among the things actually done, and one
 planned for a future year vanished silently, since the timeline only enumerates up to the current
-year. Open work has its own card on the dashboard, which is where a plan belongs. Note that
-`QuickAddModal` creates projects as `Completed`, so quick-added items still appear.
+year. Open work belongs in "Att göra" directly above the timeline, which is where a plan belongs.
+Note that `QuickAddModal` creates projects as `Completed`, so quick-added items still appear.
 
 **Runs of three or more empty years collapse into one expandable row.** A house owned since 2000 was
 27 rows, most of them "Ingen aktivitet". Shorter runs are left alone — folding two rows into one
@@ -719,13 +722,60 @@ production authenticates with a managed identity holding only a data-plane role.
 `infra-deploy` are path-filtered and independent, so a single push touching both runs them *in
 parallel* — push the Bicep change and let `infra-deploy` finish first.
 
-### Frontend property routing
+### Frontend information architecture
 
-Routes are property-scoped: `/properties` (picker — list your properties, or create one),
-`/properties/:propertyId` (dashboard), `/properties/:propertyId/{valuations,projects,maintenance,budget,documents,components}`
-(`components` is that property's **own** list — the central registry is under `/admin`),
-plus `/properties/:propertyId/projects/:projectId` for the project detail form (`new` = create mode)
-and `/properties/:propertyId/admin/{components,users}` (see below).
+**Five nav items, each owning one subject completely, plus an account menu.** This replaced seven
+items where the dashboard half-answered everything and owned nothing:
+
+```
+/properties                                   picker — list your properties, or create one
+/properties/:propertyId                       Översikt
+/properties/:propertyId/projects              Projekt
+/properties/:propertyId/projects/:projectId   project detail form ("new" = create mode)
+/properties/:propertyId/maintenance           Underhåll   → schedule | components
+/properties/:propertyId/finances              Ekonomi     → budget | spending | upcoming | valuations
+/properties/:propertyId/documents             Dokument
+/admin                                        → components | users        (account menu)
+/feedback                                     Förslag & feedback          (account menu, + footer)
+```
+
+Both tabbed sections are layout routes with an index redirect (`MaintenanceSectionPage`,
+`FinancesPage`), copied from `AdministrationPage`'s shape: heading, `Tabs`, `Outlet`, active tab
+derived from the last path segment. Their child pages therefore render **no heading of their own** —
+the section owns it.
+
+Three things about this are load-bearing:
+
+**`/admin` is deliberately *not* property-scoped**, though it was until this restructure
+(`/properties/:id/admin`). Nothing in it belongs to a property: it manages the central component
+registry every property inherits from, and every user in the app. Because it sits outside
+`AppLayout` — `NavBar` needs a `propertyId` to build its links and there isn't one — it renders its
+own `Container` + `AppFooter`, exactly like `/properties` and `/feedback` do.
+
+**The property's own component list lives under Underhåll, and that's what put it in the navigation
+at all.** It was previously at `/properties/:id/components`, reachable only through a small link on
+the schedule page. Pairing it with the schedule is also honest: every date on the plan is computed
+from a component's interval.
+
+**Pre-restructure URLs redirect rather than 404** — they were bookmarked and linked from inside the
+app for months. `PropertyRedirect` in `App.tsx` handles `valuations` → `finances/valuations`,
+`budget` → `finances/budget` and `components` → `maintenance/components`; `admin/*` redirects to the
+top-level `/admin/*`. Don't delete these without a reason to.
+
+**Översikt is a summary and owns no depth.** It carries the property header, the three value KPIs,
+one merged "Att göra" list, a compact "Ekonomi i korthet" strip, and the timeline. The work-type ×
+period matrix (`SpendBreakdown`) and the per-component breakdown (`SpendByComponent`) moved to
+Ekonomi → Utgifter; they were most of the page's weight and answered a question nobody lands on the
+overview to ask. "Att göra" merges what used to be a maintenance `Alert` *and* a separate open-
+projects card — one conversation ("taket är försenat" / "projekt: byte tak, planerat") that was
+split across two blocks. It interleaves both by urgency: overdue upkeep, then projects flagged
+`isUrgent`, then upkeep due soon, then the rest.
+
+**`utils/spend.ts` is the only place that knows how a cost is dated**, and both the overview strip
+and the spend matrix read it. A cost belongs to the year of its own `dateIncurred`, never the
+project's completion date — the same rule `BudgetsController` applies server-side. A second copy is
+a copy that drifts, and the two figures sit one click apart.
+
 `/` resolves via `RootRedirect` (`App.tsx`) to the last-viewed property
 (`utils/lastProperty.ts`, backed by `localStorage`) or to the picker if there isn't one or it's
 stale — the target route re-validates membership itself (via `useSelectedProperty`, which
@@ -733,8 +783,9 @@ redirects to `/properties` on a 404/not-a-member), so a stale localStorage id is
 a source of bugs. Every page under the property-scoped routes reads `propertyId` from
 `useParams()`, not from a hook that "picks the first property" — there is no such hook
 anymore. `NavBar` renders a property switcher (a `Menu` populated from `useProperties()`) that
-preserves the current sub-page when switching (e.g. switching properties while on Valuations
-stays on Valuations for the new property) by reusing the current path's suffix.
+preserves the current sub-page when switching (e.g. switching properties while on Ekonomi → Utgifter
+stays on that tab for the new property) by reusing the current path's suffix — which is why the tabs
+are real routes rather than component state.
 
 **Client-side routes surviving a page refresh is `Program.cs`'s job**, and the rules are not
 optional boilerplate. The App Service serves the SPA from `wwwroot`, so without a fallback it looks

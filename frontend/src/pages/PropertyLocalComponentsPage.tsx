@@ -14,13 +14,11 @@ import {
   Table,
   Text,
   TextInput,
-  ThemeIcon,
-  Title,
   Tooltip,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { IconAdjustments, IconEdit, IconRefresh, IconTrash } from '@tabler/icons-react'
+import { IconEdit, IconRefresh, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
@@ -182,13 +180,13 @@ export function PropertyLocalComponentsPage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Group gap="sm">
-          <ThemeIcon variant="light" size={36} radius="md">
-            <IconAdjustments size={20} />
-          </ThemeIcon>
-          <Title order={2}>Komponenter</Title>
-        </Group>
+      {/* No heading of its own — this is the Komponenter tab under Underhåll. */}
+      <Group justify="space-between" align="flex-start">
+        <Text c="dimmed" size="sm" maw={620}>
+          Delarna av {property.nickname} som projekt kan höra till, och hur ofta de brukar behöva ses
+          över. Underhållsplanen räknas fram från den här listan — ändra ett intervall här om det
+          inte stämmer för just den här bostaden.
+        </Text>
         {/* Hidden until the property has its own list: syncing to central when you already *are*
             central does nothing except stop you tracking future central changes. */}
         {customized && (
@@ -202,11 +200,6 @@ export function PropertyLocalComponentsPage() {
           </Button>
         )}
       </Group>
-      <Text c="dimmed" size="sm">
-        Delarna av {property.nickname} som projekt kan höra till, och hur ofta de brukar behöva ses
-        över. Underhållsplanen räknas fram från den här listan — ändra ett intervall här om det inte
-        stämmer för just den här bostaden.
-      </Text>
 
       {!customized && (
         <Alert variant="light" color="gray">

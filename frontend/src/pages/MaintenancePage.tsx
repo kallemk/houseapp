@@ -1,5 +1,5 @@
-import { Anchor, Badge, Card, Center, Group, Loader, Stack, Table, Text, ThemeIcon, Title } from '@mantine/core'
-import { IconCalendarClock, IconSettings } from '@tabler/icons-react'
+import { Badge, Card, Center, Group, Loader, Stack, Table, Text } from '@mantine/core'
+import { IconCalendarClock } from '@tabler/icons-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { MaintenanceScheduleItemDto } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
@@ -51,22 +51,9 @@ export function MaintenancePage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
-        <Group gap="sm">
-          <ThemeIcon variant="light" size={36} radius="md">
-            <IconCalendarClock size={20} />
-          </ThemeIcon>
-          <Title order={2}>Underhållsplan</Title>
-        </Group>
-        {/* The schedule is computed straight from this property's own component intervals, so this
-            is where wanting to change one actually comes up. */}
-        <Anchor component={Link} to={`/properties/${propertyId}/components`} size="sm">
-          <Group gap={4}>
-            <IconSettings size={14} />
-            Hantera komponenter
-          </Group>
-        </Anchor>
-      </Group>
+      {/* No heading of its own — this is the Plan tab under Underhåll, and the section owns the
+          title. The "hantera komponenter" link is gone for the same reason: the neighbouring tab is
+          the way there now. */}
       <Text c="dimmed" size="sm">
         Räknas fram från komponenternas rekommenderade intervall och det senaste slutförda
         underhållsprojektet för varje del — inget som behöver hållas uppdaterat för hand. Finns inget

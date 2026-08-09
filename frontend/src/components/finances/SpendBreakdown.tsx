@@ -3,20 +3,12 @@ import { IconCoins } from '@tabler/icons-react'
 import type { ProjectDto, WorkType } from '../../api/types'
 import { formatCurrency, formatNumber } from '../../utils/currency'
 import { WORK_TYPE_LABELS } from '../../utils/labels'
+import { anyDate, inYear, since, spent, twelveMonthsAgo } from '../../utils/spend'
 
 const WORK_TYPES: WorkType[] = ['Maintenance', 'Renovation', 'Investment', 'Purchase']
 
 /** A rough industry rule of thumb for annual upkeep on a Swedish house, as a share of its value. */
 const MAINTENANCE_RULE_OF_THUMB_PERCENT = 1
-
-/** Local-time YYYY-MM-DD. toISOString() would shift the date by the UTC offset. */
-function isoDate(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-')
-}
 
 interface Column {
   label: string
@@ -24,22 +16,6 @@ interface Column {
   includes: (dateIncurred: string) => boolean
   /** Divides the column by the years owned — only the average column does. */
   perYear?: boolean
-}
-
-/**
- * A cost belongs to the year of its own dateIncurred, not the project's completion date — the same
- * rule the budget page uses, so the two can't disagree about what a year cost. A job running over
- * New Year therefore splits across both years, the way the money actually left the account.
- *
- * Only itemised cost rows count. A project carrying nothing but an estimate contributes 0 here,
- * which is deliberate: an estimate is a plan, not a payment.
- */
-function spent(projects: ProjectDto[], workType: WorkType, includes: (date: string) => boolean): number {
-  return projects
-    .filter((p) => p.workType === workType)
-    .flatMap((p) => p.costs)
-    .filter((c) => includes(c.dateIncurred))
-    .reduce((sum, c) => sum + c.amount, 0)
 }
 
 export function SpendBreakdown({
@@ -55,10 +31,6 @@ export function SpendBreakdown({
   const thisYear = today.getFullYear()
   const lastYear = thisYear - 1
 
-  const rollingCutoff = new Date(today)
-  rollingCutoff.setFullYear(rollingCutoff.getFullYear() - 1)
-  const rollingCutoffIso = isoDate(rollingCutoff)
-
   // Fractional, so a house owned for 18 months averages over 1.5 years rather than 1 or 2.
   const yearsOwned = (today.getTime() - new Date(purchaseDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   // Under a year there's no meaningful annual average to state — dividing by a fraction would
@@ -66,19 +38,19 @@ export function SpendBreakdown({
   const canAverage = yearsOwned >= 1
 
   const columns: Column[] = [
-    { label: `I år (${thisYear})`, includes: (d) => Number(d.slice(0, 4)) === thisYear },
+    { label: `I år (${thisYear})`, includes: inYear(thisYear) },
     // Sidesteps the artifact that "i år" is nearly empty every January, which would otherwise read
     // as a collapse in spending next to a full previous year.
-    { label: 'Rullande 12 mån', includes: (d) => d > rollingCutoffIso },
-    { label: `Förra året (${lastYear})`, includes: (d) => Number(d.slice(0, 4)) === lastYear },
-    { label: 'Totalt', includes: () => true },
-    { label: 'Snitt/år', includes: () => true, perYear: true },
+    { label: 'Rullande 12 mån', includes: since(twelveMonthsAgo(today)) },
+    { label: `Förra året (${lastYear})`, includes: inYear(lastYear) },
+    { label: 'Totalt', includes: anyDate },
+    { label: 'Snitt/år', includes: anyDate, perYear: true },
   ]
 
   const rows = WORK_TYPES.map((workType) => ({
     workType,
     amounts: columns.map((column) => {
-      const total = spent(projects, workType, column.includes)
+      const total = spent(projects, column.includes, workType)
       return column.perYear ? total / yearsOwned : total
     }),
   }))
