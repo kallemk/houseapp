@@ -478,12 +478,26 @@ A `Project` is a piece of work on the house — planned, ongoing or finished. It
   - `Investment` — tillföra något nytt till fastigheten
   - `Purchase` — köpa lös egendom eller utrustning
 
-  **`Purchase` is budgeted like the rest but is deliberately excluded from "Mot insatt kapital"** on
-  the dashboard: it buys movable things that can leave with you, so it doesn't raise what the
-  property is worth. That figure is an **allowlist** (`Renovation` + `Investment` in `DashboardPage`),
-  not an exclusion list, so a future work type has to be argued into it rather than landing there by
-  default. `Purchase` is out of the maintenance schedule for the same reason `Investment` is — buying
-  a mower doesn't service anything.
+  **"Mot insatt kapital" counts `Renovation` + `Investment` by default, and the reader can change
+  that.** `Purchase` buys movable things that can leave with you and `Maintenance` is upkeep that's
+  consumed rather than money still sitting in the building, so neither is counted out of the box —
+  but whether a new roof logged as underhåll is money in the house is a judgement the owner is
+  entitled to make, so all four are selectable from a ⚙ on the card itself. The **default remains an
+  allowlist**, not an exclusion list, so a work type added later still has to be argued into it
+  rather than landing there by default. `Purchase` is out of the maintenance schedule for the same
+  reason `Investment` is — buying a mower doesn't service anything.
+
+  **The selection lives in `utils/capitalWorkTypes.ts`, in `localStorage` and per property** — it's a
+  view preference, not a fact about the house, so it never reaches the API and needed no Cosmos
+  field, DTO or deploy sequencing. The accepted cost is that two members of one household can see
+  different figures for the same property and the choice doesn't follow to another device; if that
+  ever bites, moving it onto `Property` is the fix. **No stored value means "never chosen" and yields
+  the default, while a stored `[]` means "deliberately none" and must survive a reload** — comparing
+  against the purchase price alone is legitimate, and reading empty as unset would restore the
+  default on the next page load, the same trap as `ComponentsCustomized`. Reads are defensive
+  (try/catch, filtered against the known values): this is storage the user can edit and that outlives
+  deploys. The caption under the figure is generated from the selection rather than hardcoded, or it
+  would start lying the moment anyone changed it.
 - **`ComponentId`** → a component — *which part of the house*. Admin-managed data (Tak, Fasad, VVS, …),
   deliberately not an enum so the list is editable in-app, and since split into a central registry
   plus a per-property copy — see below.
@@ -870,8 +884,10 @@ build's short commit sha (injected as `VITE_APP_VERSION` from `github.sha` in `c
 locally). The sha is there so a bug report can name an exact build.
 
 **There is no cookie consent banner, and that is a decision rather than an omission.** The app stores
-exactly two things in the browser — the `houseapp.auth` session cookie and a `lastPropertyId` in
-local storage — and both are strictly necessary for it to work at all. Necessary storage of that kind
+one cookie — `houseapp.auth` — plus a couple of local-storage entries that remember choices you made
+in the UI (`lastPropertyId`, and the per-property `capitalWorkTypes`). None of it identifies you or
+leaves the browser beyond the session cookie, and all of it is necessary for the app to behave as
+built. Necessary storage of that kind
 doesn't require consent, so a banner would be asking permission for something the app cannot function
 without, which mostly teaches people to dismiss consent dialogs unread. **If anything non-essential is
 ever added — analytics, embedded video, advertising, any third-party pixel — that calculus changes and

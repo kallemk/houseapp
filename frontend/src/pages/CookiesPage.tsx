@@ -8,12 +8,15 @@ import { AppFooter, CONTACT_EMAIL } from '../components/layout/AppFooter'
  * when someone would want to read it.
  *
  * There is deliberately **no cookie consent banner**. The app sets one cookie, and it exists only to
- * keep you signed in; strictly necessary storage of that kind doesn't require consent. A banner here
- * would ask permission for something the app can't work without, which teaches people to dismiss
- * consent dialogs without reading them. If anything is ever added that *isn't* necessary — analytics,
- * embedded media, advertising — that changes, and this page is where you'd notice.
+ * keep you signed in; strictly necessary storage of that kind doesn't require consent. The local
+ * storage entries are the same: they remember choices you made in the UI, never leave the browser,
+ * and identify nothing. A banner here would ask permission for something the app can't work without,
+ * which teaches people to dismiss consent dialogs without reading them. If anything is ever added
+ * that *isn't* necessary — analytics, embedded media, advertising — that changes, and this page is
+ * where you'd notice.
  *
- * Keep this page honest rather than exhaustive: if the storage below changes, change this text.
+ * **The table below is meant to be exhaustive.** Anything new the app writes to the browser belongs
+ * in it, or this page starts quietly lying.
  */
 export function CookiesPage() {
   return (
@@ -90,6 +93,20 @@ export function CookiesPage() {
                     <Table.Td>
                       Kommer ihåg vilken bostad du senast tittade på, så appen öppnar där i stället för
                       på listan. Innehåller bara ett id.
+                    </Table.Td>
+                    <Table.Td>Tills du rensar webbläsardata</Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Td>
+                      <Text size="sm" ff="monospace">
+                        houseapp:capitalWorkTypes:&lt;bostad&gt;
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>Local storage</Table.Td>
+                    <Table.Td>
+                      Kommer ihåg vilka typer av arbete du valt att räkna med i “Mot insatt kapital”
+                      på översikten. En inställning per bostad, och bara för din webbläsare — den
+                      skickas aldrig till servern.
                     </Table.Td>
                     <Table.Td>Tills du rensar webbläsardata</Table.Td>
                   </Table.Tr>

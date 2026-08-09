@@ -4,9 +4,11 @@ import {
   Badge,
   Card,
   Center,
+  Checkbox,
   Group,
   Loader,
   Modal,
+  Popover,
   SimpleGrid,
   Stack,
   Text,
@@ -15,6 +17,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import {
+  IconAdjustmentsHorizontal,
   IconCoins,
   IconHome2,
   IconListCheck,
@@ -26,6 +29,7 @@ import {
 } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import type { WorkType } from '../api/types'
 import { PropertyForm } from '../components/properties/PropertyForm'
 import { propertyFormToInput, propertyToFormValues } from '../utils/propertyForm'
 import { useUpdateProperty } from '../hooks/useProperties'
@@ -40,14 +44,19 @@ import {
   MAINTENANCE_URGENCY_LABELS,
   PROJECT_STATUS_COLORS,
   PROJECT_STATUS_LABELS,
+  WORK_TYPE_DESCRIPTIONS,
+  WORK_TYPE_LABELS,
 } from '../utils/labels'
 import { PropertyTimeline } from '../components/dashboard/PropertyTimeline'
 import { QuickAddModal, type QuickAddRequest } from '../components/dashboard/QuickAddModal'
 import { formatCurrency, formatNumber } from '../utils/currency'
+import { getCapitalWorkTypes, setCapitalWorkTypes } from '../utils/capitalWorkTypes'
 import { anyDate, inYear, spent } from '../utils/spend'
 
 /** Enough to see what's pressing without turning into the projects table. */
 const MAX_TODOS = 6
+
+const WORK_TYPES: WorkType[] = ['Maintenance', 'Renovation', 'Investment', 'Purchase']
 
 interface StatCardProps {
   icon: typeof IconHome2
@@ -55,26 +64,82 @@ interface StatCardProps {
   value: string
   /** Optional second line — used for the change against the purchase price. */
   footer?: ReactNode
+  /** Top-right control. Only "Mot insatt kapital" has one, for choosing what it counts. */
+  action?: ReactNode
 }
 
-function StatCard({ icon: Icon, label, value, footer }: StatCardProps) {
+function StatCard({ icon: Icon, label, value, footer, action }: StatCardProps) {
   return (
     <Card withBorder padding="lg">
-      <Group gap="sm" wrap="nowrap">
-        <ThemeIcon variant="light" size={40} radius="md">
-          <Icon size={20} />
-        </ThemeIcon>
-        <div style={{ minWidth: 0 }}>
-          <Text size="sm" c="dimmed">
-            {label}
-          </Text>
-          <Text size="xl" fw={700}>
-            {value}
-          </Text>
-          {footer}
-        </div>
+      <Group gap="sm" wrap="nowrap" align="flex-start" justify="space-between">
+        <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+          <ThemeIcon variant="light" size={40} radius="md">
+            <Icon size={20} />
+          </ThemeIcon>
+          <div style={{ minWidth: 0 }}>
+            <Text size="sm" c="dimmed">
+              {label}
+            </Text>
+            <Text size="xl" fw={700}>
+              {value}
+            </Text>
+            {footer}
+          </div>
+        </Group>
+        {action}
       </Group>
     </Card>
+  )
+}
+
+/**
+ * What the figure is measured against, written out from the current selection rather than
+ * hardcoded — a fixed caption beside an adjustable number would start lying the moment anyone
+ * changed it.
+ */
+function investedCaption(workTypes: WorkType[]): string {
+  if (workTypes.length === 0) {
+    return 'endast köpeskilling'
+  }
+  return `köpeskilling + ${workTypes.map((w) => WORK_TYPE_LABELS[w].toLowerCase()).join(' + ')}`
+}
+
+/** The four tick boxes behind the card's ⚙ — all of them, so the default is a starting point. */
+function CapitalWorkTypePicker({
+  selected,
+  onChange,
+}: {
+  selected: WorkType[]
+  onChange: (workTypes: WorkType[]) => void
+}) {
+  return (
+    <Popover position="bottom-end" withArrow shadow="md" width={280}>
+      <Popover.Target>
+        <ActionIcon variant="subtle" color="gray" title="Välj vad som räknas som insatt kapital">
+          <IconAdjustmentsHorizontal size={18} />
+        </ActionIcon>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Checkbox.Group
+          value={selected}
+          onChange={(value) => onChange(value as WorkType[])}
+          label="Räkna med som insatt kapital"
+          description="Köpeskillingen räknas alltid med."
+        >
+          <Stack gap="xs" mt="sm">
+            {WORK_TYPES.map((workType) => (
+              <Checkbox
+                key={workType}
+                value={workType}
+                label={WORK_TYPE_LABELS[workType]}
+                // The same wording as every work-type dropdown, so the two can't drift apart.
+                description={WORK_TYPE_DESCRIPTIONS[workType]}
+              />
+            ))}
+          </Stack>
+        </Checkbox.Group>
+      </Popover.Dropdown>
+    </Popover>
   )
 }
 
@@ -138,7 +203,18 @@ export function DashboardPage() {
   const { data: budgets } = useBudgets(propertyId ?? '')
   const [quickAddRequest, setQuickAddRequest] = useState<QuickAddRequest | null>(null)
   const [editing, setEditing] = useState(false)
+  // Seeded lazily so localStorage is read once rather than on every render. Per property, so two
+  // houses can be judged differently.
+  const [capitalWorkTypes, setCapitalWorkTypesState] = useState(() => getCapitalWorkTypes(propertyId ?? ''))
   const updateProperty = useUpdateProperty()
+
+  function chooseCapitalWorkTypes(workTypes: WorkType[]) {
+    // Checkbox.Group hands them back in the order they were ticked; the caption below the figure
+    // reads better in a fixed order, and this is also the order a later reload would produce.
+    const ordered = WORK_TYPES.filter((workType) => workTypes.includes(workType))
+    setCapitalWorkTypesState(ordered)
+    setCapitalWorkTypes(propertyId ?? '', ordered)
+  }
 
   if (isLoading) {
     return (
@@ -155,14 +231,14 @@ export function DashboardPage() {
   const hasValuation = (valuations?.length ?? 0) > 0
   const currentValue = valuations?.[0]?.value ?? property.purchasePrice
 
-  // Capital put into the house: the purchase plus work that adds to it.
+  // Capital put into the house: the purchase plus whichever work the reader counts as adding to it.
   //
-  // An allowlist rather than an exclusion list, and deliberately so — a new WorkType must be argued
-  // into this figure rather than landing in it by default. Two are out today: Maintenance is upkeep
-  // that's consumed rather than money still sitting in the building, and Purchase buys movable
-  // things that can leave with you, so neither raises what the property is worth.
+  // Renovering + nyinvestering by default — still an allowlist, so a work type added later has to be
+  // argued into the default rather than landing in it. But whether a new roof logged as underhåll is
+  // money in the house is a judgement the owner gets to make, so the set is theirs to change
+  // (`utils/capitalWorkTypes.ts`, per property, in the browser).
   const capitalWork = (projects ?? [])
-    .filter((p) => p.workType === 'Renovation' || p.workType === 'Investment')
+    .filter((p) => capitalWorkTypes.includes(p.workType))
     .reduce((sum, p) => sum + p.actualCost, 0)
   const investedTotal = property.purchasePrice + capitalWork
   const netPosition = currentValue - investedTotal
@@ -265,10 +341,11 @@ export function DashboardPage() {
           icon={IconPigMoney}
           label="Mot insatt kapital"
           value={hasValuation ? formatCurrency(netPosition) : '—'}
+          action={<CapitalWorkTypePicker selected={capitalWorkTypes} onChange={chooseCapitalWorkTypes} />}
           footer={
             hasValuation ? (
               <Text size="xs" c={netPosition >= 0 ? 'teal' : 'red'} mt={2}>
-                Värde mot {formatCurrency(investedTotal)} (köpeskilling + renovering & investering)
+                Värde mot {formatCurrency(investedTotal)} ({investedCaption(capitalWorkTypes)})
               </Text>
             ) : (
               <Text size="xs" c="dimmed" mt={2}>
