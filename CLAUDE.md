@@ -748,9 +748,18 @@ Three things about this are load-bearing:
 
 **`/admin` is deliberately *not* property-scoped**, though it was until this restructure
 (`/properties/:id/admin`). Nothing in it belongs to a property: it manages the central component
-registry every property inherits from, and every user in the app. Because it sits outside
-`AppLayout` — `NavBar` needs a `propertyId` to build its links and there isn't one — it renders its
-own `Container` + `AppFooter`, exactly like `/properties` and `/feedback` do.
+registry every property inherits from, and every user in the app.
+
+**`AppLayout` wraps every signed-in page, with or without a property**, which is why `NavBar` reads
+the property out of `location.pathname` with a regex rather than from `useParams`: the layout route
+now sits *above* the `:propertyId` segment, and a hook in an ancestor route cannot see a
+descendant's params. The same match yields the sub-page suffix that keeps you on the page you're on
+when you switch property. With no property in the path — the picker, `/admin`, `/feedback` — the
+per-property page links disappear and the switcher reads "Välj bostad", which is also the way back
+into a house from those pages. `/properties` and `/feedback` therefore keep a narrower
+`Container size="sm" p={0}` *inside* the shell's container rather than supplying their own shell;
+only `/login` and `/cookies` sit outside it, since neither has a signed-in user to build a navbar
+from.
 
 **The property's own component list lives under Underhåll, and that's what put it in the navigation
 at all.** It was previously at `/properties/:id/components`, reachable only through a small link on

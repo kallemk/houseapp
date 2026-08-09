@@ -1,7 +1,6 @@
 import {
   ActionIcon,
   Badge,
-  Button,
   Card,
   Checkbox,
   Container,
@@ -21,8 +20,6 @@ import {
   IconDotsVertical,
   IconEdit,
   IconHome2,
-  IconHomeStar,
-  IconLogout,
   IconStar,
   IconTrash,
   IconUsers,
@@ -38,12 +35,11 @@ import { propertyFormToInput, propertyToFormValues, type PropertyFormValues } fr
 import { useSetDemoProperty } from '../hooks/usePropertyMembers'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FullPageLoader } from '../components/common/FullPageLoader'
-import { AppFooter } from '../components/layout/AppFooter'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
 
 export function PropertyPickerPage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const { data: properties, isLoading } = useProperties()
   const createProperty = useCreateProperty()
@@ -93,19 +89,10 @@ export function PropertyPickerPage() {
   const hasProperties = !!properties && properties.length > 0
 
   return (
-    <Container size="sm" py="xl">
-      <Group justify="space-between" mb="xl">
-        <Group gap="xs">
-          <ThemeIcon variant="light" radius="md" size="md">
-            <IconHomeStar size={18} />
-          </ThemeIcon>
-          <Text fw={700}>HusTracker</Text>
-        </Group>
-        <Button variant="subtle" size="xs" leftSection={<IconLogout size={14} />} onClick={() => logout()}>
-          Logga ut
-        </Button>
-      </Group>
-
+    // Narrower than the shell's container — a list of property cards and one form, which read
+    // better in a single column. The wordmark and the account menu now come from the shared navbar
+    // rather than a header of this page's own.
+    <Container size="sm" p={0}>
       <Stack gap="xl">
         {hasProperties && (
           <Stack>
@@ -210,8 +197,6 @@ export function PropertyPickerPage() {
           </Card>
         </Stack>
       </Stack>
-
-      <AppFooter />
 
       <PropertyAccessModal property={managingAccess} onClose={() => setManagingAccess(null)} />
 

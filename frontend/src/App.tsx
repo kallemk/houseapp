@@ -59,45 +59,52 @@ export default function App() {
                   want to read what the app stores. */}
               <Route path="/cookies" element={<CookiesPage />} />
               <Route element={<ProtectedRoute />}>
+                {/* Outside the shell: it renders a redirect, so wrapping it would flash a header
+                    and footer around nothing. */}
                 <Route index element={<RootRedirect />} />
-                <Route path="properties" element={<PropertyPickerPage />} />
-                <Route path="feedback" element={<FeedbackPage />} />
-                {/* Not property-scoped, and no longer pretending to be: the central registry and
-                    the user list belong to the app, not to a house. Open to everyone — each page
-                    under it decides what a non-admin may do. */}
-                <Route path="admin" element={<AdministrationPage />}>
-                  <Route index element={<Navigate to="components" replace />} />
-                  <Route path="components" element={<PropertyComponentsPage />} />
-                  <Route path="users" element={<UsersPage />} />
-                </Route>
-                <Route path="properties/:propertyId" element={<AppLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="projects" element={<ProjectsPage />} />
-                  {/* "new" is handled by the same page in create mode. */}
-                  <Route path="projects/:projectId" element={<ProjectDetailPage />} />
-                  {/* The schedule and the component list it's computed from. "components" here is
-                      this property's own list, not the central registry under /admin. */}
-                  <Route path="maintenance" element={<MaintenanceSectionPage />}>
-                    <Route index element={<Navigate to="schedule" replace />} />
-                    <Route path="schedule" element={<MaintenancePage />} />
-                    <Route path="components" element={<PropertyLocalComponentsPage />} />
+                {/* One shell for every signed-in page, with or without a property. `NavBar` reads
+                    the property off the path rather than from `useParams`, precisely because it now
+                    sits above the `:propertyId` segment. */}
+                <Route element={<AppLayout />}>
+                  <Route path="properties" element={<PropertyPickerPage />} />
+                  <Route path="feedback" element={<FeedbackPage />} />
+                  {/* Not property-scoped, and no longer pretending to be: the central registry and
+                      the user list belong to the app, not to a house. Open to everyone — each page
+                      under it decides what a non-admin may do. */}
+                  <Route path="admin" element={<AdministrationPage />}>
+                    <Route index element={<Navigate to="components" replace />} />
+                    <Route path="components" element={<PropertyComponentsPage />} />
+                    <Route path="users" element={<UsersPage />} />
                   </Route>
-                  <Route path="finances" element={<FinancesPage />}>
-                    <Route index element={<Navigate to="budget" replace />} />
-                    <Route path="budget" element={<BudgetPage />} />
-                    <Route path="spending" element={<SpendingPage />} />
-                    <Route path="upcoming" element={<UpcomingPage />} />
-                    <Route path="valuations" element={<ValuationsPage />} />
-                  </Route>
-                  <Route path="documents" element={<DocumentsPage />} />
+                  <Route path="properties/:propertyId">
+                    <Route index element={<DashboardPage />} />
+                    <Route path="projects" element={<ProjectsPage />} />
+                    {/* "new" is handled by the same page in create mode. */}
+                    <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+                    {/* The schedule and the component list it's computed from. "components" here is
+                        this property's own list, not the central registry under /admin. */}
+                    <Route path="maintenance" element={<MaintenanceSectionPage />}>
+                      <Route index element={<Navigate to="schedule" replace />} />
+                      <Route path="schedule" element={<MaintenancePage />} />
+                      <Route path="components" element={<PropertyLocalComponentsPage />} />
+                    </Route>
+                    <Route path="finances" element={<FinancesPage />}>
+                      <Route index element={<Navigate to="budget" replace />} />
+                      <Route path="budget" element={<BudgetPage />} />
+                      <Route path="spending" element={<SpendingPage />} />
+                      <Route path="upcoming" element={<UpcomingPage />} />
+                      <Route path="valuations" element={<ValuationsPage />} />
+                    </Route>
+                    <Route path="documents" element={<DocumentsPage />} />
 
-                  {/* Pre-restructure URLs. */}
-                  <Route path="valuations" element={<PropertyRedirect to="finances/valuations" />} />
-                  <Route path="budget" element={<PropertyRedirect to="finances/budget" />} />
-                  <Route path="components" element={<PropertyRedirect to="maintenance/components" />} />
-                  <Route path="admin" element={<Navigate to="/admin" replace />} />
-                  <Route path="admin/components" element={<Navigate to="/admin/components" replace />} />
-                  <Route path="admin/users" element={<Navigate to="/admin/users" replace />} />
+                    {/* Pre-restructure URLs. */}
+                    <Route path="valuations" element={<PropertyRedirect to="finances/valuations" />} />
+                    <Route path="budget" element={<PropertyRedirect to="finances/budget" />} />
+                    <Route path="components" element={<PropertyRedirect to="maintenance/components" />} />
+                    <Route path="admin" element={<Navigate to="/admin" replace />} />
+                    <Route path="admin/components" element={<Navigate to="/admin/components" replace />} />
+                    <Route path="admin/users" element={<Navigate to="/admin/users" replace />} />
+                  </Route>
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />

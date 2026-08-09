@@ -13,7 +13,7 @@ import {
   IconPlus,
   IconSettings,
 } from '@tabler/icons-react'
-import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useProperties } from '../../hooks/useProperties'
 import { setLastPropertyId } from '../../utils/lastProperty'
@@ -45,25 +45,28 @@ export function NavBar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { propertyId } = useParams<{ propertyId: string }>()
   const { data: properties } = useProperties()
-  const currentProperty = properties?.find((p) => p.id === propertyId)
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false)
+
+  // Read from the path rather than `useParams`, because the bar is rendered by a layout route that
+  // sits *above* the `:propertyId` segment — it also covers the picker, /admin and /feedback, where
+  // there is no property at all. A hook in an ancestor route can't see a descendant's params.
+  //
+  // Group 1 is the property, group 2 the sub-page: the same match drives the switcher and the
+  // "stay on the page you're on" behaviour when swapping property.
+  const [, propertyId, suffix = ''] = location.pathname.match(/^\/properties\/([^/]+)(\/.*)?$/) ?? []
+  const currentProperty = properties?.find((p) => p.id === propertyId)
 
   // Five, each owning one subject completely. Värderingar folded into Ekonomi and Administration
   // moved to the account menu below — the latter was never property-scoped despite its URL, since
   // it manages the central component registry and every user in the app.
-  const links = [
+  const links = !propertyId ? [] : [
     { to: `/properties/${propertyId}`, label: 'Översikt', icon: IconHome2, end: true },
     { to: `/properties/${propertyId}/projects`, label: 'Projekt', icon: IconHammer, end: false },
     { to: `/properties/${propertyId}/maintenance`, label: 'Underhåll', icon: IconListCheck, end: false },
     { to: `/properties/${propertyId}/finances`, label: 'Ekonomi', icon: IconPigMoney, end: false },
     { to: `/properties/${propertyId}/documents`, label: 'Dokument', icon: IconFiles, end: false },
   ]
-
-  // Preserves which sub-page you're on (dashboard/valuations/renovations/documents) when
-  // switching to a different property, rather than always resetting to the dashboard.
-  const suffix = location.pathname.match(/^\/properties\/[^/]+(\/.*)?$/)?.[1] ?? ''
 
   function switchTo(id: string) {
     setLastPropertyId(id)
@@ -76,10 +79,11 @@ export function NavBar() {
       <Group h="100%" px="md" justify="space-between" wrap="nowrap">
         <Group gap="xl" wrap="nowrap" style={{ minWidth: 0 }}>
           {/* The logo is the way back to the current property's overview — the conventional
-              "click the wordmark to go home", where home is the property you're in. */}
+              "click the wordmark to go home", where home is the property you're in. With no
+              property in the path it goes to the picker, which is home in that case. */}
           <UnstyledButton
             component={NavLink}
-            to={`/properties/${propertyId}`}
+            to={propertyId ? `/properties/${propertyId}` : '/properties'}
             end
             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
           >
@@ -104,8 +108,10 @@ export function NavBar() {
                     borderRadius: 'var(--mantine-radius-md)',
                   }}
                 >
-                  <Text size="sm" fw={600}>
-                    {currentProperty?.nickname ?? '…'}
+                  {/* Off a property — the picker, /admin, /feedback — this is the way into one,
+                      so it stays rather than leaving the bar empty. */}
+                  <Text size="sm" fw={600} c={propertyId ? undefined : 'dimmed'}>
+                    {propertyId ? (currentProperty?.nickname ?? '…') : 'Välj bostad'}
                   </Text>
                   <IconChevronDown size={14} />
                 </UnstyledButton>
@@ -128,6 +134,7 @@ export function NavBar() {
               </Menu.Dropdown>
             </Menu>
 
+            {/* The page links are per property, so there are none to show without one. */}
             <Group gap={4} wrap="nowrap">
               {links.map((link) => (
                 <UnstyledButton key={link.to} component={NavLink} to={link.to} end={link.end} style={desktopLinkStyle}>
@@ -215,7 +222,7 @@ export function NavBar() {
             Hantera / lägg till bostad
           </UnstyledButton>
 
-          <Divider label="Sidor" labelPosition="left" mt="sm" />
+          {links.length > 0 && <Divider label="Sidor" labelPosition="left" mt="sm" />}
           {links.map((link) => (
             <UnstyledButton
               key={link.to}
