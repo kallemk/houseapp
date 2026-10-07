@@ -26,7 +26,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
   const unattached = (documents ?? []).filter((d) => d.projectId === null)
 
   function handleUpload(file: File, meta: UploadMeta) {
-    uploadDocument.mutate(
+    return uploadDocument.mutateAsync(
       { file, ...meta, projectId },
       { onError: (error) => notifyDriveFailure(error, propertyId, 'Uppladdningen misslyckades. Försök igen.') },
     )
@@ -56,7 +56,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
           även på dokumentsidan.
         </Text>
 
-        <FileUpload onUpload={handleUpload} uploading={uploadDocument.isPending} />
+        <FileUpload onUpload={handleUpload} />
 
         {attached.length > 0 && (
           <Table.ScrollContainer minWidth={420}>

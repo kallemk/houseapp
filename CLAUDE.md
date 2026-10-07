@@ -669,6 +669,20 @@ app's label rather than the file's name (the file keeps the filename it was uplo
 nothing there needs renaming). A title is required on edit as well as on upload, which is where
 documents predating titles finally get one.
 
+**Uploading is file-first: pick or drop, then confirm.** `components/common/FileUpload.tsx` is a
+`@mantine/dropzone` area (multiple files) that opens a dialog with one row per file, the title and
+category pre-filled by `utils/documentSuggestions.ts` (filename cleaned up; category from Swedish/
+English keywords, then images → Foto). It replaced "type a title, then choose the file", which asked
+people to name something they hadn't picked yet. Three things are deliberate: files upload **one at a
+time** and **stop at the first failure** — the first upload into a project creates its Drive folder,
+so parallel uploads could create two, and an expired Drive grant would otherwise fail every file and
+stack identical notifications; `onUpload` must therefore return the mutation's promise
+(`mutateAsync`), not fire-and-forget. And the dialog contains **no `<form>`**: it's portalled out of
+the DOM, but React bubbles a submit through the component tree to the project form it can be opened
+from. `@mantine/dropzone` must stay on the same version as `@mantine/core` — it peer-depends on the exact
+version, so `npm install @mantine/dropzone@^x` pulls a newer one and fails to resolve; install or
+upgrade all `@mantine/*` packages together, with an exact version.
+
 **Documents attach to projects by `Document.ProjectId`, saved immediately — not with the project
 form.** Documents live in their own container, so `components/projects/ProjectDocuments.tsx` uploads
 and attaches straight away rather than waiting for the surrounding form to be submitted; that's also

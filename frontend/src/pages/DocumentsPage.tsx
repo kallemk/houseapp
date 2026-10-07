@@ -100,7 +100,7 @@ export function DocumentsPage() {
   }
 
   function handleUpload(file: File, meta: UploadMeta) {
-    uploadDocument.mutate(
+    return uploadDocument.mutateAsync(
       { file, ...meta },
       { onError: (error) => notifyDriveFailure(error, propertyId ?? '', 'Uppladdningen misslyckades. Försök igen.') },
     )
@@ -118,7 +118,7 @@ export function DocumentsPage() {
       <DriveConnectionCard property={property} />
 
       <Card withBorder padding="md">
-        <FileUpload onUpload={handleUpload} uploading={uploadDocument.isPending} />
+        <FileUpload onUpload={handleUpload} />
       </Card>
 
       {!documents || documents.length === 0 ? (

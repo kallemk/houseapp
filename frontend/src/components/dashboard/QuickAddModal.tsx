@@ -1,6 +1,7 @@
 import { Button, Center, Group, Loader, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FileUpload, type UploadMeta } from '../common/FileUpload'
+import { notifyDriveFailure } from '../documents/driveNotifications'
 import { useCreateValuation } from '../../hooks/useValuations'
 import { useCreateProject } from '../../hooks/useProjects'
 import { usePropertyComponentList } from '../../hooks/usePropertyComponents'
@@ -169,10 +170,13 @@ function QuickAddDocumentForm({
   const uploadDocument = useUploadDocument(propertyId)
 
   function handleUpload(file: File, meta: UploadMeta) {
-    uploadDocument.mutate({ file, ...meta }, { onSuccess: onDone })
+    return uploadDocument.mutateAsync(
+      { file, ...meta },
+      { onError: (error) => notifyDriveFailure(error, propertyId, 'Uppladdningen misslyckades. Försök igen.') },
+    )
   }
 
-  return <FileUpload onUpload={handleUpload} uploading={uploadDocument.isPending} defaultDate={defaultDate} />
+  return <FileUpload onUpload={handleUpload} onComplete={onDone} defaultDate={defaultDate} />
 }
 
 export function QuickAddModal({ propertyId, request, onClose }: QuickAddModalProps) {
