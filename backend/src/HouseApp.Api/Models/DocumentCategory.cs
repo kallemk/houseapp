@@ -17,4 +17,5 @@ public enum DocumentCategory
     Photo,
     Other,
     Invoice,
+    Quote,
 }

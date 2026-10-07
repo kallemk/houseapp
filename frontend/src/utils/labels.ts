@@ -22,6 +22,8 @@ export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
   Deed: 'Lagfart',
   Warranty: 'Garanti',
   Receipt: 'Kvitto',
+  // Before Faktura: the dropdown follows this order, and the quote comes before the bill.
+  Quote: 'Offert',
   Invoice: 'Faktura',
   Photo: 'Foto',
   Other: 'Övrigt',

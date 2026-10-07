@@ -37,6 +37,7 @@ const CATEGORY_COLORS: Record<DocumentCategory, string> = {
   Warranty: 'blue',
   Receipt: 'green',
   Invoice: 'orange',
+  Quote: 'cyan',
   Photo: 'grape',
   Other: 'gray',
 }
