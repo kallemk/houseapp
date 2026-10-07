@@ -7,14 +7,16 @@ import {
   Checkbox,
   Group,
   Loader,
+  Select,
   Stack,
   Table,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconDownload, IconEdit, IconFiles, IconTrash } from '@tabler/icons-react'
+import { IconDownload, IconEdit, IconFiles, IconSearch, IconTrash } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
@@ -30,7 +32,11 @@ import { EditDocumentModal } from '../components/documents/EditDocumentModal'
 import { notifyDriveFailure } from '../components/documents/driveNotifications'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory, DocumentDto } from '../api/types'
-import { DOCUMENT_CATEGORY_LABELS } from '../utils/labels'
+import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_CATEGORY_OPTIONS } from '../utils/labels'
+
+const ALL = 'all'
+/** Project filter value for documents not attached to any project. */
+const NO_PROJECT = 'none'
 
 const CATEGORY_COLORS: Record<DocumentCategory, string> = {
   Deed: 'terracotta',
@@ -59,8 +65,34 @@ export function DocumentsPage() {
   const [alsoDeleteFromDrive, setAlsoDeleteFromDrive] = useState(false)
   const [editing, setEditing] = useState<DocumentDto | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [search, setSearch] = useState('')
+  const [year, setYear] = useState<string>(ALL)
+  const [category, setCategory] = useState<string>(ALL)
+  const [projectFilter, setProjectFilter] = useState<string>(ALL)
   const projectsById = new Map((projects ?? []).map((p) => [p.id, p]))
-  const { sorted, sortProps } = useTableSort(documents ?? [], {
+
+  const years = [...new Set((documents ?? []).map((d) => d.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
+  // Only projects that actually have documents — every project in the house would mostly be dead
+  // options here. Sorted by name, since that's how people look for them.
+  const projectsWithDocuments = [...new Set((documents ?? []).map((d) => d.projectId))]
+    .flatMap((id) => (id && projectsById.has(id) ? [projectsById.get(id)!] : []))
+    .sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+
+  // Title *and* filename: the title is what people chose to call it, but the filename is often what
+  // they remember ("that PDF from the roofer").
+  const trimmedSearch = search.trim().toLowerCase()
+  const filtered = (documents ?? []).filter(
+    (d) =>
+      (year === ALL || d.date.startsWith(year)) &&
+      (category === ALL || d.category === category) &&
+      (projectFilter === ALL ||
+        (projectFilter === NO_PROJECT ? d.projectId === null : d.projectId === projectFilter)) &&
+      (trimmedSearch === '' ||
+        (d.title ?? '').toLowerCase().includes(trimmedSearch) ||
+        d.fileName.toLowerCase().includes(trimmedSearch)),
+  )
+
+  const { sorted, sortProps } = useTableSort(filtered, {
     name: (d) => d.title ?? d.fileName,
     category: (d) => DOCUMENT_CATEGORY_LABELS[d.category],
     project: (d) => (d.projectId ? projectsById.get(d.projectId)?.name : null),
@@ -121,8 +153,57 @@ export function DocumentsPage() {
         <FileUpload onUpload={handleUpload} />
       </Card>
 
-      {!documents || documents.length === 0 ? (
-        <EmptyState icon={IconFiles} message="Inga dokument uppladdade ännu." />
+      {documents && documents.length > 0 && (
+        <Card withBorder padding="md">
+          <Group>
+            <TextInput
+              label="Sök"
+              placeholder="Titel eller filnamn"
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              w={220}
+            />
+            <Select
+              label="År"
+              value={year}
+              onChange={(value) => setYear(value ?? ALL)}
+              allowDeselect={false}
+              w={120}
+              data={[{ value: ALL, label: 'Alla' }, ...years.map((y) => ({ value: y, label: y }))]}
+            />
+            <Select
+              label="Kategori"
+              value={category}
+              onChange={(value) => setCategory(value ?? ALL)}
+              allowDeselect={false}
+              w={170}
+              data={[{ value: ALL, label: 'Alla' }, ...DOCUMENT_CATEGORY_OPTIONS]}
+            />
+            <Select
+              label="Projekt"
+              value={projectFilter}
+              onChange={(value) => setProjectFilter(value ?? ALL)}
+              allowDeselect={false}
+              searchable
+              w={220}
+              data={[
+                { value: ALL, label: 'Alla' },
+                { value: NO_PROJECT, label: 'Utan projekt' },
+                ...projectsWithDocuments.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+            />
+          </Group>
+        </Card>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={IconFiles}
+          message={
+            (documents ?? []).length === 0 ? 'Inga dokument uppladdade ännu.' : 'Inga dokument matchar sökningen.'
+          }
+        />
       ) : (
         <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
           <Table.ScrollContainer minWidth={760}>
