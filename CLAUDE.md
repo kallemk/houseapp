@@ -364,9 +364,19 @@ upload can't orphan one.
   files in it are already right, and refusing to rename a project because Drive is unreachable would
   be a poor trade. A later rename fixes it.
 
-**Disconnecting clears every project's `GoogleDriveFolderId` too**, not just the property's. They
-point into the tree being forgotten, and reconnecting builds a fresh one — stale ids would file new
-documents into the old structure, outside the new root, where nobody would look.
+**Reconnecting carries on in the same folder whenever it can, and disconnecting keeps the ids so it
+can.** `Disconnect` clears only `GoogleDriveConnectedByUserId` — `UsesGoogleDrive` needs both that and
+the folder id, so uploads go back to Blob — and leaves every folder id in place. The callback then
+asks Drive (`IsFolderUsableAsync`: `files.get`, not trashed) whether the *new* grant can still see the
+old root: `drive.file` lets the same Google account reach what the app made before, so renewing a
+lapsed grant or reconnecting after a disconnect reuses the whole tree, project folders included. Only
+when it can't (another Google account, or the folder trashed) is a fresh tree built, and **that** is
+where every project's `GoogleDriveFolderId` is cleared — stale ids would file new documents into the
+old structure, outside the new root, where nobody would look. This replaced "disconnect forgets
+everything, reconnect always creates", which split one person's documents across two folders the
+first time they reconnected. Because ids now outlive the connection, ask `UsesGoogleDrive`, never a
+folder id, whether a property is on Drive (`DriveFolderResolver` and `PropertiesController.ToDto`
+both do).
 
 **Drive uploads pass through the API** (`POST /api/documents/upload`, multipart), because there's no
 equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — originally
@@ -382,7 +392,14 @@ or its files, and documents uploaded while connected keep opening afterwards via
 `DriveWebViewLink` (stored at upload precisely so opening needs no Drive call and no live grant).
 
 **A dead grant is a 409 with `code: "drive_connection_expired"`, not a 500** — nothing is broken, the
-connection needs remaking, and the UI says so.
+connection needs remaking, and the UI says so: `notifyDriveFailure` (`components/documents/driveNotifications.tsx`)
+turns it into a notification with a "Förnya anslutning" link instead of "försök igen", which can never
+help. Grants do lapse in practice — Google expires a refresh token left **unused for six months** — so
+the documents page doesn't wait for an upload to fail: `GET /api/drive/status` (one token refresh, no
+Cosmos write) reports `NotConnected`/`Ok`/`Expired`, and `DriveConnectionCard` turns orange with a
+renew button when it's `Expired`. Only a rejected grant counts as expired; Google being unreachable
+reports `Ok` rather than sending people through consent for nothing. Renewing is just connecting
+again — see the reuse rule above.
 
 ### Property membership (multi-property, per-user)
 

@@ -46,7 +46,9 @@ public class DriveFolderResolver(AppDbContext db, IGoogleDriveService drive) : I
         string? projectId,
         CancellationToken cancellationToken = default)
     {
-        if (property.GoogleDriveFolderId is not { } rootFolderId)
+        // UsesGoogleDrive, not just the folder id: a disconnected property keeps its folder ids so a
+        // reconnect can reuse them, and must not be treated as connected because of it.
+        if (!property.UsesGoogleDrive || property.GoogleDriveFolderId is not { } rootFolderId)
         {
             throw new DriveConnectionExpiredException("This property is not connected to Google Drive.");
         }

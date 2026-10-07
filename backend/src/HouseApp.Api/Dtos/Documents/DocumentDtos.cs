@@ -64,3 +64,17 @@ public record DownloadUrlResponse(string DownloadUrl);
 
 /// <summary>Null detaches the document from whatever project it was on.</summary>
 public record SetDocumentProjectRequest(string? ProjectId);
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum DriveConnectionState
+{
+    /// <summary>The property keeps its documents in Blob Storage.</summary>
+    NotConnected,
+
+    Ok,
+
+    /// <summary>Google rejected the stored grant — someone needs to renew the connection.</summary>
+    Expired,
+}
+
+public record DriveStatusResponse(DriveConnectionState State);

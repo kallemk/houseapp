@@ -117,6 +117,8 @@ export const documentsApi = {
     ),
 }
 
+export type DriveConnectionState = 'NotConnected' | 'Ok' | 'Expired'
+
 export const driveApi = {
   /**
    * A full-page navigation, not a fetch: this ends at Google's consent screen and comes back as a
@@ -126,6 +128,10 @@ export const driveApi = {
   connect(propertyId: string) {
     window.location.href = `/api/drive/connect?propertyId=${encodeURIComponent(propertyId)}`
   },
+
+  /** Asks Google whether the stored grant still works, so the UI can say "renew" before an upload fails. */
+  status: (propertyId: string) =>
+    apiClient.get<{ state: DriveConnectionState }>(`/drive/status?propertyId=${encodeURIComponent(propertyId)}`),
 
   disconnect: (propertyId: string) =>
     apiClient.delete<void>(`/drive/connection?propertyId=${encodeURIComponent(propertyId)}`),

@@ -27,6 +27,7 @@ import { useDeleteDocument, useDocuments, useUploadDocument } from '../hooks/use
 import { useProjects } from '../hooks/useProjects'
 import { DriveConnectionCard } from '../components/documents/DriveConnectionCard'
 import { EditDocumentModal } from '../components/documents/EditDocumentModal'
+import { notifyDriveFailure } from '../components/documents/driveNotifications'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory, DocumentDto } from '../api/types'
 import { DOCUMENT_CATEGORY_LABELS } from '../utils/labels'
@@ -98,7 +99,10 @@ export function DocumentsPage() {
   }
 
   function handleUpload(file: File, meta: UploadMeta) {
-    uploadDocument.mutate({ file, ...meta })
+    uploadDocument.mutate(
+      { file, ...meta },
+      { onError: (error) => notifyDriveFailure(error, propertyId ?? '', 'Uppladdningen misslyckades. Försök igen.') },
+    )
   }
 
   return (

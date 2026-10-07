@@ -1,11 +1,11 @@
 import { Alert, Anchor, Button, Group, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconBrandGoogleDrive, IconCloud, IconExternalLink } from '@tabler/icons-react'
+import { IconAlertTriangle, IconBrandGoogleDrive, IconCloud, IconExternalLink } from '@tabler/icons-react'
 import { useState } from 'react'
 import { driveApi } from '../../api/documents'
 import type { PropertyDto } from '../../api/types'
 import { ConfirmDialog } from '../common/ConfirmDialog'
-import { useDisconnectDrive } from '../../hooks/useDocuments'
+import { useDisconnectDrive, useDriveStatus } from '../../hooks/useDocuments'
 
 /**
  * Says where this property's documents are kept, and lets a member change it.
@@ -18,6 +18,8 @@ export function DriveConnectionCard({ property }: { property: PropertyDto }) {
   const disconnect = useDisconnectDrive(property.id)
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false)
   const connected = property.documentStorage === 'Drive'
+  const { data: status } = useDriveStatus(property.id, connected && property.isMember)
+  const expired = connected && status?.state === 'Expired'
 
   if (!property.isMember) {
     return null
@@ -27,17 +29,32 @@ export function DriveConnectionCard({ property }: { property: PropertyDto }) {
     <>
       <Alert
         variant="light"
-        color={connected ? 'teal' : 'gray'}
-        icon={connected ? <IconBrandGoogleDrive size={18} /> : <IconCloud size={18} />}
+        color={expired ? 'orange' : connected ? 'teal' : 'gray'}
+        icon={
+          expired ? (
+            <IconAlertTriangle size={18} />
+          ) : connected ? (
+            <IconBrandGoogleDrive size={18} />
+          ) : (
+            <IconCloud size={18} />
+          )
+        }
       >
         <Group justify="space-between" wrap="wrap" gap="sm">
           <div>
             {connected ? (
               <>
-                <Text size="sm">
-                  Dokument sparas i Google Drive
-                  {property.driveConnectedByName && ` via ${property.driveConnectedByName}`}.
-                </Text>
+                {expired ? (
+                  <Text size="sm">
+                    Anslutningen till Google Drive har gått ut. Förnya den för att kunna ladda upp
+                    dokument — de hamnar i samma mapp som tidigare.
+                  </Text>
+                ) : (
+                  <Text size="sm">
+                    Dokument sparas i Google Drive
+                    {property.driveConnectedByName && ` via ${property.driveConnectedByName}`}.
+                  </Text>
+                )}
                 {property.driveFolderUrl && (
                   <Anchor href={property.driveFolderUrl} target="_blank" rel="noreferrer" size="xs">
                     <Group gap={4}>
@@ -54,14 +71,26 @@ export function DriveConnectionCard({ property }: { property: PropertyDto }) {
             )}
           </div>
           {connected ? (
-            <Button
-              variant="default"
-              size="xs"
-              loading={disconnect.isPending}
-              onClick={() => setConfirmingDisconnect(true)}
-            >
-              Koppla från
-            </Button>
+            <Group gap="xs">
+              {/* Offered while healthy too, so a suspected problem can be fixed without disconnecting. */}
+              <Button
+                variant={expired ? 'filled' : 'subtle'}
+                color={expired ? 'orange' : undefined}
+                size="xs"
+                leftSection={<IconBrandGoogleDrive size={14} />}
+                onClick={() => driveApi.connect(property.id)}
+              >
+                Förnya anslutning
+              </Button>
+              <Button
+                variant="default"
+                size="xs"
+                loading={disconnect.isPending}
+                onClick={() => setConfirmingDisconnect(true)}
+              >
+                Koppla från
+              </Button>
+            </Group>
           ) : (
             <Button
               variant="light"
@@ -79,7 +108,7 @@ export function DriveConnectionCard({ property }: { property: PropertyDto }) {
         opened={confirmingDisconnect}
         title="Koppla från Google Drive"
         confirmLabel="Koppla från"
-        message="Nya dokument sparas i appens egen lagring igen. Mappen och filerna i Google Drive rörs inte, och dokument som redan laddats upp går fortfarande att öppna."
+        message="Nya dokument sparas i appens egen lagring igen. Mappen och filerna i Google Drive rörs inte, och dokument som redan laddats upp går fortfarande att öppna. Ansluter du samma Google-konto igen fortsätter appen i samma mapp."
         onCancel={() => setConfirmingDisconnect(false)}
         onConfirm={() => {
           setConfirmingDisconnect(false)

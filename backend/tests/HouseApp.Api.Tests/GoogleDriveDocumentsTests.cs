@@ -336,36 +336,110 @@ public class GoogleDriveDocumentsTests : IClassFixture<HouseAppWebApplicationFac
         Assert.Null(documents!.Single(d => d.Id == document.Id).ProjectId);
     }
 
-    [Fact]
-    public async Task Disconnecting_ForgetsTheProjectFoldersToo()
-    {
-        // They point into a tree that's being forgotten; reconnecting builds a fresh one, and stale
-        // ids would file new documents outside it where nobody would look.
-        var client = await CreateAuthenticatedClientAsync();
-        var property = await TestData.CreatePropertyAsync(client, "Villa Om");
-        await ConnectDriveAsync(client, property.Id);
-        var project = (await (await client.PostAsJsonAsync(
-                $"/api/properties/{property.Id}/projects",
-                TestData.SaveProject("Dränering", Guid.NewGuid().ToString())))
+    private async Task<ProjectDto> CreateProjectAsync(HttpClient client, string propertyId, string name) =>
+        (await (await client.PostAsJsonAsync(
+                $"/api/properties/{propertyId}/projects",
+                TestData.SaveProject(name, Guid.NewGuid().ToString())))
             .Content.ReadFromJsonAsync<ProjectDto>())!;
-        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+
+    private async Task<string> UploadedFolderAsync(HttpResponseMessage upload) =>
+        _factory.Drive.Files[(await upload.Content.ReadFromJsonAsync<DocumentDto>())!.DriveWebViewLink!.Split('/').Last()];
+
+    [Fact]
+    public async Task Reconnecting_ReusesTheExistingFolderTree()
+    {
+        // Disconnecting and reconnecting with the same Google account used to start a second
+        // "HusTracker – …" folder, splitting the documents between two trees.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, $"Villa {Guid.NewGuid()}");
+        await ConnectDriveAsync(client, property.Id);
+        var project = await CreateProjectAsync(client, property.Id, "Dränering");
+        var before = await UploadedFolderAsync(
+            await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id)));
+        var rootBefore = (await GetPropertyAsync(client, property.Id)).DriveFolderUrl;
 
         await client.DeleteAsync($"/api/drive/connection?propertyId={property.Id}");
         await ConnectDriveAsync(client, property.Id);
-        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Efter", projectId: project.Id));
+        var after = await UploadedFolderAsync(
+            await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Efter", projectId: project.Id)));
 
-        // Reconnecting made a second root, so the old one can't be told apart by shape — both have a
-        // populated "Projekt". The property points at the current one.
+        Assert.Single(_factory.Drive.Folders, f => f.Value.Name.Contains(property.Nickname));
+        Assert.Equal(rootBefore, (await GetPropertyAsync(client, property.Id)).DriveFolderUrl);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public async Task Reconnecting_WhenTheOldFolderIsUnreachable_BuildsAFreshTreeAndForgetsProjectFolders()
+    {
+        // Another Google account, or a folder trashed in Drive: the old ids lead nowhere this grant can
+        // follow, and project folders pointing into that tree would file documents outside the new root.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, $"Villa {Guid.NewGuid()}");
+        await ConnectDriveAsync(client, property.Id);
+        var project = await CreateProjectAsync(client, property.Id, "Dränering");
+        await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, projectId: project.Id));
+        var oldRoot = (await GetPropertyAsync(client, property.Id)).DriveFolderUrl!.Split('/').Last();
+        _factory.Drive.UnreachableFolderIds[oldRoot] = true;
+
+        await client.DeleteAsync($"/api/drive/connection?propertyId={property.Id}");
+        await ConnectDriveAsync(client, property.Id);
+        var after = await UploadedFolderAsync(
+            await client.PostAsync("/api/documents/upload", DriveUpload(property.Id, "Efter", projectId: project.Id)));
+
         var newRoot = (await GetPropertyAsync(client, property.Id)).DriveFolderUrl!.Split('/').Last();
-        Assert.Equal(2, _factory.Drive.Folders.Count(f => f.Value.Name.Contains("Villa Om")));
-
-        var newProjectsFolder = _factory.Drive.FolderIdIn(newRoot, "Projekt");
-        Assert.NotNull(newProjectsFolder);
+        Assert.NotEqual(oldRoot, newRoot);
+        Assert.Equal(2, _factory.Drive.Folders.Count(f => f.Value.Name.Contains(property.Nickname)));
 
         // A fresh project folder under the *new* tree, and the second upload inside it.
-        var newProjectFolder = _factory.Drive.Folders
-            .Single(f => f.Value.ParentId == newProjectsFolder).Key;
-        Assert.Contains(_factory.Drive.Files.Values, folderId => folderId == newProjectFolder);
+        var newProjectsFolder = _factory.Drive.FolderIdIn(newRoot, "Projekt");
+        Assert.Equal(newProjectsFolder, _factory.Drive.Folders[after].ParentId);
+    }
+
+    [Fact]
+    public async Task Renewing_AnExpiredConnection_KeepsTheFolder()
+    {
+        // The everyday case: the grant lapsed (Google expires unused ones), and the user renews
+        // without disconnecting first.
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client, $"Villa {Guid.NewGuid()}");
+        await ConnectDriveAsync(client, property.Id);
+        var rootBefore = (await GetPropertyAsync(client, property.Id)).DriveFolderUrl;
+
+        _factory.Drive.ConnectionExpired = true;
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsync("/api/documents/upload", DriveUpload(property.Id))).StatusCode);
+
+        _factory.Drive.ConnectionExpired = false;
+        var callback = await ConnectDriveAsync(client, property.Id);
+        Assert.Contains("drive=connected", callback.Headers.Location!.ToString());
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.PostAsync("/api/documents/upload", DriveUpload(property.Id))).StatusCode);
+        Assert.Equal(rootBefore, (await GetPropertyAsync(client, property.Id)).DriveFolderUrl);
+        Assert.Single(_factory.Drive.Folders, f => f.Value.Name.Contains(property.Nickname));
+    }
+
+    [Fact]
+    public async Task Status_ReportsNotConnected_Ok_AndExpired()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var property = await TestData.CreatePropertyAsync(client);
+
+        async Task<DriveConnectionState> StatusAsync() =>
+            (await (await client.GetAsync($"/api/drive/status?propertyId={property.Id}"))
+                .Content.ReadFromJsonAsync<DriveStatusResponse>())!.State;
+
+        Assert.Equal(DriveConnectionState.NotConnected, await StatusAsync());
+
+        await ConnectDriveAsync(client, property.Id);
+        Assert.Equal(DriveConnectionState.Ok, await StatusAsync());
+
+        _factory.Drive.ConnectionExpired = true;
+        Assert.Equal(DriveConnectionState.Expired, await StatusAsync());
+        _factory.Drive.ConnectionExpired = false;
+
+        await client.DeleteAsync($"/api/drive/connection?propertyId={property.Id}");
+        Assert.Equal(DriveConnectionState.NotConnected, await StatusAsync());
     }
 
     [Fact]

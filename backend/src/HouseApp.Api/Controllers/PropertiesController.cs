@@ -357,7 +357,8 @@ public class PropertiesController(
             p.IsDemo,
             PropertyAccess.IsMember(p, userId),
             p.UsesGoogleDrive ? DocumentStorageKind.Drive : DocumentStorageKind.Blob,
-            p.GoogleDriveFolderUrl,
+            // Kept after a disconnect for a later reconnect to reuse, but only meaningful while connected.
+            p.UsesGoogleDrive ? p.GoogleDriveFolderUrl : null,
             driveOwnerName,
             p.CreatedAt);
 }

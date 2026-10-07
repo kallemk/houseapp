@@ -8,6 +8,22 @@ export class ApiError extends Error {
 }
 
 /**
+ * The Google Drive grant behind this property has lapsed (revoked, or unused long enough for Google
+ * to expire it). The backend says so as a 409 with a code, since a 409 alone also means other
+ * conflicts. The body is what ApiError keeps as its message.
+ */
+export function isDriveConnectionExpired(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return false
+  }
+  try {
+    return (JSON.parse(error.message) as { code?: string }).code === 'drive_connection_expired'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Statuses that mean "the backend isn't up yet", not "here is your answer".
  *
  * The App Service is F1 with alwaysOn disabled, so it unloads after ~20 minutes idle and the next

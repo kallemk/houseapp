@@ -1,5 +1,7 @@
 using HouseApp.Api.Data;
+using HouseApp.Api.Dtos.Documents;
 using HouseApp.Api.Extensions;
+using HouseApp.Api.Models;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +29,7 @@ public class DriveAuthController(
     AppDbContext db,
     IGoogleDriveService drive,
     IDriveTokenProtector protector,
+    IDriveAccessTokenResolver driveTokens,
     IConfiguration configuration,
     ILogger<DriveAuthController> logger) : ControllerBase
 {
@@ -115,25 +118,18 @@ public class DriveAuthController(
                 return RedirectToApp(verified.PropertyId, "failed");
             }
 
-            var folder = await drive.CreateFolderAsync(
-                tokens.AccessToken,
-                $"HusTracker – {property.Nickname}",
-                parentFolderId: null,
-                cancellationToken);
+            // Renewing an expired grant, or reconnecting after a disconnect, must land in the folder
+            // the documents are already in. drive.file lets the same Google account reach what the
+            // app made before, so the old tree is reused whenever this new grant can still see it.
+            var reusable = property.GoogleDriveFolderId is { } previousRoot
+                && await drive.IsFolderUsableAsync(tokens.AccessToken, previousRoot, cancellationToken);
 
-            // Made up front so the folder looks organised the moment you open it in Drive, rather
-            // than growing a structure as files happen to arrive. DriveFolderResolver still creates
-            // them on demand, for properties connected before this existed.
-            var general = await drive.CreateFolderAsync(
-                tokens.AccessToken, DriveFolderResolver.GeneralFolderName, folder.Id, cancellationToken);
-            var projects = await drive.CreateFolderAsync(
-                tokens.AccessToken, DriveFolderResolver.ProjectsFolderName, folder.Id, cancellationToken);
+            if (!reusable)
+            {
+                await CreateFolderTreeAsync(property, tokens.AccessToken, cancellationToken);
+            }
 
             user.GoogleDriveRefreshTokenProtected = protector.ProtectRefreshToken(tokens.RefreshToken);
-            property.GoogleDriveFolderId = folder.Id;
-            property.GoogleDriveFolderUrl = folder.WebViewLink;
-            property.GoogleDriveGeneralFolderId = general.Id;
-            property.GoogleDriveProjectsFolderId = projects.Id;
             property.GoogleDriveConnectedByUserId = user.Id;
             await db.SaveChangesAsync(cancellationToken);
 
@@ -147,11 +143,92 @@ public class DriveAuthController(
     }
 
     /// <summary>
-    /// Forgets the connection. **Never touches the Drive folders or the files in them** — they're in
-    /// someone's own Drive, and the app's job here is to stop pointing at them, not to tidy up.
+    /// A fresh root with "Allmänt" and "Projekt" inside, for a first connection or when the previous
+    /// tree can't be reached with the new grant (another Google account, or trashed in Drive).
+    /// </summary>
+    private async Task CreateFolderTreeAsync(
+        Property property,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var folder = await drive.CreateFolderAsync(
+            accessToken,
+            $"HusTracker – {property.Nickname}",
+            parentFolderId: null,
+            cancellationToken);
+
+        // Made up front so the folder looks organised the moment you open it in Drive, rather
+        // than growing a structure as files happen to arrive. DriveFolderResolver still creates
+        // them on demand, for properties connected before this existed.
+        var general = await drive.CreateFolderAsync(
+            accessToken, DriveFolderResolver.GeneralFolderName, folder.Id, cancellationToken);
+        var projects = await drive.CreateFolderAsync(
+            accessToken, DriveFolderResolver.ProjectsFolderName, folder.Id, cancellationToken);
+
+        property.GoogleDriveFolderId = folder.Id;
+        property.GoogleDriveFolderUrl = folder.WebViewLink;
+        property.GoogleDriveGeneralFolderId = general.Id;
+        property.GoogleDriveProjectsFolderId = projects.Id;
+
+        // Any project folders point into the tree being replaced. Left alone, new documents would be
+        // filed into the old structure, outside the new root, where nobody would think to look.
+        foreach (var project in await db.Projects.Where(p => p.PropertyId == property.Id).ToListAsync(cancellationToken))
+        {
+            project.GoogleDriveFolderId = null;
+        }
+    }
+
+    /// <summary>
+    /// Whether the property's Drive connection still works, so the UI can say "renew" *before*
+    /// someone tries to upload. Costs one token refresh against Google and nothing in Cosmos.
     ///
-    /// Documents already uploaded keep their DriveFileId and webViewLink, so they still open; new
-    /// uploads go back to Blob Storage.
+    /// Only a rejected grant reports Expired. Google being briefly unreachable reports Ok — the upload
+    /// will say so if it persists, and a false alarm would send people through consent for nothing.
+    /// </summary>
+    [HttpGet("status")]
+    public async Task<IActionResult> Status([FromQuery] string propertyId, CancellationToken cancellationToken)
+    {
+        if (!await db.CanAccessPropertyAsync(propertyId, User.CurrentUserId()))
+        {
+            return NotFound();
+        }
+
+        var property = await db.Properties.FindAsync([propertyId], cancellationToken);
+        if (property is null)
+        {
+            return NotFound();
+        }
+
+        if (!property.UsesGoogleDrive)
+        {
+            return Ok(new DriveStatusResponse(DriveConnectionState.NotConnected));
+        }
+
+        try
+        {
+            await driveTokens.GetForPropertyAsync(property, cancellationToken);
+            return Ok(new DriveStatusResponse(DriveConnectionState.Ok));
+        }
+        catch (DriveConnectionExpiredException)
+        {
+            return Ok(new DriveStatusResponse(DriveConnectionState.Expired));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            logger.LogWarning(ex, "Could not check the Google Drive connection for {PropertyId}.", propertyId);
+            return Ok(new DriveStatusResponse(DriveConnectionState.Ok));
+        }
+    }
+
+    /// <summary>
+    /// Stops new uploads going to Drive. **Never touches the Drive folders or the files in them** —
+    /// they're in someone's own Drive, and the app's job here is to stop pointing at them, not to tidy
+    /// up.
+    ///
+    /// The folder ids are deliberately *kept*: clearing ConnectedByUserId is enough to send uploads
+    /// back to Blob (see Property.UsesGoogleDrive), and keeping the ids is what lets a later reconnect
+    /// with the same Google account carry on in the same folder instead of starting a second one.
+    /// Documents already uploaded keep their DriveFileId and webViewLink, so they still open.
     /// </summary>
     [HttpDelete("connection")]
     public async Task<IActionResult> Disconnect([FromQuery] string propertyId)
@@ -168,19 +245,7 @@ public class DriveAuthController(
             return NotFound();
         }
 
-        property.GoogleDriveFolderId = null;
-        property.GoogleDriveFolderUrl = null;
-        property.GoogleDriveGeneralFolderId = null;
-        property.GoogleDriveProjectsFolderId = null;
         property.GoogleDriveConnectedByUserId = null;
-
-        // Project folders go too. They point into the folder tree we're forgetting, and reconnecting
-        // later builds a fresh one — leaving them would file new documents into the old structure,
-        // outside the new root, where nobody would think to look.
-        foreach (var project in await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync())
-        {
-            project.GoogleDriveFolderId = null;
-        }
 
         // The user's refresh token is deliberately left alone: it may still be connecting another
         // property, and it's cheap to keep. Revoking access is done in the Google account settings.

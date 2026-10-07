@@ -94,6 +94,21 @@ public class FakeGoogleDriveService : IGoogleDriveService
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Folders the next grant can't see — stands in for reconnecting with another Google account, or
+    /// for a folder the user has trashed.
+    /// </summary>
+    public ConcurrentDictionary<string, bool> UnreachableFolderIds { get; } = new();
+
+    public Task<bool> IsFolderUsableAsync(
+        string accessToken,
+        string folderId,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfExpired();
+        return Task.FromResult(Folders.ContainsKey(folderId) && !UnreachableFolderIds.ContainsKey(folderId));
+    }
+
     public Task RenameFolderAsync(
         string accessToken,
         string folderId,

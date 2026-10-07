@@ -78,8 +78,11 @@ public class Property
 
     // --- Google Drive document storage -------------------------------------------------------
     //
-    // All three null (the state of every property that predates this) means documents go to Blob
-    // Storage. Set together when someone connects Drive, cleared together on disconnect.
+    // All null (the state of every property that predates this) means documents go to Blob Storage.
+    // Set together when someone connects Drive. Disconnecting clears only
+    // GoogleDriveConnectedByUserId: the folder ids stay, so reconnecting with the same Google account
+    // carries on in the same folder (DriveAuthController.Callback checks it's still reachable) rather
+    // than starting a second one. Use UsesGoogleDrive, never a folder id, to ask "is this on Drive?".
     //
     // The folder is recorded here but the OAuth refresh token lives on the *user*
     // (ApplicationUser.GoogleDriveRefreshTokenProtected) — GoogleDriveConnectedByUserId says whose,

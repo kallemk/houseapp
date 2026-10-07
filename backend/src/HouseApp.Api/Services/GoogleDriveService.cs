@@ -195,6 +195,30 @@ public class GoogleDriveService(
         }
     }
 
+    public async Task<bool> IsFolderUsableAsync(
+        string accessToken,
+        string folderId,
+        CancellationToken cancellationToken = default)
+    {
+        using var drive = CreateDriveService(accessToken);
+
+        try
+        {
+            var get = drive.Files.Get(folderId);
+            get.Fields = "id,trashed";
+            // Not through ExecuteAsync: a 403 here means "this account can't see that folder", which
+            // is an answer, not a dead grant — the token was minted seconds ago.
+            var folder = await get.ExecuteAsync(cancellationToken);
+            return folder.Trashed != true;
+        }
+        catch (GoogleApiException ex) when (
+            ex.HttpStatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            logger.LogInformation("Previous Drive folder {FolderId} is not reachable with the new grant.", folderId);
+            return false;
+        }
+    }
+
     public async Task RenameFolderAsync(
         string accessToken,
         string folderId,

@@ -88,6 +88,7 @@ public class PropertyAccessTests : IClassFixture<HouseAppWebApplicationFactory>
             ("POST components", await client.PostAsJsonAsync($"/api/properties/{propertyId}/components",
                 new SavePropertyLocalComponentRequest("Smyginlagd komponent", 12))),
             ("POST components sync", await client.PostAsync($"/api/properties/{propertyId}/components/sync", null)),
+            ("GET drive status", await client.GetAsync($"/api/drive/status?propertyId={propertyId}")),
             ("GET property", await client.GetAsync($"/api/properties/{propertyId}")),
         };
 

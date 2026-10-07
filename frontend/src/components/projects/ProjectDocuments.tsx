@@ -1,11 +1,10 @@
 import { ActionIcon, Anchor, Badge, Card, Group, Select, Stack, Table, Text, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { IconEdit, IconPaperclip, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { documentsApi } from '../../api/documents'
 import type { DocumentDto } from '../../api/types'
 import { EditDocumentModal } from '../documents/EditDocumentModal'
-import { ApiError } from '../../api/client'
+import { notifyDriveFailure } from '../documents/driveNotifications'
 import { useDocuments, useSetDocumentProject, useUploadDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_LABELS } from '../../utils/labels'
 import { FileUpload, type UploadMeta } from '../common/FileUpload'
@@ -29,7 +28,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
   function handleUpload(file: File, meta: UploadMeta) {
     uploadDocument.mutate(
       { file, ...meta, projectId },
-      { onError: () => notifications.show({ color: 'red', message: 'Uppladdningen misslyckades. Försök igen.' }) },
+      { onError: (error) => notifyDriveFailure(error, propertyId, 'Uppladdningen misslyckades. Försök igen.') },
     )
   }
 
@@ -43,13 +42,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
       { id, projectId: target },
       {
         onError: (error) =>
-          notifications.show({
-            color: 'red',
-            message:
-              error instanceof ApiError && error.status === 409
-                ? 'Google Drive-anslutningen behöver förnyas innan dokumentet kan flyttas.'
-                : 'Kunde inte ändra dokumentets koppling. Försök igen.',
-          }),
+          notifyDriveFailure(error, propertyId, 'Kunde inte ändra dokumentets koppling. Försök igen.'),
       },
     )
   }

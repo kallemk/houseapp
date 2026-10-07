@@ -66,6 +66,14 @@ public interface IGoogleDriveService
         string newParentFolderId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Whether a folder recorded earlier can still be used with this token — reachable and not in the
+    /// trash. What decides if a reconnect reuses the old folder tree or builds a new one: drive.file
+    /// lets the same Google account reach what the app created before, but a different account (or a
+    /// folder the user trashed) can't, and that shows up here as false rather than as an error.
+    /// </summary>
+    Task<bool> IsFolderUsableAsync(string accessToken, string folderId, CancellationToken cancellationToken = default);
+
     /// <summary>Keeps a project's folder name in step with the project.</summary>
     Task RenameFolderAsync(
         string accessToken,
