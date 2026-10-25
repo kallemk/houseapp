@@ -18,6 +18,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { ProjectDto, ProjectStatus, WorkType } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
+import { ExportDataCard } from '../components/properties/ExportDataCard'
 import { SortableTh } from '../components/common/SortableTh'
 import { useTableSort } from '../hooks/useTableSort'
 import { useProjects } from '../hooks/useProjects'
@@ -222,6 +223,9 @@ export function ProjectsPage() {
           </Table.ScrollContainer>
         </Card>
       )}
+
+      {/* Shown even with no projects — the property may still have valuations and documents. */}
+      <ExportDataCard property={property} />
     </Stack>
   )
 }

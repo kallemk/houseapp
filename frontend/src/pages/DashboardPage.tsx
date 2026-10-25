@@ -30,6 +30,7 @@ import {
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { WorkType } from '../api/types'
+import { ExportDataCard } from '../components/properties/ExportDataCard'
 import { PropertyForm } from '../components/properties/PropertyForm'
 import { propertyFormToInput, propertyToFormValues } from '../utils/propertyForm'
 import { useUpdateProperty } from '../hooks/useProperties'
@@ -493,6 +494,8 @@ export function DashboardPage() {
           onQuickAdd={setQuickAddRequest}
         />
       </Card>
+
+      <ExportDataCard property={property} />
 
       <QuickAddModal propertyId={property.id} request={quickAddRequest} onClose={() => setQuickAddRequest(null)} />
 

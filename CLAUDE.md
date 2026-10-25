@@ -51,6 +51,14 @@ docker compose up -d     # Cosmos DB Emulator (localhost:8081) + Azurite (localh
 Run this before `dotnet run` — the API connects to these on startup (Data Protection key
 persistence and the DbContext both need them reachable immediately).
 
+**The emulator's TLS certificate must be trusted once per machine**, or `dotnet run` crashes in
+`EnsureCreatedAsync` with `AuthenticationException: ... UntrustedRoot`. On macOS, once the emulator
+is up:
+```
+curl -k https://localhost:8081/_explorer/emulator.pem -o /tmp/cosmos-emulator.pem
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db /tmp/cosmos-emulator.pem
+```
+
 ## Architecture
 
 **Three independent projects in one repo, no shared code between them**: `backend/`
@@ -512,7 +520,11 @@ dokument/Allmänt/…  and  dokument/Projekt/{name} {date}/…   every Blob-stor
   `AdjustToContents()`, which measures fonts and is a likely thing to break on App Service Linux.
 - The frontend starts the download by top-level navigation (`propertiesApi.export`, same pattern as
   `driveApi.connect`), so the browser's download manager handles large files. It's offered in the
-  picker's `⋮` menu and in the delete confirmation.
+  picker's `⋮` menu and in the delete confirmation. It's also promoted by
+  `components/properties/ExportDataCard.tsx` at the bottom of Översikt and Projekt. It's at the
+  bottom because it's a footnote, not a figure, and the overview mustn't push its numbers down. It's
+  always shown rather than dismissible, so it adds no browser storage that `CookiesPage` would have to
+  declare.
 
 Editing and deleting properties is driven from `pages/PropertyPickerPage.tsx` (the per-card `⋮`
 menu) rather than a settings page inside the property — that page is already the "manage your
