@@ -26,6 +26,9 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
     /// </summary>
     public FakeGoogleDriveService Drive { get; } = new();
 
+    /// <summary>Exposed so the export tests can simulate a blob that has gone missing.</summary>
+    public FakeBlobStorageService Blob { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -45,7 +48,7 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_databaseName));
 
             services.RemoveAll<IBlobStorageService>();
-            services.AddSingleton<IBlobStorageService, FakeBlobStorageService>();
+            services.AddSingleton<IBlobStorageService>(Blob);
 
             // A real OAuth round trip can't happen in-process, so only the outbound call to Google
             // is stubbed — the endpoint, allowlist check and cookie issuance are still the real ones.

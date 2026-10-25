@@ -58,6 +58,15 @@ public class BlobStorageService(BlobServiceClient blobServiceClient) : IBlobStor
         return containerClient.DeleteBlobIfExistsAsync(blobPath);
     }
 
+    // The first code in the app that actually downloads blob content. It relies on the
+    // BlobServiceClient having been built with CreateBlobClientOptions() (download transfer
+    // validation off) — the SDK default is what crashed the Data Protection key-ring read.
+    public async Task<Stream> OpenReadAsync(string blobPath)
+    {
+        var containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
+        return await containerClient.GetBlobClient(blobPath).OpenReadAsync();
+    }
+
     private async Task<Uri> BuildSasUriAsync(BlobClient blobClient, BlobSasBuilder sasBuilder)
     {
         if (blobClient.CanGenerateSasUri)

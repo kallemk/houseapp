@@ -18,6 +18,7 @@ import { notifications } from '@mantine/notifications'
 import {
   IconBrandGoogleDrive,
   IconDotsVertical,
+  IconDownload,
   IconEdit,
   IconHome2,
   IconStar,
@@ -27,6 +28,7 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { driveApi } from '../api/documents'
+import { propertiesApi } from '../api/properties'
 import type { PropertyDto } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { PropertyAccessModal } from '../components/properties/PropertyAccessModal'
@@ -172,6 +174,12 @@ export function PropertyPickerPage() {
                             {property.isDemo ? 'Ta bort demomarkering' : 'Markera som demobostad'}
                           </Menu.Item>
                         )}
+                        <Menu.Item
+                          leftSection={<IconDownload size={14} />}
+                          onClick={() => propertiesApi.export(property.id)}
+                        >
+                          Exportera all data
+                        </Menu.Item>
                         {property.isMember && !property.isDemo && (
                           <Menu.Item
                             color="red"
@@ -232,6 +240,20 @@ export function PropertyPickerPage() {
           setAlsoDeleteFromDrive(false)
         }}
       >
+        {pendingDelete && (
+          <Text size="sm" c="dimmed">
+            Vill du spara en kopia först?{' '}
+            <UnstyledButton
+              fz="sm"
+              c="blue"
+              td="underline"
+              onClick={() => propertiesApi.export(pendingDelete.id)}
+            >
+              Exportera all data
+            </UnstyledButton>{' '}
+            – värderingar, projekt, budget och dokument som JSON, Excel och originalfiler.
+          </Text>
+        )}
         {/* Off by default, and asked rather than assumed — this would otherwise clear a folder's
             worth of files out of someone's personal Drive as a side effect. */}
         {pendingDelete?.documentStorage === 'Drive' && (

@@ -4,6 +4,7 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
+using HouseApp.Api.Export;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -143,6 +144,7 @@ public static class ServiceCollectionExtensions
             }
         });
 
+        services.AddScoped<PropertyExportBuilder>();
         return services;
     }
 

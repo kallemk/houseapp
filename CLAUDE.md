@@ -251,7 +251,8 @@ is configured (`ConnectionStrings:Cosmos` / `ConnectionStrings:Storage`, set onl
 app settings wired from Bicep outputs). When touching auth/storage wiring, preserve both
 branches — don't assume a connection string always exists.
 
-**Blob documents never pass through the API**: `DocumentsController.GetUploadUrl` /
+**Blob documents never pass through the API** (the data export is the one exception — see
+"Data export" below): `DocumentsController.GetUploadUrl` /
 `GetDownloadUrl` issue short-lived SAS URLs (`Services/BlobStorageService.cs`), and the
 browser PUTs/GETs directly to Blob Storage. `BlobStorageService` transparently supports
 both a shared-key SAS (local dev via Azurite connection string,
@@ -285,9 +286,10 @@ to local disk sidesteps the Blob SDK for this entirely rather than trusting that
 **Every `BlobServiceClient`/`BlobContainerClient` — currently just the one `AddHouseAppBlobStorage`
 constructs for documents — is built with download transfer validation disabled**
 (`ServiceCollectionExtensions.CreateBlobClientOptions()`, `ChecksumAlgorithm =
-StorageChecksumAlgorithm.None`), for the reason above. `BlobStorageService` itself never
-downloads blob content (it only issues SAS URLs), so this is defensive for now — but any new
-code that reads blob content directly needs the same options or risks the same crash.
+StorageChecksumAlgorithm.None`), for the reason above. This is no longer merely defensive:
+`BlobStorageService.OpenReadAsync`, used only by the data export, is the first code that actually
+downloads blob content, and it depends on these options. Any other code that reads blob content
+needs the same options or risks the same crash.
 
 `Azure.Storage.Blobs` is pinned to **12.26.0** in `HouseApp.Api.csproj` — kept at the version
 that was live when the transfer-validation fix above was verified, deliberately not left to
@@ -467,7 +469,44 @@ permanently and invisibly. Each child lookup is a single-partition `Where(x => x
 query, since those three containers are partitioned by `/propertyId`. Blobs are deleted *before*
 the rows, so a failure mid-way leaves the still-reachable documents intact rather than dropping
 the only pointer to a leaked blob. Any new per-property container needs adding here too — see
-`PropertiesControllerTests.Delete_AlsoRemovesValuationsProjectsAndDocuments`.
+`PropertiesControllerTests.Delete_AlsoRemovesValuationsProjectsAndDocuments` — **and to the data
+export** (`Export/PropertyExportBuilder.cs`), which has the same "nothing else will notice" problem.
+
+### Data export ("ge mig all min data")
+
+`GET /api/properties/{id}/export` (`PropertyExportController`) returns one zip per property, so
+leaving the app costs nothing — the point is that time spent logging a house is never wasted:
+
+```
+LÄSMIG.txt    Swedish: what each file is, where Drive files are, which files couldn't be read
+data.json     complete and machine-readable; English enum values, formatVersion
+data.xlsx     the same for a person: Swedish headers and labels, one sheet per subject
+dokument/Allmänt/…  and  dokument/Projekt/{name} {date}/…   every Blob-stored file
+```
+
+- **Blob files are copied in; Drive files are only linked.** Drive files are already in the
+  owner's own Drive, and copying them would need a live grant, so an expired connection would break
+  the export. The `dokument/` layout mirrors `DriveFolderResolver`'s tree (it reuses its folder names)
+  so both backends look the same once exported.
+- **`data.json` has its own types (`Export/PropertyExportModels.cs`), not the API DTOs**, so a DTO
+  change made for the UI can't silently change a file people keep. Bump
+  `PropertyExportBuilder.FormatVersion` on a breaking change. User ids are resolved to display names,
+  and emails, Drive folder ids, the connecting user and blob paths are left out —
+  `Export_LeavesOutIdsTokensAndEmails` pins that. Entity ids stay, because they're what links
+  documents to projects and projects to components.
+- **A blob that can't be read doesn't fail the export.** It's logged, marked `fileMissing` and listed
+  in LÄSMIG.txt — one lost file must not cost someone the rest of their data.
+- **The zip is built in a temp file (`DeleteOnClose`), not streamed into the response.**
+  `ZipArchive` writes synchronously on .NET 9 and Kestrel forbids sync IO; the temp file also keeps
+  memory flat however many documents there are.
+- **Access is `CanAccessPropertyAsync`, so the demo is exportable.** That reveals nothing everyone
+  can't already see.
+- `Export/ExportLabels.cs` is a **backend copy of `utils/labels.ts`** for the spreadsheet. A test
+  fails when an enum value has no label. `ExportWorkbook` uses fixed column widths rather than
+  `AdjustToContents()`, which measures fonts and is a likely thing to break on App Service Linux.
+- The frontend starts the download by top-level navigation (`propertiesApi.export`, same pattern as
+  `driveApi.connect`), so the browser's download manager handles large files. It's offered in the
+  picker's `⋮` menu and in the delete confirmation.
 
 Editing and deleting properties is driven from `pages/PropertyPickerPage.tsx` (the per-card `⋮`
 menu) rather than a settings page inside the property — that page is already the "manage your

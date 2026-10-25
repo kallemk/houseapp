@@ -9,4 +9,10 @@ public interface IBlobStorageService
     Task<string> GetDownloadUrlAsync(string blobPath);
 
     Task DeleteAsync(string blobPath);
+
+    /// <summary>
+    /// Reads a blob's content through the API. Only the data export does this — everything else hands
+    /// the browser a SAS URL instead. Throws if the blob doesn't exist.
+    /// </summary>
+    Task<Stream> OpenReadAsync(string blobPath);
 }

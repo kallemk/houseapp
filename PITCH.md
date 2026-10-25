@@ -121,6 +121,10 @@ Det finns också en **demobostad** att titta runt i innan man lägger upp sin eg
 Logga in med Google eller e-post och lösenord. Fungerar lika bra i mobilen som på datorn — tabeller
 scrollar i sidled i stället för att klämmas ihop. Allt på svenska.
 
+**Din data är din.** Exportera allt om en bostad med ett klick — värderingar, projekt, kostnader,
+budget och dokument — som JSON, Excel och originalfiler. Slutar du använda appen tar du med dig
+allt, så tiden du lagt på att föra in det är aldrig bortkastad.
+
 ---
 
 ## Vad du får ut av det
