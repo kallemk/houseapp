@@ -154,10 +154,6 @@ That's the app's only stored credential, and it's confined to Drive: sign-in nev
 `ApplicationUser.PasswordHash` is **nullable**: users added for Google-only access have none, and
 `Login` must reject a null/empty hash rather than feeding it to the hasher.
 
-New users must be **backfilled onto existing properties** (`UsersController.Create` does this).
-`PropertiesController.Create` only stamps the users existing *at that moment* into
-`MemberUserIds`, so without the backfill an invited person signs in to an empty property list.
-
 Cookie config in `Extensions/ServiceCollectionExtensions.cs` (`AddHouseAppCookieAuth`) uses
 `SameSiteMode.Lax` and `CookieSecurePolicy.SameAsRequest` on purpose:
 - **Lax + no CORS works** because the frontend and backend are same-origin in both
@@ -937,12 +933,12 @@ backend text stay in English (standard practice). Backend enum values
 (`WorkType`, `ProjectStatus`, `ProjectPriority`, `CostType`, `PropertyType`, `DocumentCategory`)
 are English strings by design — never rename them
 to Swedish, since that's the wire contract — but their display labels are Swedish, defined in
-`frontend/src/utils/labels.ts` (`RENOVATION_CATEGORY_LABELS`/`_OPTIONS`,
-`DOCUMENT_CATEGORY_LABELS`/`_OPTIONS`). Use these maps for any new UI that displays or selects
-a category rather than rendering the raw enum value. Number formatting is pinned to the
+`frontend/src/utils/labels.ts` as one `*_LABELS` map per enum (`WORK_TYPE_LABELS`,
+`DOCUMENT_CATEGORY_LABELS`, …), most with a matching `*_OPTIONS` list for selects. Use these maps
+for any new UI that displays or selects an enum value rather than rendering the raw value. Number formatting is pinned to the
 `'sv-SE'` locale explicitly (not `undefined`/browser-default) so output is consistent
 regardless of the viewer's browser locale — see `formatCurrency`/`formatNumber` in
-`DashboardPage.tsx`/`PropertyTimeline.tsx`. `index.html` sets `lang="sv"` to match. Dates are
+`utils/currency.ts`. `index.html` sets `lang="sv"` to match. Dates are
 left as plain ISO `YYYY-MM-DD` strings throughout (no locale formatting needed — this already
 matches Swedish date convention).
 
@@ -954,8 +950,9 @@ matches Swedish date convention).
 `DbContextOptions<AppDbContext>` **and** `IDbContextOptionsConfiguration<AppDbContext>` —
 removing only the former isn't enough to override `AddDbContext`, since EF Core combines
 multiple registered configurations rather than replacing them. `Program.cs` has an
-explicit `EnvironmentName == "Testing"` branch to skip Blob-backed Data Protection (which
-would otherwise try to hit real/emulated Azure Storage at startup).
+explicit `EnvironmentName == "Testing"` branch that uses plain in-memory `AddDataProtection()`
+instead of `AddHouseAppDataProtection`, which would otherwise persist a key ring to
+`$HOME/data-protection-keys` on the developer's or CI runner's disk.
 
 ### Infra composition (`infra/main.bicep`)
 

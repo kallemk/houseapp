@@ -12,7 +12,7 @@ builder.Services.AddHouseAppData(builder.Configuration);
 builder.Services.AddHouseAppBlobStorage(builder.Configuration);
 
 // The Testing environment (WebApplicationFactory in HouseApp.Api.Tests) swaps AppDbContext/IBlobStorageService
-// for in-memory fakes and never restarts, so persisting Data Protection keys to Blob Storage is unnecessary there.
+// for in-memory fakes and never restarts, so persisting Data Protection keys to disk is unnecessary there.
 if (builder.Environment.EnvironmentName == "Testing")
 {
     builder.Services.AddDataProtection();
