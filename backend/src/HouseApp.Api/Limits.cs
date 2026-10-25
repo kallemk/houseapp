@@ -48,3 +48,10 @@ public static class Limits
     public static ConflictObjectResult Reached(string message) =>
         new(new { code = LimitReachedCode, message });
 }
+
+/// <summary>
+/// A limit thrown from a service shared by the REST API and MCP, so each can answer in its own
+/// shape — <see cref="Limits.Reached"/> for HTTP, a tool error for MCP. The message is Swedish and
+/// meant to be shown as-is.
+/// </summary>
+public class LimitReachedException(string message) : Exception(message);

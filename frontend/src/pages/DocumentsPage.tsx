@@ -33,6 +33,7 @@ import { notifyDriveFailure } from '../components/documents/driveNotifications'
 import { documentsApi } from '../api/documents'
 import type { DocumentCategory, DocumentDto } from '../api/types'
 import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_CATEGORY_OPTIONS } from '../utils/labels'
+import { useUploadSuggestion } from '../hooks/useUploadSuggestion'
 
 const ALL = 'all'
 /** Project filter value for documents not attached to any project. */
@@ -59,6 +60,8 @@ export function DocumentsPage() {
   const { property, isLoading: loadingProperty, notFound } = useSelectedProperty(propertyId)
   const { data: documents, isLoading } = useDocuments(propertyId ?? '')
   const uploadDocument = useUploadDocument(propertyId ?? '')
+  // Set when the user arrives from a link Claude made — see create_upload_link.
+  const { suggestion: uploadSuggestion, clear: clearUploadSuggestion } = useUploadSuggestion()
   const deleteDocument = useDeleteDocument(propertyId ?? '')
   const { data: projects } = useProjects(propertyId ?? '')
   const [pendingDelete, setPendingDelete] = useState<DocumentDto | null>(null)
@@ -150,7 +153,7 @@ export function DocumentsPage() {
       <DriveConnectionCard property={property} />
 
       <Card withBorder padding="md">
-        <FileUpload onUpload={handleUpload} />
+        <FileUpload onUpload={handleUpload} suggestion={uploadSuggestion} onComplete={clearUploadSuggestion} />
       </Card>
 
       {documents && documents.length > 0 && (

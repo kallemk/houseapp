@@ -47,5 +47,12 @@ public class ApplicationUser
     /// </summary>
     public string? GoogleDriveRefreshTokenProtected { get; set; }
 
+    /// <summary>
+    /// Claude clients connected over MCP. Nullable, not defaulted to [] — the field was added after
+    /// users existed, and a missing JSON property deserializes to null rather than running an
+    /// initializer (the same trap as Property.MemberUserIds). Always read it as <c>?? []</c>.
+    /// </summary>
+    public List<McpGrant>? McpGrants { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

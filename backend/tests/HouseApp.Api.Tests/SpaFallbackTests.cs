@@ -84,6 +84,28 @@ public class SpaFallbackTests : IClassFixture<SpaHostingFactory>
     }
 
     [Fact]
+    public async Task AnUnknownDiscoveryDocument_Returns404_NotTheSpa()
+    {
+        // OAuth clients probe several /.well-known documents; an HTML 200 for one we don't serve
+        // would read as a malformed one rather than an absent one.
+        var response = await _factory.CreateClient().GetAsync("/.well-known/openid-configuration");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheConsentPage_IsServedBySpa_WhileTheOAuthEndpointsStayEndpoints()
+    {
+        var client = _factory.CreateClient();
+
+        var consent = await client.GetAsync("/oauth/consent?request=x");
+        Assert.Equal("text/html", consent.Content.Headers.ContentType?.MediaType);
+
+        var metadata = await client.GetAsync("/.well-known/oauth-authorization-server");
+        Assert.Equal("application/json", metadata.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task AMissingAsset_Returns404_NotTheSpa()
     {
         // A stale hashed bundle must fail as a missing script. Served as HTML under a .js URL it

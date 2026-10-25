@@ -19,7 +19,8 @@ public class DocumentsController(
     IBlobStorageService blobStorage,
     IGoogleDriveService drive,
     IDriveAccessTokenResolver driveTokens,
-    IDriveFolderResolver driveFolders) : ControllerBase
+    IDriveFolderResolver driveFolders,
+    DocumentService documents) : ControllerBase
 {
     /// <summary>
     /// Request cap for the Drive upload, the one path where file bytes pass through the API. The file
@@ -63,36 +64,24 @@ public class DocumentsController(
             return NotFound();
         }
 
-        var document = await db.Documents
-            .Where(d => d.PropertyId == propertyId && d.Id == id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var document = await documents.FindAsync(propertyId, id, cancellationToken);
         if (document is null)
         {
             return NotFound();
         }
 
-        // Re-file it in Drive to match: into the project's folder, or back to "Allmänt" when
-        // detached. Done *before* the metadata is saved, so a Drive failure leaves both sides
-        // consistent rather than recording an attachment whose file is filed somewhere else.
-        if (document.StorageKind == DocumentStorageKind.Drive
-            && property.UsesGoogleDrive
-            && document.DriveFileId is { } fileId)
+        try
         {
-            try
+            if (!await documents.SetProjectAsync(property, document, request.ProjectId, cancellationToken))
             {
-                var accessToken = await driveTokens.GetForPropertyAsync(property, cancellationToken);
-                var folderId = await driveFolders.GetUploadFolderIdAsync(
-                    accessToken, property, request.ProjectId, cancellationToken);
-                await drive.MoveFileAsync(accessToken, fileId, folderId, cancellationToken);
-            }
-            catch (DriveConnectionExpiredException)
-            {
-                return DriveConnectionGone();
+                return NotFound(new { message = "No such project on this property." });
             }
         }
+        catch (DriveConnectionExpiredException)
+        {
+            return DriveConnectionGone();
+        }
 
-        document.ProjectId = request.ProjectId;
-        await db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
@@ -311,9 +300,7 @@ public class DocumentsController(
             return NotFound();
         }
 
-        var document = await db.Documents
-            .Where(d => d.PropertyId == propertyId && d.Id == id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var document = await documents.FindAsync(propertyId, id, cancellationToken);
         if (document is null)
         {
             return NotFound();
@@ -326,10 +313,7 @@ public class DocumentsController(
             return BadRequest(new { message = "A title is required." });
         }
 
-        document.Title = request.Title.Trim();
-        document.Date = request.Date;
-        document.Category = request.Category;
-        await db.SaveChangesAsync(cancellationToken);
+        await documents.UpdateMetadataAsync(document, request.Title, request.Date, request.Category, cancellationToken);
         return Ok(ToDto(document));
     }
 
@@ -469,9 +453,7 @@ public class DocumentsController(
     private ObjectResult DriveConnectionGone() =>
         Conflict(new { message = "The Google Drive connection needs to be renewed.", code = "drive_connection_expired" });
 
-    private static DocumentDto ToDto(Document d) =>
-        new(d.Id, d.PropertyId, d.ProjectId, d.Date, d.Title, d.FileName, d.ContentType, d.SizeBytes,
-            d.Category, d.StorageKind, d.DriveWebViewLink, d.UploadedByUserId, d.UploadedAt);
+    private static DocumentDto ToDto(Document d) => DocumentService.ToDto(d);
 }
 
 /// <summary>

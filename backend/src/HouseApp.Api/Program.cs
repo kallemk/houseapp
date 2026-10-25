@@ -1,6 +1,7 @@
 using HouseApp.Api.Data;
 using HouseApp.Api.Data.Seed;
 using HouseApp.Api.Extensions;
+using HouseApp.Api.Mcp;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,7 @@ builder.Services.AddHouseAppGoogleAuth();
 builder.Services.AddHouseAppGoogleDrive();
 builder.Services.AddHouseAppFeedback();
 builder.Services.AddHouseAppRateLimiting();
+builder.Services.AddHouseAppMcp();
 
 var app = builder.Build();
 
@@ -81,6 +83,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Claude's connector. Bearer-only (the policy names the McpBearer scheme), and mapped as an endpoint
+// like the controllers above, so the SPA fallback below never sees /mcp.
+app.MapMcp(McpOAuth.McpPath).RequireAuthorization(McpExtensions.Policy);
+
 // Only when there is actually a SPA to serve. Local `dotnet run` has no wwwroot (Vite serves the
 // frontend on :5173 and proxies /api here), and the test host boots this same Program — without the
 // guard both would start answering unmatched routes with a missing file.
@@ -94,13 +100,15 @@ if (File.Exists(indexHtml))
     // spelled out before this replaced it:
     //  - /api/* must 404 rather than return index.html. Handing HTML back from an API path turns a
     //    plain "no such endpoint" into a JSON parse error somewhere far away.
+    //  - /.well-known/* likewise: OAuth clients probe several discovery documents there, and an HTML
+    //    200 for one we don't serve (openid-configuration, say) would read as a broken one.
     //  - anything that looks like a file must 404 too. A stale /assets/index-abc123.js should fail
     //    as a missing script, not as HTML served under a .js URL — which surfaces as a baffling
     //    MIME-type error instead of an obvious 404.
     app.MapFallback(async context =>
     {
         var path = context.Request.Path;
-        if (path.StartsWithSegments("/api") || Path.HasExtension(path.Value))
+        if (path.StartsWithSegments("/api") || path.StartsWithSegments("/.well-known") || Path.HasExtension(path.Value))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;

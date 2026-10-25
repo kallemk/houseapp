@@ -62,9 +62,15 @@ public static class RateLimitingExtensions
                     cancellationToken);
             };
 
-            // Only the API: the SPA's scripts and images are static files and cost nothing.
+            // The API, Claude's MCP endpoint and the OAuth endpoints in front of it; the SPA's
+            // scripts and images are static files and cost nothing. MCP calls carry a bearer token,
+            // so they're counted per user like the rest. Registration and token requests come from
+            // Anthropic's egress range before anyone is identified, so every Claude user shares an
+            // IP bucket there — fine at this scale, and worth knowing if connects start failing.
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 context.Request.Path.StartsWithSegments("/api")
+                    || context.Request.Path.StartsWithSegments("/mcp")
+                    || context.Request.Path.StartsWithSegments("/oauth")
                     ? FixedWindow(CallerKey(context), Settings(context).RequestsPerMinute, TimeSpan.FromMinutes(1))
                     : RateLimitPartition.GetNoLimiter("static"));
 

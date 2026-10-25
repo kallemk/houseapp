@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
+import { ClaudeConnectionPage } from './pages/ClaudeConnectionPage'
 import { CookiesPage } from './pages/CookiesPage'
 import { FeedbackPage } from './pages/FeedbackPage'
 import { AdministrationPage } from './pages/AdministrationPage'
@@ -13,6 +14,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { OAuthConsentPage } from './pages/OAuthConsentPage'
 import { BudgetPage } from './pages/BudgetPage'
 import { FinancesPage } from './pages/FinancesPage'
 import { MaintenancePage } from './pages/MaintenancePage'
@@ -80,8 +82,11 @@ export default function App() {
                 {/* One shell for every signed-in page, with or without a property. `NavBar` reads
                     the property off the path rather than from `useParams`, precisely because it now
                     sits above the `:propertyId` segment. */}
+                {/* A step in Claude's connect flow: no app shell, like the login page. */}
+                <Route path="oauth/consent" element={<OAuthConsentPage />} />
                 <Route element={<AppLayout />}>
                   <Route path="properties" element={<PropertyPickerPage />} />
+                  <Route path="claude" element={<ClaudeConnectionPage />} />
                   <Route path="feedback" element={<FeedbackPage />} />
                   {/* Not property-scoped, and no longer pretending to be: the central registry and
                       the user list belong to the app, not to a house. Open to everyone — each page

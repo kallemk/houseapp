@@ -1,14 +1,15 @@
 using HouseApp.Api.Models;
 
-namespace HouseApp.Api.Export;
+namespace HouseApp.Api;
 
 /// <summary>
-/// Swedish labels for the export's Excel file. A backend copy of <c>frontend/src/utils/labels.ts</c>
+/// Swedish labels for enum values, wherever the backend shows one to a person: the export's Excel
+/// file and the MCP tools' output. A backend copy of <c>frontend/src/utils/labels.ts</c>
 /// — the projects share no code — so keep the two in step. data.json keeps the English enum values,
 /// which are the contract; only the spreadsheet a person reads is translated. A test fails if an
 /// appended enum value has no label here.
 /// </summary>
-public static class ExportLabels
+public static class Labels
 {
     public static readonly IReadOnlyDictionary<WorkType, string> WorkTypes = new Dictionary<WorkType, string>
     {

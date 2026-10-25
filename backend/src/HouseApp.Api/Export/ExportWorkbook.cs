@@ -33,7 +33,7 @@ public static class ExportWorkbook
             ("Ort", p.City, Kind.Text),
             ("Land", p.Country, Kind.Text),
             ("Fastighetsbeteckning", p.PropertyDesignation, Kind.Text),
-            ("Typ", p.Type is { } type ? ExportLabels.PropertyTypes[type] : null, Kind.Text),
+            ("Typ", p.Type is { } type ? Labels.PropertyTypes[type] : null, Kind.Text),
             ("Byggår", p.YearBuilt, Kind.Number),
             ("Latitud", p.Latitude, Kind.Number),
             ("Longitud", p.Longitude, Kind.Number),
@@ -59,8 +59,8 @@ public static class ExportWorkbook
             ],
             export.Projects.Select(x => new object?[]
             {
-                x.Name, x.ComponentName, ExportLabels.WorkTypes[x.WorkType], ExportLabels.Statuses[x.Status],
-                ExportLabels.Priorities[x.Priority], x.IsUrgent, x.PlannedStartDate, x.ActualStartDate, x.CompletedDate,
+                x.Name, x.ComponentName, Labels.WorkTypes[x.WorkType], Labels.Statuses[x.Status],
+                Labels.Priorities[x.Priority], x.IsUrgent, x.PlannedStartDate, x.ActualStartDate, x.CompletedDate,
                 x.EstimatedCost, x.ActualCost, x.EstimatedValueIncrease, x.ExpectedLifespanYears,
                 x.EnergyEfficiencyGainPercent, !x.ExcludeFromMaintenanceSchedule, x.Contractor?.Name,
                 x.Contractor?.Phone, x.Contractor?.Email, x.Contractor?.Website, x.Contractor?.QuotedPrice,
@@ -74,7 +74,7 @@ public static class ExportWorkbook
             ],
             export.Projects.SelectMany(x => x.Costs.Select(c => new object?[]
             {
-                x.Name, c.DateIncurred, ExportLabels.CostTypes[c.Type], c.Description, c.Amount, c.IsBudgeted, x.Id,
+                x.Name, c.DateIncurred, Labels.CostTypes[c.Type], c.Description, c.Amount, c.IsBudgeted, x.Id,
             })));
 
         AddTableSheet(workbook, "Milstolpar",
@@ -112,9 +112,9 @@ public static class ExportWorkbook
             ],
             export.Documents.Select(d => new object?[]
             {
-                d.Title ?? d.FileName, d.Date, ExportLabels.DocumentCategories[d.Category],
+                d.Title ?? d.FileName, d.Date, Labels.DocumentCategories[d.Category],
                 d.ProjectId is not null ? projectNames.GetValueOrDefault(d.ProjectId) : null,
-                ExportLabels.StorageKinds[d.Storage], d.FileMissing ? "(saknas)" : d.File, d.DriveWebViewLink,
+                Labels.StorageKinds[d.Storage], d.FileMissing ? "(saknas)" : d.File, d.DriveWebViewLink,
                 d.FileName, d.SizeBytes, d.UploadedBy,
             }));
 

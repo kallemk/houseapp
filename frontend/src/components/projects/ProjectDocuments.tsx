@@ -8,6 +8,7 @@ import { notifyDriveFailure } from '../documents/driveNotifications'
 import { useDocuments, useSetDocumentProject, useUploadDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_LABELS } from '../../utils/labels'
 import { FileUpload, type UploadMeta } from '../common/FileUpload'
+import { useUploadSuggestion } from '../../hooks/useUploadSuggestion'
 
 /**
  * Attachments live in the `documents` container, not inside the project document, so they're saved
@@ -18,6 +19,8 @@ import { FileUpload, type UploadMeta } from '../common/FileUpload'
 export function ProjectDocuments({ propertyId, projectId }: { propertyId: string; projectId: string }) {
   const { data: documents } = useDocuments(propertyId)
   const uploadDocument = useUploadDocument(propertyId)
+  // Set when the user arrives from a link Claude made — see create_upload_link.
+  const { suggestion: uploadSuggestion, clear: clearUploadSuggestion } = useUploadSuggestion()
   const setDocumentProject = useSetDocumentProject(propertyId)
   const [attachingId, setAttachingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<DocumentDto | null>(null)
@@ -56,7 +59,7 @@ export function ProjectDocuments({ propertyId, projectId }: { propertyId: string
           även på dokumentsidan.
         </Text>
 
-        <FileUpload onUpload={handleUpload} />
+        <FileUpload onUpload={handleUpload} suggestion={uploadSuggestion} onComplete={clearUploadSuggestion} />
 
         {attached.length > 0 && (
           <Table.ScrollContainer minWidth={420}>

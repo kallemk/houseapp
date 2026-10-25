@@ -85,6 +85,11 @@ plain cookie authentication (`AddAuthentication().AddCookie()`, manual
 same cookie. Everything downstream — `[Authorize]`, Data Protection, the `SameSite=Lax`
 same-origin design — is identical regardless of how you signed in.
 
+**Claude is a third way in, and it never shares the session.** A Claude connector gets an OAuth
+bearer token that only `/mcp` accepts, while `/api` accepts only the cookie. The default
+authentication scheme is a policy scheme that picks by path (`HouseAppAuthSchemes.Default`), so the
+two can't cross over in either direction. See "Claude / MCP" below.
+
 **`ClaimTypes.NameIdentifier` must always carry `ApplicationUser.Id` — never Google's `sub`.**
 That id is stored in `Property.MemberUserIds`, `ValuationEntry.CreatedByUserId`,
 `Project.CreatedByUserId` and `Document.UploadedByUserId`, and there is no migration
@@ -515,7 +520,8 @@ dokument/Allmänt/…  and  dokument/Projekt/{name} {date}/…   every Blob-stor
   of a truncated download that has already started.
 - **Access is `CanAccessPropertyAsync`, so the demo is exportable.** That reveals nothing everyone
   can't already see.
-- `Export/ExportLabels.cs` is a **backend copy of `utils/labels.ts`** for the spreadsheet. A test
+- `Labels.cs` (it began as the export's `ExportLabels`, and the MCP tools use it too) is a
+  **backend copy of `utils/labels.ts`**. A test
   fails when an enum value has no label. `ExportWorkbook` uses fixed column widths rather than
   `AdjustToContents()`, which measures fonts and is a likely thing to break on App Service Linux.
 - The frontend starts the download by top-level navigation (`propertiesApi.export`, same pattern as
@@ -835,6 +841,8 @@ items where the dashboard half-answered everything and owned nothing:
 /properties/:propertyId/documents             Dokument
 /admin                                        → components | users        (account menu)
 /feedback                                     Förslag & feedback          (account menu, + footer)
+/claude                                       Koppla till Claude          (account menu)
+/oauth/consent                                Claude's consent step       (no shell, like /login)
 ```
 
 Both tabbed sections are layout routes with an index redirect (`MaintenanceSectionPage`,
@@ -1087,6 +1095,98 @@ Azure can't stop serverless Cosmos at a spending limit. Three things to know:
 - **`startDate` is a fixed literal.** `utcNow()` would move it on every deploy, and Azure refuses to
   change a budget's start date.
 - **The amount is `costAlarmMonthlyAmount`** (default 300, in the billing currency).
+
+### Claude / MCP (`/mcp`)
+
+HusTracker is a **remote MCP server**, so people can plan in Claude and have Claude write projects
+here instead of retyping them. It's added in Claude as a custom connector at
+`https://housetracker.odenbulten.se/mcp`, and `/claude` in the app explains how. The tools are in
+`Mcp/HouseTools.cs`, and the SDK is `ModelContextProtocol.AspNetCore` in stateless mode, so there's no
+session to lose when a deploy restarts the app.
+
+**The app is its own OAuth 2.1 authorization server, because Claude requires one.** Claude's
+connectors ([docs](https://claude.com/docs/connectors/building/authentication)) need these things:
+- a `401` carrying `WWW-Authenticate: Bearer resource_metadata=…`;
+- RFC 9728 and RFC 8414 metadata, with `resource` equal to the URL the user typed;
+- self-registration through DCR or CIMD;
+- S256 PKCE;
+- form-encoded token requests;
+- rotating refresh tokens;
+- the callback `https://claude.ai/api/mcp/auth_callback`, plus loopback redirects on any port for
+  Claude Code.
+
+A fixed API key exists only as an org-level beta. It sits **on top of** the existing sign-in:
+`/oauth/authorize` sends the browser to the SPA's `/oauth/consent`, which needs the ordinary session,
+so people sign in exactly as always and then approve. `OAuthController` holds every endpoint.
+
+**Nothing in it has a container.** These are all self-contained blobs protected with Data
+Protection (`McpTokenService`), each with its own purpose so one can't be passed off as another:
+- **DCR client ids** are the registration itself, protected.
+- **Authorization requests** last 10 minutes.
+- **Codes** last 5 minutes and are single-use.
+- **Access tokens** last 1 hour.
+- **Refresh tokens** last 60 days.
+
+The only state is `ApplicationUser.McpGrants`, one `McpGrant` per connected client. It's nested in
+the user document and nullable for the usual reason. Consequences worth knowing:
+- **Losing the key ring now also disconnects every Claude**, on top of signing everyone out.
+- **Code reuse is detected in memory** (`IMemoryCache`). That is correct only on **one instance**,
+  the same assumption the file-backed key ring makes; see "Data Protection key persistence". Moving
+  to several instances needs both fixed.
+- **Refresh tokens rotate with reuse detection.** A refresh token carries `grantId + tokenId`, and
+  only the grant's `CurrentRefreshTokenId` is accepted. Presenting a spent one means a copy exists,
+  so the whole grant is revoked and Claude gets `invalid_grant`.
+- **Revocation is immediate.** `McpBearerHandler` point-reads the user on every request (as the
+  cookie's `OnValidatePrincipal` does) and rejects a blocked user, a deleted user, or a grant that
+  was disconnected from `/claude`.
+
+**Registration is open, so the redirect allowlist is the safety.** `/oauth/register` accepts only
+Claude's callback and loopback URIs (`McpOAuth.IsAllowedRedirectUri`), so a token can only ever be
+delivered to Claude or to the user's own machine. A loopback URI matches on any port, because Claude
+Code picks a new one each session. **CIMD is deliberately not advertised:** it would mean fetching
+client-supplied URLs from the server, and Claude falls back to DCR without it. A bad `client_id` or
+`redirect_uri` at authorize gets an error page, never a redirect. The consent page names the redirect
+host and warns when it's loopback, as the MCP spec requires.
+
+**The tools are member-only, and that is *not* `CanAccessPropertyAsync`.** The demo is editable by
+anyone on the internet, and whatever is written there would land in Claude's context. That's a
+ready-made prompt-injection path into the user's real houses, so the tools check strict membership
+and treat the demo like a property that doesn't exist. **There are no delete tools**, for projects,
+costs, milestones or documents: a misread instruction should cost an edit, not data.
+
+**Writes go through the same services as the REST API.** `ProjectService`, `DocumentService`,
+`MaintenanceScheduleCalculator` and `BudgetCalculator` were extracted from their controllers for
+this, so limits, Drive folder renames and moves all behave identically. Access checks stay with the
+callers, because the two ways in deliberately differ (demo or not). `ProjectService.UpdateAsync`
+takes a change callback rather than a request: the REST API replaces the whole project, while MCP
+touches only the fields it was given. That keeps cost and milestone ids stable across MCP edits
+(`ProjectService.Apply` regenerates them).
+
+**Files never pass through MCP.** In claude.ai the model sees attachments as extracted text and
+images, not original bytes, so an "upload" tool would have it regenerate the file as base64. Instead
+`create_upload_link` returns a link to the project (or the documents page) with
+`?upload=1&title=&category=&date=`. `useUploadSuggestion` reads it, `FileUpload` pre-fills from it,
+and the user drops the original into the ordinary upload. The link carries no credential.
+
+**Where things are served:**
+- `/.well-known/*`, `/oauth/authorize|register|token` and `/mcp` are backend endpoints.
+- `/oauth/consent` is an SPA page; `ProtectedRoute` now passes `state.from` so it survives a sign-in.
+- The SPA fallback 404s unknown `/.well-known/*` paths, for the same reason it 404s unknown `/api`.
+- Locally, `vite.config.ts` proxies the backend ones **without** `changeOrigin`, so the metadata
+  describes `http://localhost:5173` (where the consent page is) rather than the backend port. The
+  official MCP Inspector (`npx @modelcontextprotocol/inspector`) against that URL exercises the same
+  DCR and loopback path as Claude Code.
+
+**The guide is `/claude`, reached from the account menu.** It has the steps, the URL to copy,
+example prompts and the list of connections. Översikt carries `ClaudeHintCard` above the export
+card **only while the user has no connection**. That's what retires the hint, rather than a "Dölj"
+button, so it adds no browser storage for `CookiesPage` to declare. It renders nothing while loading,
+so it doesn't flash.
+
+**Rate limiting covers `/mcp` and `/oauth/*` too.** MCP calls are counted per user, because the
+policy scheme authenticates them before the limiter runs. Registration and token calls come from
+Anthropic's egress range (`160.79.104.0/21`) before anyone is identified, so all Claude users share
+that IP's bucket. That's fine at this scale and the first thing to check if connecting starts to fail.
 
 ### Infra composition (`infra/main.bicep`)
 

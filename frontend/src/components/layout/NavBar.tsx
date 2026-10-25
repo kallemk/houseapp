@@ -10,6 +10,7 @@ import {
   IconListCheck,
   IconLogout,
   IconPigMoney,
+  IconPlugConnected,
   IconPlus,
   IconSettings,
 } from '@tabler/icons-react'
@@ -173,6 +174,9 @@ export function NavBar() {
               <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => navigate('/admin')}>
                 Administration
               </Menu.Item>
+              <Menu.Item leftSection={<IconPlugConnected size={14} />} onClick={() => navigate('/claude')}>
+                Koppla till Claude
+              </Menu.Item>
               <Menu.Item leftSection={<IconBulb size={14} />} onClick={() => navigate('/feedback')}>
                 Förslag &amp; feedback
               </Menu.Item>
@@ -242,6 +246,7 @@ export function NavBar() {
           <Divider label="Konto" labelPosition="left" mt="sm" />
           {[
             { label: 'Administration', icon: IconSettings, onClick: () => navigate('/admin') },
+            { label: 'Koppla till Claude', icon: IconPlugConnected, onClick: () => navigate('/claude') },
             { label: 'Förslag & feedback', icon: IconBulb, onClick: () => navigate('/feedback') },
             { label: 'Logga ut', icon: IconLogout, onClick: () => logout() },
           ].map((entry) => (

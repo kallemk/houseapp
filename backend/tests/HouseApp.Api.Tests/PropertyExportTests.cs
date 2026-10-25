@@ -300,15 +300,15 @@ public class PropertyExportTests : IClassFixture<HouseAppWebApplicationFactory>
     }
 
     [Fact]
-    public void ExportLabels_CoverEveryEnumValue()
+    public void Labels_CoverEveryEnumValue()
     {
         // An appended enum value must get a Swedish label before it can reach a spreadsheet.
-        Assert.All(Enum.GetValues<WorkType>(), v => Assert.True(ExportLabels.WorkTypes.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<ProjectStatus>(), v => Assert.True(ExportLabels.Statuses.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<ProjectPriority>(), v => Assert.True(ExportLabels.Priorities.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<CostType>(), v => Assert.True(ExportLabels.CostTypes.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<PropertyType>(), v => Assert.True(ExportLabels.PropertyTypes.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<DocumentCategory>(), v => Assert.True(ExportLabels.DocumentCategories.ContainsKey(v), v.ToString()));
-        Assert.All(Enum.GetValues<DocumentStorageKind>(), v => Assert.True(ExportLabels.StorageKinds.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<WorkType>(), v => Assert.True(Labels.WorkTypes.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<ProjectStatus>(), v => Assert.True(Labels.Statuses.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<ProjectPriority>(), v => Assert.True(Labels.Priorities.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<CostType>(), v => Assert.True(Labels.CostTypes.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<PropertyType>(), v => Assert.True(Labels.PropertyTypes.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<DocumentCategory>(), v => Assert.True(Labels.DocumentCategories.ContainsKey(v), v.ToString()));
+        Assert.All(Enum.GetValues<DocumentStorageKind>(), v => Assert.True(Labels.StorageKinds.ContainsKey(v), v.ToString()));
     }
 }

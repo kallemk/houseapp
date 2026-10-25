@@ -5,6 +5,7 @@ using Azure.Storage.Blobs;
 using HouseApp.Api.Authorization;
 using HouseApp.Api.Data;
 using HouseApp.Api.Export;
+using HouseApp.Api.Mcp;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -13,6 +14,12 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Extensions;
+
+public static class HouseAppAuthSchemes
+{
+    /// <summary>Picks the cookie or Claude's bearer token by path — see AddHouseAppCookieAuth.</summary>
+    public const string Default = "HouseApp";
+}
 
 public static class ServiceCollectionExtensions
 {
@@ -30,7 +37,21 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddHouseAppCookieAuth(this IServiceCollection services)
     {
         services
-            .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            // Two ways to be authenticated, kept strictly apart by path rather than tried in turn:
+            // /mcp takes Claude's bearer token and nothing else, everything else takes the session
+            // cookie and nothing else. So a browser session can never drive MCP (no CSRF through
+            // it), and a token Claude holds can never reach /api. Resolving it here, as the default
+            // scheme, is what lets UseAuthentication identify MCP callers before the rate limiter
+            // partitions by user — otherwise they'd all share Anthropic's egress address.
+            .AddAuthentication(HouseAppAuthSchemes.Default)
+            .AddPolicyScheme(HouseAppAuthSchemes.Default, null, options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                    context.Request.Path.StartsWithSegments(McpOAuth.McpPath)
+                        ? McpBearerHandler.SchemeName
+                        : CookieAuthenticationDefaults.AuthenticationScheme;
+            })
+            .AddScheme<AuthenticationSchemeOptions, McpBearerHandler>(McpBearerHandler.SchemeName, null)
             .AddCookie(options =>
             {
                 options.Cookie.Name = "houseapp.auth";
@@ -145,6 +166,8 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddScoped<PropertyExportBuilder>();
+        services.AddScoped<ProjectService>();
+        services.AddScoped<DocumentService>();
         return services;
     }
 

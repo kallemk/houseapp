@@ -171,10 +171,21 @@ export function CookiesPage() {
           </Text>
 
           <Title order={4} mt="md">
+            Om du kopplar HusTracker till Claude
+          </Title>
+          <Text size="sm">
+            Kopplar du Claude till HusTracker (via <strong>Koppla till Claude</strong>) kan Claude läsa och ändra
+            uppgifter om dina egna bostäder när du ber om det i en chatt — projekt, kostnader, underhållsplan, budget
+            och dokumentens titlar och kategorier. Det Claude hämtar skickas till Anthropic och hanteras enligt ditt
+            Claude-kontos villkor, utanför den lagring som beskrivs här. Själva filerna skickas aldrig dit. Inget nytt
+            sparas i din webbläsare för det här, och du kan koppla från när som helst.
+          </Text>
+
+          <Title order={4} mt="md">
             Var det ligger, och hur du blir av med det
           </Title>
           <Text size="sm">
-            Uppgifterna lagras i Microsoft Azure inom EU (undantaget förslag, se ovan). Vill du radera
+            Uppgifterna lagras i Microsoft Azure inom EU (undantaget förslag och det du delar med Claude, se ovan). Vill du radera
             ditt konto och dina uppgifter, eller få veta vad som finns lagrat om dig, mejla{' '}
             <Anchor href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</Anchor> så ordnar vi det.
           </Text>

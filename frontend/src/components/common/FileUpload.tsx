@@ -15,11 +15,12 @@ import {
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
-import { IconAlertCircle, IconFile, IconUpload, IconX } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
+import { IconAlertCircle, IconFile, IconSparkles, IconUpload, IconX } from '@tabler/icons-react'
+import { useEffect, useRef, useState } from 'react'
 import type { DocumentCategory } from '../../api/types'
 import { suggestCategory, suggestTitle } from '../../utils/documentSuggestions'
-import { DOCUMENT_CATEGORY_OPTIONS } from '../../utils/labels'
+import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_CATEGORY_OPTIONS } from '../../utils/labels'
+import type { UploadSuggestion } from '../../hooks/useUploadSuggestion'
 import { MAX_FILE_BYTES, MAX_FILE_MB, SHORT_TEXT } from '../../utils/limits'
 
 function todayIsoDate() {
@@ -49,6 +50,12 @@ interface FileUploadProps {
   /** Called once every file in the dialog has been uploaded. */
   onComplete?: () => void
   defaultDate?: string
+  /**
+   * Pre-fill from a link Claude made (see `useUploadSuggestion`). Overrides what the filename
+   * suggests: the title goes to the first file dropped, the category and date to every file. The
+   * drop area is scrolled into view and says what Claude suggested.
+   */
+  suggestion?: UploadSuggestion | null
 }
 
 interface PendingFile {
@@ -69,19 +76,28 @@ interface PendingFile {
  * document title. Nothing in the dialog is a <form> either — the modal is portalled out of the DOM,
  * but React still bubbles a submit through the component tree to the project form's handler.
  */
-export function FileUpload({ onUpload, onComplete, defaultDate }: FileUploadProps) {
+export function FileUpload({ onUpload, onComplete, defaultDate, suggestion }: FileUploadProps) {
   const [pending, setPending] = useState<PendingFile[]>([])
+  const dropRef = useRef<HTMLDivElement>(null)
+
+  // Arriving from Claude's link: bring the drop area into view so the next step is obvious.
+  // Keyed on whether there is one, not the object, which is rebuilt every render.
+  const hasSuggestion = !!suggestion
+  useEffect(() => {
+    if (hasSuggestion) dropRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [hasSuggestion])
   const [uploading, setUploading] = useState(false)
 
   function addFiles(files: File[]) {
-    const date = defaultDate ?? todayIsoDate()
+    const date = suggestion?.date ?? defaultDate ?? todayIsoDate()
     setPending((current) => [
       ...current,
-      ...files.map((file) => ({
+      ...files.map((file, index) => ({
         key: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
-        title: suggestTitle(file.name),
-        category: suggestCategory(file),
+        // Claude's title describes one document, so only the first file dropped gets it.
+        title: (current.length === 0 && index === 0 && suggestion?.title) || suggestTitle(file.name),
+        category: suggestion?.category ?? suggestCategory(file),
         date,
         status: 'ready' as const,
       })),
@@ -123,6 +139,16 @@ export function FileUpload({ onUpload, onComplete, defaultDate }: FileUploadProp
 
   return (
     <>
+      {suggestion && (
+        <Alert color="violet" variant="light" icon={<IconSparkles size={16} />} mb="sm">
+          <Text size="sm">
+            Claude föreslår{suggestion.title ? <> <b>{suggestion.title}</b></> : ' ett dokument'}
+            {suggestion.category && ` · ${DOCUMENT_CATEGORY_LABELS[suggestion.category]}`}
+            {suggestion.date && ` · ${suggestion.date}`}. Släpp originalfilen här, så fylls det i åt dig.
+          </Text>
+        </Alert>
+      )}
+      <div ref={dropRef}>
       <Dropzone
         onDrop={addFiles}
         onReject={(rejections) =>
@@ -156,6 +182,7 @@ export function FileUpload({ onUpload, onComplete, defaultDate }: FileUploadProp
           </div>
         </Group>
       </Dropzone>
+      </div>
 
       <Modal
         opened={pending.length > 0}

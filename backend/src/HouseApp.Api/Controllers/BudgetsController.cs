@@ -2,6 +2,7 @@ using HouseApp.Api.Data;
 using HouseApp.Api.Extensions;
 using HouseApp.Api.Dtos.Budgets;
 using HouseApp.Api.Models;
+using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ public class BudgetsController(AppDbContext db) : ControllerBase
             .FirstOrDefault(b => b.Year == year);
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
 
-        return Ok(BuildDto(propertyId, year, budget, projects));
+        return Ok(BudgetCalculator.Build(propertyId, year, budget, projects));
     }
 
     /// <summary>
@@ -56,7 +57,7 @@ public class BudgetsController(AppDbContext db) : ControllerBase
             .ToList();
 
         var dtos = years
-            .Select(year => BuildDto(propertyId, year, budgets.FirstOrDefault(b => b.Year == year), projects))
+            .Select(year => BudgetCalculator.Build(propertyId, year, budgets.FirstOrDefault(b => b.Year == year), projects))
             .ToList();
 
         return Ok(dtos);
@@ -103,7 +104,7 @@ public class BudgetsController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         var projects = await db.Projects.Where(p => p.PropertyId == propertyId).ToListAsync();
-        return Ok(BuildDto(propertyId, year, budget, projects));
+        return Ok(BudgetCalculator.Build(propertyId, year, budget, projects));
     }
 
     [HttpDelete("api/properties/{propertyId}/budgets/{year:int}")]
@@ -124,35 +125,5 @@ public class BudgetsController(AppDbContext db) : ControllerBase
         db.Budgets.Remove(budget);
         await db.SaveChangesAsync();
         return NoContent();
-    }
-
-    private static BudgetDto BuildDto(string propertyId, int year, Budget? budget, List<Project> projects)
-    {
-        var lines = new List<BudgetLineDto>
-        {
-            Line(WorkType.Maintenance, budget?.MaintenanceBudget ?? 0m, projects, year),
-            Line(WorkType.Renovation, budget?.RenovationBudget ?? 0m, projects, year),
-            Line(WorkType.Investment, budget?.InvestmentBudget ?? 0m, projects, year),
-            Line(WorkType.Purchase, budget?.PurchaseBudget ?? 0m, projects, year),
-        };
-
-        return new BudgetDto(
-            budget?.Id,
-            propertyId,
-            year,
-            lines,
-            lines.Sum(l => l.Budgeted),
-            lines.Sum(l => l.Spent));
-    }
-
-    private static BudgetLineDto Line(WorkType workType, decimal budgeted, List<Project> projects, int year)
-    {
-        var spent = projects
-            .Where(p => p.WorkType == workType)
-            .SelectMany(p => p.Costs)
-            .Where(c => c.DateIncurred.Year == year)
-            .Sum(c => c.Amount);
-
-        return new BudgetLineDto(workType, budgeted, spent);
     }
 }

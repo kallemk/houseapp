@@ -30,6 +30,7 @@ import {
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import type { WorkType } from '../api/types'
+import { ClaudeHintCard } from '../components/dashboard/ClaudeHintCard'
 import { ExportDataCard } from '../components/properties/ExportDataCard'
 import { PropertyForm } from '../components/properties/PropertyForm'
 import { propertyFormToInput, propertyToFormValues } from '../utils/propertyForm'
@@ -495,6 +496,7 @@ export function DashboardPage() {
         />
       </Card>
 
+      <ClaudeHintCard />
       <ExportDataCard property={property} />
 
       <QuickAddModal propertyId={property.id} request={quickAddRequest} onClose={() => setQuickAddRequest(null)} />
