@@ -64,7 +64,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlanId
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|9.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
       // The whole point of moving to B1: without this the app unloads after ~20 minutes idle and the
       // next visitor waits 10-30s for a cold start. F1 could not offer it.
       alwaysOn: true
