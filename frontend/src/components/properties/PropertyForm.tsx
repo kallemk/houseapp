@@ -7,6 +7,7 @@ import { geocodeAddress } from '../../utils/geocode'
 import { EMPTY_PROPERTY_FORM, type PropertyFormValues } from '../../utils/propertyForm'
 import { PROPERTY_TYPE_OPTIONS } from '../../utils/labels'
 import { PropertyMap } from './PropertyMap'
+import { SHORT_TEXT } from '../../utils/limits'
 
 export function PropertyForm({
   initial,
@@ -65,15 +66,15 @@ export function PropertyForm({
       {/* Capped rather than full-width because the picker page renders this in a card on an
           otherwise wide page. Wide enough for the map underneath to be worth looking at. */}
       <Stack maw={560}>
-        <TextInput label="Smeknamn" required {...form.getInputProps('nickname')} />
-        <TextInput label="Adress" required {...form.getInputProps('address')} />
-        <TextInput label="Adressrad 2" placeholder="valfritt" {...form.getInputProps('address2')} />
+        <TextInput maxLength={SHORT_TEXT} label="Smeknamn" required {...form.getInputProps('nickname')} />
+        <TextInput maxLength={SHORT_TEXT} label="Adress" required {...form.getInputProps('address')} />
+        <TextInput maxLength={SHORT_TEXT} label="Adressrad 2" placeholder="valfritt" {...form.getInputProps('address2')} />
         <Group grow>
-          <TextInput label="Postnummer" placeholder="valfritt" {...form.getInputProps('postalCode')} />
-          <TextInput label="Ort" placeholder="valfritt" {...form.getInputProps('city')} />
+          <TextInput maxLength={SHORT_TEXT} label="Postnummer" placeholder="valfritt" {...form.getInputProps('postalCode')} />
+          <TextInput maxLength={SHORT_TEXT} label="Ort" placeholder="valfritt" {...form.getInputProps('city')} />
         </Group>
-        <TextInput label="Land" placeholder="valfritt" {...form.getInputProps('country')} />
-        <TextInput
+        <TextInput maxLength={SHORT_TEXT} label="Land" placeholder="valfritt" {...form.getInputProps('country')} />
+        <TextInput maxLength={SHORT_TEXT}
           label="Fastighetsbeteckning"
           placeholder="valfritt"
           {...form.getInputProps('propertyDesignation')}

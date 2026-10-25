@@ -2,6 +2,7 @@ import { Anchor, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { isDriveConnectionExpired } from '../../api/client'
 import { driveApi } from '../../api/documents'
+import { notifyError } from '../../utils/notifyError'
 
 /**
  * Turns a failed Drive operation into a message that says what to do. A lapsed grant gets a direct
@@ -10,7 +11,7 @@ import { driveApi } from '../../api/documents'
  */
 export function notifyDriveFailure(error: unknown, propertyId: string, fallback: string) {
   if (!isDriveConnectionExpired(error)) {
-    notifications.show({ color: 'red', message: fallback })
+    notifyError(error, fallback)
     return
   }
 

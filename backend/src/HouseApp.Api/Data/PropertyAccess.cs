@@ -1,4 +1,5 @@
 using HouseApp.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Data;
 
@@ -40,4 +41,11 @@ public static class PropertyAccess
     /// </summary>
     public static bool IsMember(Property property, string userId) =>
         property.MemberUserIds?.Contains(userId) == true;
+
+    /// <summary>
+    /// How many properties count toward the user's <see cref="Limits.PropertiesPerUser"/>. The demo
+    /// doesn't — everyone is in it. Full scan + in-memory filter, same reasoning as GetAll.
+    /// </summary>
+    public static async Task<int> CountMembershipsAsync(this AppDbContext db, string userId) =>
+        (await db.Properties.ToListAsync()).Count(p => !p.IsDemo && IsMember(p, userId));
 }

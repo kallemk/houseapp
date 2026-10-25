@@ -12,7 +12,6 @@ import {
   TextInput,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
 import { IconChartLine, IconEdit, IconTrash } from '@tabler/icons-react'
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
@@ -29,6 +28,8 @@ import {
   useValuations,
 } from '../hooks/useValuations'
 import { formatCurrency } from '../utils/currency'
+import { notifyError } from '../utils/notifyError'
+import { LONG_TEXT, SHORT_TEXT } from '../utils/limits'
 
 interface ValuationFormValues {
   date: string
@@ -61,8 +62,8 @@ function ValuationForm({
       <Wrapper align={layout === 'row' ? 'flex-end' : undefined}>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <TextInput label="Värde (kr)" type="number" required {...form.getInputProps('value')} />
-        <TextInput label="Källa" placeholder="t.ex. mäklare" {...form.getInputProps('source')} />
-        {layout === 'stack' && <Textarea label="Anteckning" autosize minRows={2} {...form.getInputProps('notes')} />}
+        <TextInput maxLength={SHORT_TEXT} label="Källa" placeholder="t.ex. mäklare" {...form.getInputProps('source')} />
+        {layout === 'stack' && <Textarea maxLength={LONG_TEXT} label="Anteckning" autosize minRows={2} {...form.getInputProps('notes')} />}
         <Group justify={layout === 'row' ? undefined : 'flex-end'}>
           <Button type="submit" loading={submitting}>
             {submitLabel}
@@ -121,7 +122,7 @@ export function ValuationsPage() {
       { id: editing.id, input: toInput(values) },
       {
         onSuccess: () => setEditing(null),
-        onError: () => notifications.show({ color: 'red', message: 'Kunde inte spara värderingen. Försök igen.' }),
+        onError: (error) => notifyError(error, 'Kunde inte spara värderingen. Försök igen.'),
       },
     )
   }

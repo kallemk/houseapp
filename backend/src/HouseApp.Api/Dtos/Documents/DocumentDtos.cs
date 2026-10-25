@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using HouseApp.Api.Models;
 
@@ -25,7 +26,15 @@ public record DocumentDto(
 /// uses is the server's business — the client shouldn't have to look at the property to find out,
 /// and a client working from a stale cache shouldn't be able to pick the wrong one.
 /// </summary>
-public record UploadUrlRequest(string PropertyId, string FileName, string ContentType);
+/// <param name="SizeBytes">
+/// What the client says the file weighs — used only to refuse an obviously-too-big file before it's
+/// uploaded. Optional so an older client keeps working; the real check happens after the upload.
+/// </param>
+public record UploadUrlRequest(
+    string PropertyId,
+    [MaxLength(Limits.ShortText)] string FileName,
+    [MaxLength(Limits.ShortText)] string ContentType,
+    long? SizeBytes = null);
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum UploadMode
@@ -44,10 +53,10 @@ public record CreateDocumentRequest(
     string PropertyId,
     string? ProjectId,
     DateOnly Date,
-    string? Title,
-    string FileName,
-    string ContentType,
-    string BlobPath,
+    [MaxLength(Limits.ShortText)] string? Title,
+    [MaxLength(Limits.ShortText)] string FileName,
+    [MaxLength(Limits.ShortText)] string ContentType,
+    [MaxLength(Limits.LongText)] string BlobPath,
     long SizeBytes,
     DocumentCategory Category);
 
@@ -58,7 +67,7 @@ public record CreateDocumentRequest(
 /// Deliberately not FileName, ContentType or SizeBytes — those describe the stored file and would
 /// start lying the moment they were edited.
 /// </summary>
-public record UpdateDocumentRequest(string? Title, DateOnly Date, DocumentCategory Category);
+public record UpdateDocumentRequest([MaxLength(Limits.ShortText)] string? Title, DateOnly Date, DocumentCategory Category);
 
 public record DownloadUrlResponse(string DownloadUrl);
 

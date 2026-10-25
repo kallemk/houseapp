@@ -24,6 +24,31 @@ export function isDriveConnectionExpired(error: unknown): boolean {
 }
 
 /**
+ * The server's Swedish explanation when a limit stops a request — a count limit (409 with
+ * `code: "limit_reached"`) or the rate limiter (429). Null for every other error. These messages are
+ * written to be shown as they are, so `App.tsx` shows them once for every mutation, and local error
+ * handlers step aside for them (`isLimitError`) rather than adding a generic "försök igen" on top.
+ */
+export function limitMessage(error: unknown): string | null {
+  if (!(error instanceof ApiError) || (error.status !== 409 && error.status !== 429)) {
+    return null
+  }
+  try {
+    const body = JSON.parse(error.message) as { code?: string; message?: string }
+    if (error.status === 429 || body.code === 'limit_reached') {
+      return body.message ?? 'För många anrop – vänta en stund och försök igen.'
+    }
+  } catch {
+    if (error.status === 429) {
+      return 'För många anrop – vänta en stund och försök igen.'
+    }
+  }
+  return null
+}
+
+export const isLimitError = (error: unknown) => limitMessage(error) !== null
+
+/**
  * Statuses that mean "the backend isn't up yet", not "here is your answer".
  *
  * The App Service is F1 with alwaysOn disabled, so it unloads after ~20 minutes idle and the next

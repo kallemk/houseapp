@@ -23,6 +23,7 @@ import { useBudgets, useDeleteBudget, useSaveBudget } from '../hooks/useBudgets'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatCurrency } from '../utils/currency'
 import { WORK_TYPE_COLORS, WORK_TYPE_LABELS } from '../utils/labels'
+import { notifyError } from '../utils/notifyError'
 
 interface BudgetFormValues {
   maintenanceBudget: number | string
@@ -140,7 +141,7 @@ export function BudgetPage() {
       { year, ...toAmounts(values) },
       {
         onSuccess: () => setEditing(false),
-        onError: () => notifications.show({ color: 'red', message: 'Kunde inte spara budgeten. Försök igen.' }),
+        onError: (error) => notifyError(error, 'Kunde inte spara budgeten. Försök igen.'),
       },
     )
   }
@@ -168,7 +169,7 @@ export function BudgetPage() {
           setSelectedYear(newYear)
           setEditing(false)
         },
-        onError: () => notifications.show({ color: 'red', message: 'Kunde inte spara budgeten. Försök igen.' }),
+        onError: (error) => notifyError(error, 'Kunde inte spara budgeten. Försök igen.'),
       },
     )
   }

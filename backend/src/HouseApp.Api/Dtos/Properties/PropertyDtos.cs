@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using HouseApp.Api.Models;
 
 namespace HouseApp.Api.Dtos.Properties;
@@ -43,13 +44,13 @@ public record SetDemoPropertyRequest(bool IsDemo);
 
 /// <summary>Same shape for create and update — a property is small enough to write whole.</summary>
 public record SavePropertyRequest(
-    string Nickname,
-    string Address,
-    string? Address2,
-    string? PostalCode,
-    string? City,
-    string? Country,
-    string? PropertyDesignation,
+    [MaxLength(Limits.ShortText)] string Nickname,
+    [MaxLength(Limits.ShortText)] string Address,
+    [MaxLength(Limits.ShortText)] string? Address2,
+    [MaxLength(Limits.ShortText)] string? PostalCode,
+    [MaxLength(Limits.ShortText)] string? City,
+    [MaxLength(Limits.ShortText)] string? Country,
+    [MaxLength(Limits.ShortText)] string? PropertyDesignation,
     int? YearBuilt,
     PropertyType? Type,
     double? Latitude,

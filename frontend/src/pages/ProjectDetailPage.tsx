@@ -39,6 +39,8 @@ import {
   PRIORITY_OPTIONS,
   PROJECT_STATUS_OPTIONS,
 } from '../utils/labels'
+import { notifyError } from '../utils/notifyError'
+import { LONG_TEXT, SHORT_TEXT } from '../utils/limits'
 
 interface CostFormValues {
   type: CostType
@@ -277,7 +279,7 @@ export function ProjectDetailPage() {
 
   function handleSubmit(values: ProjectFormValues) {
     const input = toInput(values)
-    const onError = () => notifications.show({ color: 'red', message: 'Kunde inte spara projektet. Försök igen.' })
+    const onError = (error: unknown) => notifyError(error, 'Kunde inte spara projektet. Försök igen.')
 
     if (isNew) {
       createProject.mutate(input, {
@@ -315,8 +317,8 @@ export function ProjectDetailPage() {
           <Card withBorder padding="lg">
             <Stack>
               <Title order={5}>Grunduppgifter</Title>
-              <TextInput label="Namn" required {...form.getInputProps('name')} />
-              <Textarea label="Beskrivning" autosize minRows={2} {...form.getInputProps('description')} />
+              <TextInput maxLength={SHORT_TEXT} label="Namn" required {...form.getInputProps('name')} />
+              <Textarea maxLength={LONG_TEXT} label="Beskrivning" autosize minRows={2} {...form.getInputProps('description')} />
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 4 }}>
                   <WorkTypeSelect
@@ -436,7 +438,7 @@ export function ProjectDetailPage() {
                             />
                           </Table.Td>
                           <Table.Td>
-                            <TextInput {...form.getInputProps(`costs.${index}.description`)} />
+                            <TextInput maxLength={SHORT_TEXT} {...form.getInputProps(`costs.${index}.description`)} />
                           </Table.Td>
                           <Table.Td>
                             <NumberInput min={0} {...form.getInputProps(`costs.${index}.amount`)} />
@@ -522,7 +524,7 @@ export function ProjectDetailPage() {
                       {form.values.milestones.map((_, index) => (
                         <Table.Tr key={index}>
                           <Table.Td>
-                            <TextInput {...form.getInputProps(`milestones.${index}.description`)} />
+                            <TextInput maxLength={SHORT_TEXT} {...form.getInputProps(`milestones.${index}.description`)} />
                           </Table.Td>
                           <Table.Td>
                             <TextInput type="date" {...form.getInputProps(`milestones.${index}.plannedDate`)} />
@@ -572,16 +574,16 @@ export function ProjectDetailPage() {
               {form.values.hasContractor && (
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 6 }}>
-                    <TextInput label="Namn" {...form.getInputProps('contractorName')} />
+                    <TextInput maxLength={SHORT_TEXT} label="Namn" {...form.getInputProps('contractorName')} />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6 }}>
-                    <TextInput label="Telefon" {...form.getInputProps('contractorPhone')} />
+                    <TextInput maxLength={SHORT_TEXT} label="Telefon" {...form.getInputProps('contractorPhone')} />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6 }}>
-                    <TextInput label="E-post" type="email" {...form.getInputProps('contractorEmail')} />
+                    <TextInput maxLength={SHORT_TEXT} label="E-post" type="email" {...form.getInputProps('contractorEmail')} />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6 }}>
-                    <TextInput label="Webbplats" {...form.getInputProps('contractorWebsite')} />
+                    <TextInput maxLength={SHORT_TEXT} label="Webbplats" {...form.getInputProps('contractorWebsite')} />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6 }}>
                     <NumberInput label="Offererat pris (kr)" min={0} {...form.getInputProps('contractorQuotedPrice')} />
@@ -590,7 +592,7 @@ export function ProjectDetailPage() {
                     <TextInput label="Offertdatum" type="date" {...form.getInputProps('contractorQuotedDate')} />
                   </Grid.Col>
                   <Grid.Col span={12}>
-                    <Textarea label="Anteckningar" autosize minRows={2} {...form.getInputProps('contractorNotes')} />
+                    <Textarea maxLength={LONG_TEXT} label="Anteckningar" autosize minRows={2} {...form.getInputProps('contractorNotes')} />
                   </Grid.Col>
                 </Grid>
               )}
@@ -620,7 +622,7 @@ export function ProjectDetailPage() {
                   />
                 </Grid.Col>
               </Grid>
-              <Textarea label="Anteckningar" autosize minRows={2} {...form.getInputProps('notes')} />
+              <Textarea maxLength={LONG_TEXT} label="Anteckningar" autosize minRows={2} {...form.getInputProps('notes')} />
             </Stack>
 
                   </Stack>

@@ -377,9 +377,9 @@ folder id, whether a property is on Drive (`DriveFolderResolver` and `Properties
 both do).
 
 **Drive uploads pass through the API** (`POST /api/documents/upload`, multipart), because there's no
-equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB — originally
-because those bytes shared F1's 60 CPU-min/day quota, which B1 doesn't have; the cap stays as a
-sanity bound on a request that streams through the API. **The server decides the path, not the client**:
+equivalent of a SAS URL without handing the browser a Drive token. Capped at 25 MB
+(`Limits.MaxFileBytes`, now the per-file limit for both backends — see "Limits and rate limiting").
+**The server decides the path, not the client**:
 `POST /api/documents/upload-url` returns `Sas` or `Drive`, so `FileUpload` and its three call sites
 are backend-agnostic, and each write endpoint returns 409 for a property on the other backend so a
 stale client can't write a row pointing at a file nobody uploaded.
@@ -992,6 +992,83 @@ multiple registered configurations rather than replacing them. `Program.cs` has 
 explicit `EnvironmentName == "Testing"` branch that uses plain in-memory `AddDataProtection()`
 instead of `AddHouseAppDataProtection`, which would otherwise persist a key ring to
 `$HOME/data-protection-keys` on the developer's or CI runner's disk.
+
+The factory also raises every `RateLimits:*` setting far out of reach: the suites sign in hundreds of
+times a minute from the test server's one "address". `RateLimitingTests.cs` subclasses it with low
+values, **one factory per limit**, because all test requests share a single partition and window, so
+two low limits in one factory would spend each other's budget depending on test order.
+
+### Limits and rate limiting (issue #22)
+
+Registration is open and Cosmos is serverless, so every stored row and every request is billed and
+nothing has a natural ceiling. **Everything a user can create is capped, every caller is rate limited,
+and a cost alarm covers whatever gets through.** The numbers are generous for a real household; the
+point is to stop a script or a runaway client.
+
+**`Limits.cs` holds every number**, and `frontend/src/utils/limits.ts` copies the few the UI needs up
+front (file size, text lengths, properties per user). Keep them in step: the server is what
+enforces them, and the copy only stops the user from filling in a form that's going to be refused.
+
+- **Count limits answer 409 `{ code: "limit_reached", message }`** (`Limits.Reached`), the same
+  shape as `drive_connection_expired`. The message is **Swedish and shown as-is**, an exception to
+  "backend text stays in English" in the same way `FeedbackController`'s 429 already was. On the
+  client, `App.tsx`'s `MutationCache` shows it once for every mutation, and local handlers go through
+  `utils/notifyError.ts`, which steps aside for limit errors. Otherwise a refused save would also get
+  a "Försök igen", which can't help.
+- **Text lengths are `[MaxLength]` on the request DTOs** (200 for one-line fields, 4000 for free
+  text), which `[ApiController]` turns into a 400. They're there to keep a project document well clear of
+  Cosmos's 2 MB item limit as much as to save storage. The inputs carry matching `maxLength`, so the
+  400 shouldn't be reachable from the UI.
+- **Properties per user counts memberships, not properties created.** There's no owner role to
+  count instead. The demo is excluded. `AddMember` checks the *added* person's count; otherwise
+  inviting someone would be a way around their cap.
+- **Counting uses `.Select(x => x.Id).ToListAsync()` then `.Count`**, not `CountAsync`. It's a
+  single partition and reads ids only, and it avoids the terminal-aggregate query shape Cosmos has
+  rejected before. InMemory tests can't tell the difference, so don't "simplify" it.
+- **Budget years only count when a year is created.** Editing an existing year at the limit must
+  still work. Years outside 1900–2100 are a 400.
+- **Costs and milestones are checked on update as well as create**, since `Update` replaces the
+  whole list.
+
+**Blob uploads are verified, not trusted.** A SAS URL has no size limit of its own, and
+`SizeBytes` used to be whatever the client claimed. `DocumentsController.Create` now:
+- requires `BlobPath` to start with `{propertyId}/`. This closed a real hole: a member of one
+  property could register another property's blob path, then get a SAS URL to read it;
+- reads the actual size via `IBlobStorageService.GetSizeAsync` and stores that;
+- deletes the blob before refusing anything over 25 MB or over the property's 2 GB, so a refused
+  upload doesn't stay on the bill.
+
+`upload-url` takes the client's size as an early courtesy check only. **The remaining gap is a SAS
+URL used to upload something large that is never registered with `Create`.** The upload rate limit
+and the 15-minute SAS lifetime bound it, and the cost alarm is what would catch it. Storage counts
+Blob only: a Drive property's files sit in the owner's own Drive.
+
+**Rate limiting is ASP.NET Core's built-in limiter** (`Extensions/RateLimitingExtensions.cs`, no
+package). It's a global fixed window on `/api/*` only (static SPA files are exempt), partitioned per
+signed-in user, or per IP before sign-in. Named policies are stricter on sign-in (per IP), export and
+uploads. A rejection is a 429 with a Swedish message, and `client.ts` never retries 429. Two
+placements are load-bearing:
+- **`UseRateLimiter` sits between `UseAuthentication` and `UseAuthorization`.** After
+  authentication so it can partition by user; before authorization so anonymous requests to
+  protected endpoints are counted instead of being answered 401 for free, forever. It can't sit
+  before authentication: the user partition needs the principal. As a result, a flood with a valid
+  cookie still costs the `OnValidatePrincipal` point read (~1 RU) per request, which is cheap
+  enough to accept.
+- **`UseForwardedHeaders` runs first.** App Service terminates TLS in a front end that appends the
+  caller's address to `X-Forwarded-For`. Without it every request appears to come from the front
+  end, and the per-IP sign-in limit would be one bucket for the whole internet. `ForwardLimit = 1`
+  takes only the address the front end added, so a client can't pick its own bucket by sending the
+  header itself. It also applies `X-Forwarded-Proto`, so requests are seen as https, which they are.
+
+**The cost alarm is `infra/modules/budget.bicep`**, a monthly `Microsoft.Consumption/budgets` on
+this resource group (Cosmos and Storage, the usage-priced resources; the shared plan in `rg-common`
+is a fixed cost). It emails at 80 % and 100 % actual and 100 % forecast. It's an alarm, not a cap:
+Azure can't stop serverless Cosmos at a spending limit. Three things to know:
+- **It only deploys when the `COST_ALARM_EMAIL` GitHub variable is set.** Azure refuses a
+  resource-group budget with roles alone, and an address doesn't belong in the repo.
+- **`startDate` is a fixed literal.** `utcNow()` would move it on every deploy, and Azure refuses to
+  change a budget's start date.
+- **The amount is `costAlarmMonthlyAmount`** (default 300, in the billing currency).
 
 ### Infra composition (`infra/main.bicep`)
 

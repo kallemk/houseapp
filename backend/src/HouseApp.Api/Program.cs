@@ -26,8 +26,13 @@ builder.Services.AddHouseAppCookieAuth();
 builder.Services.AddHouseAppGoogleAuth();
 builder.Services.AddHouseAppGoogleDrive();
 builder.Services.AddHouseAppFeedback();
+builder.Services.AddHouseAppRateLimiting();
 
 var app = builder.Build();
+
+// First, so everything after it — the rate limiter's per-IP buckets in particular — sees the
+// caller's address rather than App Service's front end. See AddHouseAppRateLimiting.
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -66,6 +71,12 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseAuthentication();
+
+// After authentication, so the limits are counted per signed-in user rather than per address — and
+// before authorization, so anonymous requests to protected endpoints are counted too instead of
+// being answered 401 for free, forever.
+app.UseRateLimiter();
+
 app.UseAuthorization();
 
 app.MapControllers();

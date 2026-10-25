@@ -76,11 +76,22 @@ public class BudgetsController(AppDbContext db) : ControllerBase
             return BadRequest(new { message = "Year in the URL and body must match." });
         }
 
-        var budget = (await db.Budgets.Where(b => b.PropertyId == propertyId).ToListAsync())
-            .FirstOrDefault(b => b.Year == year);
+        if (year is < Limits.MinBudgetYear or > Limits.MaxBudgetYear)
+        {
+            return BadRequest(new { message = $"Year must be between {Limits.MinBudgetYear} and {Limits.MaxBudgetYear}." });
+        }
+
+        var budgets = await db.Budgets.Where(b => b.PropertyId == propertyId).ToListAsync();
+        var budget = budgets.FirstOrDefault(b => b.Year == year);
 
         if (budget is null)
         {
+            // Only a new year counts — editing one of the existing ones at the limit must still work.
+            if (budgets.Count >= Limits.BudgetYearsPerProperty)
+            {
+                return Limits.Reached($"En bostad kan ha budget för högst {Limits.BudgetYearsPerProperty} år.");
+            }
+
             budget = new Budget { PropertyId = propertyId, Year = year };
             db.Budgets.Add(budget);
         }

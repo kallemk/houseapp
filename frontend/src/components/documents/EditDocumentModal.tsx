@@ -4,6 +4,7 @@ import { notifications } from '@mantine/notifications'
 import type { DocumentCategory, DocumentDto } from '../../api/types'
 import { useUpdateDocument } from '../../hooks/useDocuments'
 import { DOCUMENT_CATEGORY_OPTIONS } from '../../utils/labels'
+import { SHORT_TEXT } from '../../utils/limits'
 
 interface EditDocumentFormValues {
   title: string
@@ -53,7 +54,7 @@ function EditDocumentForm({
   return (
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
-        <TextInput label="Titel" required {...form.getInputProps('title')} />
+        <TextInput maxLength={SHORT_TEXT} label="Titel" required {...form.getInputProps('title')} />
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <Select
           label="Kategori"

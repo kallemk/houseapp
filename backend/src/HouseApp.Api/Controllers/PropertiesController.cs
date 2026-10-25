@@ -60,6 +60,10 @@ public class PropertiesController(
         // for two people sharing one house and became a data leak the moment a third household
         // joined.
         var userId = User.CurrentUserId();
+        if (await db.CountMembershipsAsync(userId) >= Limits.PropertiesPerUser)
+        {
+            return Limits.Reached($"Du kan vara med i högst {Limits.PropertiesPerUser} bostäder.");
+        }
 
         var property = new Property
         {
@@ -248,6 +252,18 @@ public class PropertiesController(
         if (property.MemberUserIds.Contains(user.Id))
         {
             return Conflict(new { message = "That person already has access." });
+        }
+
+        if (property.MemberUserIds.Count >= Limits.MembersPerProperty)
+        {
+            return Limits.Reached($"En bostad kan ha högst {Limits.MembersPerProperty} medlemmar.");
+        }
+
+        // The limit is on the person being added, not the one adding: otherwise inviting someone
+        // would be a way around their own cap.
+        if (!property.IsDemo && await db.CountMembershipsAsync(user.Id) >= Limits.PropertiesPerUser)
+        {
+            return Limits.Reached($"{user.DisplayName} är redan med i {Limits.PropertiesPerUser} bostäder, vilket är max.");
         }
 
         property.MemberUserIds.Add(user.Id);

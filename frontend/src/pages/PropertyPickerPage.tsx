@@ -39,6 +39,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { FullPageLoader } from '../components/common/FullPageLoader'
 import { useCreateProperty, useDeleteProperty, useProperties, useUpdateProperty } from '../hooks/useProperties'
 import { clearLastPropertyId, setLastPropertyId } from '../utils/lastProperty'
+import { PROPERTIES_PER_USER } from '../utils/limits'
 
 export function PropertyPickerPage() {
   const { user } = useAuth()
@@ -89,6 +90,8 @@ export function PropertyPickerPage() {
   }
 
   const hasProperties = !!properties && properties.length > 0
+  // Same count the server makes: memberships, not counting the demo everyone is in.
+  const atPropertyLimit = (properties ?? []).filter((p) => p.isMember && !p.isDemo).length >= PROPERTIES_PER_USER
 
   return (
     // Narrower than the shell's container — a list of property cards and one form, which read
@@ -200,9 +203,17 @@ export function PropertyPickerPage() {
 
         <Stack>
           <Title order={3}>{hasProperties ? 'Lägg till ny bostad' : 'Lägg till din första bostad'}</Title>
-          <Card withBorder padding="lg">
-            <PropertyForm submitLabel="Lägg till bostad" onSubmit={handleCreate} submitting={createProperty.isPending} />
-          </Card>
+          {/* Said up front rather than after filling in the whole form — the server refuses it either way. */}
+          {atPropertyLimit ? (
+            <Text c="dimmed">
+              Du är med i {PROPERTIES_PER_USER} bostäder, vilket är max. Ta bort en bostad, eller be någon ta bort dig
+              från en, för att kunna lägga till en ny.
+            </Text>
+          ) : (
+            <Card withBorder padding="lg">
+              <PropertyForm submitLabel="Lägg till bostad" onSubmit={handleCreate} submitting={createProperty.isPending} />
+            </Card>
+          )}
         </Stack>
       </Stack>
 

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using HouseApp.Api.Models;
 
 namespace HouseApp.Api.Dtos.Projects;
@@ -17,13 +18,13 @@ public record ProjectMilestoneDto(
     DateOnly? CompletedDate);
 
 public record ContractorInfoDto(
-    string Name,
-    string? Phone,
-    string? Email,
-    string? Website,
+    [MaxLength(Limits.ShortText)] string Name,
+    [MaxLength(Limits.ShortText)] string? Phone,
+    [MaxLength(Limits.ShortText)] string? Email,
+    [MaxLength(Limits.ShortText)] string? Website,
     decimal? QuotedPrice,
     DateOnly? QuotedDate,
-    string? Notes);
+    [MaxLength(Limits.LongText)] string? Notes);
 
 /// <summary>ActualCost is derived from Costs — returned for convenience, never accepted on write.</summary>
 public record ProjectDto(
@@ -55,14 +56,14 @@ public record ProjectDto(
     DateTimeOffset CreatedAt);
 
 public record ProjectMilestoneRequest(
-    string Description,
+    [MaxLength(Limits.ShortText)] string Description,
     DateOnly? PlannedDate,
     DateOnly? CompletedDate);
 
 /// <summary>Costs carry no id — they're nested in the project document and nothing references them individually.</summary>
 public record ProjectCostRequest(
     CostType Type,
-    string? Description,
+    [MaxLength(Limits.ShortText)] string? Description,
     decimal Amount,
     DateOnly DateIncurred,
     bool IsBudgeted);
@@ -72,11 +73,11 @@ public record ProjectCostRequest(
 /// That includes its costs and contractor — there are deliberately no sub-resource endpoints.
 /// </summary>
 public record SaveProjectRequest(
-    string Name,
-    string? Description,
-    string? Notes,
+    [MaxLength(Limits.ShortText)] string Name,
+    [MaxLength(Limits.LongText)] string? Description,
+    [MaxLength(Limits.LongText)] string? Notes,
     WorkType WorkType,
-    string ComponentId,
+    [MaxLength(Limits.ShortText)] string ComponentId,
     ProjectStatus Status,
     ProjectPriority Priority,
     bool IsUrgent,

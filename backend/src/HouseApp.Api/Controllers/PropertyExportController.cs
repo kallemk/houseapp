@@ -8,6 +8,7 @@ using HouseApp.Api.Extensions;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HouseApp.Api.Controllers;
 
@@ -34,6 +35,7 @@ public class PropertyExportController(
     };
 
     [HttpGet]
+    [EnableRateLimiting(RateLimitingExtensions.ExportPolicy)]
     public async Task<IActionResult> Export(string propertyId, CancellationToken cancellationToken)
     {
         // Ordinary access, not strict membership: the demo is exportable, and that reveals nothing

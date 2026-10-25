@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
 
@@ -56,6 +57,19 @@ public class BlobStorageService(BlobServiceClient blobServiceClient) : IBlobStor
     {
         var containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
         return containerClient.DeleteBlobIfExistsAsync(blobPath);
+    }
+
+    public async Task<long?> GetSizeAsync(string blobPath)
+    {
+        var blobClient = blobServiceClient.GetBlobContainerClient(ContainerName).GetBlobClient(blobPath);
+        try
+        {
+            return (await blobClient.GetPropertiesAsync()).Value.ContentLength;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
     }
 
     // The first code in the app that actually downloads blob content. It relies on the

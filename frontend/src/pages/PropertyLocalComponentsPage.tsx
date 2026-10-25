@@ -35,6 +35,7 @@ import {
 } from '../hooks/usePropertyComponents'
 import { useSelectedProperty } from '../hooks/useSelectedProperty'
 import { formatInterval, splitMonths, toMonths, type IntervalUnit } from '../utils/interval'
+import { SHORT_TEXT } from '../utils/limits'
 
 const INTERVAL_UNIT_OPTIONS: { value: IntervalUnit; label: string }[] = [
   { value: 'years', label: 'år' },
@@ -84,7 +85,7 @@ function ComponentForm({
   return (
     <form onSubmit={form.onSubmit(onSubmit)}>
       <Group align="flex-end">
-        <TextInput label="Namn" required {...form.getInputProps('name')} />
+        <TextInput maxLength={SHORT_TEXT} label="Namn" required {...form.getInputProps('name')} />
         <NumberInput
           label="Intervall"
           placeholder="valfritt"

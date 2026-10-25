@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Documents;
@@ -6,6 +7,7 @@ using HouseApp.Api.Models;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Controllers;
@@ -20,11 +22,13 @@ public class DocumentsController(
     IDriveFolderResolver driveFolders) : ControllerBase
 {
     /// <summary>
-    /// Cap on files routed through the API, which only happens for Drive. Blob uploads go straight
-    /// from the browser to storage and are unaffected. Chosen for the F1 App Service, where every
-    /// byte through the API shares a 60 CPU-minute daily quota.
+    /// Request cap for the Drive upload, the one path where file bytes pass through the API. The file
+    /// itself is held to <see cref="Limits.MaxFileBytes"/>; the extra megabyte is multipart overhead,
+    /// so a file right at the limit isn't refused for its envelope.
     /// </summary>
-    private const long MaxDriveUploadBytes = 25 * 1024 * 1024;
+    private const long MaxDriveUploadRequestBytes = Limits.MaxFileBytes + 1024 * 1024;
+
+    private static string FileTooLarge => $"Filen är för stor – högst {Limits.MaxFileBytes / (1024 * 1024)} MB.";
 
     [HttpGet("api/properties/{propertyId}/documents")]
     public async Task<ActionResult<List<DocumentDto>>> GetForProperty(string propertyId)
@@ -98,12 +102,26 @@ public class DocumentsController(
     /// to the API instead".
     /// </summary>
     [HttpPost("api/documents/upload-url")]
+    [EnableRateLimiting(RateLimitingExtensions.UploadPolicy)]
     public async Task<ActionResult<UploadUrlResponse>> GetUploadUrl(UploadUrlRequest request)
     {
         var property = await LoadAccessiblePropertyAsync(request.PropertyId);
         if (property is null)
         {
             return NotFound();
+        }
+
+        // The client's size is only a courtesy check, so an obviously-too-big file is refused before
+        // it's uploaded. Create re-checks against what actually landed in storage.
+        var incoming = request.SizeBytes ?? 0;
+        if (incoming > Limits.MaxFileBytes)
+        {
+            return Limits.Reached(FileTooLarge);
+        }
+
+        if (await QuotaExceededAsync(property, incoming) is { } exceeded)
+        {
+            return exceeded;
         }
 
         if (property.UsesGoogleDrive)
@@ -137,6 +155,34 @@ public class DocumentsController(
             return BadRequest(new { message = "A title is required." });
         }
 
+        // Every blob path is minted under its property's prefix by GetUploadUrl. Without this check a
+        // member of one property could register another property's blob and then be handed a SAS URL
+        // to read it.
+        if (!request.BlobPath.StartsWith($"{request.PropertyId}/", StringComparison.Ordinal))
+        {
+            return BadRequest(new { message = "The blob path does not belong to this property." });
+        }
+
+        // What's actually in storage, not what the client says — the SAS upload itself has no size
+        // limit. Anything over a limit is removed again, so refusing it doesn't leave it on the bill.
+        var size = await blobStorage.GetSizeAsync(request.BlobPath);
+        if (size is null)
+        {
+            return BadRequest(new { message = "No file has been uploaded to that blob path." });
+        }
+
+        if (size > Limits.MaxFileBytes)
+        {
+            await blobStorage.DeleteAsync(request.BlobPath);
+            return Limits.Reached(FileTooLarge);
+        }
+
+        if (await QuotaExceededAsync(property, size.Value) is { } exceeded)
+        {
+            await blobStorage.DeleteAsync(request.BlobPath);
+            return exceeded;
+        }
+
         var document = new Document
         {
             PropertyId = request.PropertyId,
@@ -147,7 +193,7 @@ public class DocumentsController(
             ContentType = request.ContentType,
             StorageKind = DocumentStorageKind.Blob,
             BlobPath = request.BlobPath,
-            SizeBytes = request.SizeBytes,
+            SizeBytes = size.Value,
             Category = request.Category,
             UploadedByUserId = CurrentUserId,
         };
@@ -164,7 +210,8 @@ public class DocumentsController(
     /// it, and Drive leaves no choice without putting an access token in the browser.
     /// </summary>
     [HttpPost("api/documents/upload")]
-    [RequestSizeLimit(MaxDriveUploadBytes)]
+    [EnableRateLimiting(RateLimitingExtensions.UploadPolicy)]
+    [RequestSizeLimit(MaxDriveUploadRequestBytes)]
     public async Task<ActionResult<DocumentDto>> Upload(
         [FromForm] DriveUploadForm form,
         CancellationToken cancellationToken)
@@ -188,6 +235,16 @@ public class DocumentsController(
         if (form.File is null || form.File.Length == 0)
         {
             return BadRequest(new { message = "No file was uploaded." });
+        }
+
+        if (form.File.Length > Limits.MaxFileBytes)
+        {
+            return Limits.Reached(FileTooLarge);
+        }
+
+        if (await QuotaExceededAsync(property, form.File.Length) is { } exceeded)
+        {
+            return exceeded;
         }
 
         var contentType = string.IsNullOrWhiteSpace(form.File.ContentType)
@@ -375,6 +432,37 @@ public class DocumentsController(
     }
 
     /// <summary>
+    /// The per-property document count, plus the storage total for Blob properties only — a Drive
+    /// property's files sit in its owner's Drive, not on this app's bill. Reads two fields per
+    /// document rather than whole rows, from a single partition.
+    /// </summary>
+    private async Task<ConflictObjectResult?> QuotaExceededAsync(Property property, long incomingBytes)
+    {
+        var documents = await db.Documents
+            .Where(d => d.PropertyId == property.Id)
+            .Select(d => new { d.StorageKind, d.SizeBytes })
+            .ToListAsync();
+
+        if (documents.Count >= Limits.DocumentsPerProperty)
+        {
+            return Limits.Reached($"En bostad kan ha högst {Limits.DocumentsPerProperty} dokument.");
+        }
+
+        if (!property.UsesGoogleDrive)
+        {
+            var stored = documents.Where(d => d.StorageKind == DocumentStorageKind.Blob).Sum(d => d.SizeBytes);
+            if (stored + incomingBytes > Limits.BlobStorageBytesPerProperty)
+            {
+                return Limits.Reached(
+                    $"Bostadens lagringsutrymme är fullt (högst {Limits.BlobStorageBytesPerProperty / (1024 * 1024 * 1024)} GB). " +
+                    "Ta bort dokument du inte behöver, eller anslut Google Drive.");
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// 409 rather than 500: nothing is broken, the Drive grant just needs remaking. The frontend
     /// keys off this to show "Drive-anslutningen behöver förnyas" instead of a generic failure.
     /// </summary>
@@ -395,6 +483,7 @@ public class DriveUploadForm
     public string PropertyId { get; set; } = string.Empty;
     public string? ProjectId { get; set; }
     public DateOnly Date { get; set; }
+    [MaxLength(Limits.ShortText)]
     public string? Title { get; set; }
     public DocumentCategory Category { get; set; }
     public IFormFile? File { get; set; }

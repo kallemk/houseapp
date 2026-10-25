@@ -48,6 +48,11 @@ public class PropertyLocalComponentsController(AppDbContext db) : ControllerBase
         }
 
         await db.EnsureCustomizedAsync(property);
+        if (property.LocalComponents!.Count >= Limits.LocalComponentsPerProperty)
+        {
+            return Limits.Reached($"En bostad kan ha högst {Limits.LocalComponentsPerProperty} komponenter.");
+        }
+
         var component = new PropertyLocalComponent
         {
             Name = request.Name,

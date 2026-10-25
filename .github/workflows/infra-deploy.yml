@@ -31,6 +31,8 @@ jobs:
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       # Not GITHUB_TOKEN — Actions reserves that name and won't let you create a secret with it.
       GH_ISSUES_TOKEN: ${{ secrets.GH_ISSUES_TOKEN }}
+      # A variable, not a secret: an address isn't a credential. Unset means no cost alarm is deployed.
+      COST_ALARM_EMAIL: ${{ vars.COST_ALARM_EMAIL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +67,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN" costAlarmEmail="$COST_ALARM_EMAIL"
 
   deploy:
     needs: validate
@@ -80,6 +82,8 @@ jobs:
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       # Not GITHUB_TOKEN — Actions reserves that name and won't let you create a secret with it.
       GH_ISSUES_TOKEN: ${{ secrets.GH_ISSUES_TOKEN }}
+      # A variable, not a secret: an address isn't a credential. Unset means no cost alarm is deployed.
+      COST_ALARM_EMAIL: ${{ vars.COST_ALARM_EMAIL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -96,7 +100,7 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN"
+            --parameters seedUser1="$SEED_USER_1" seedUser2="$SEED_USER_2" googleClientId="$GOOGLE_CLIENT_ID" googleClientSecret="$GOOGLE_CLIENT_SECRET" gitHubToken="$GH_ISSUES_TOKEN" costAlarmEmail="$COST_ALARM_EMAIL"
 
       # Reads back what actually landed on the App Service, rather than trusting that the
       # parameter made it through — this whole class of bug was a value silently arriving empty.

@@ -26,6 +26,7 @@ import { EmptyState } from '../components/common/EmptyState'
 import { SortableTh } from '../components/common/SortableTh'
 import { useTableSort } from '../hooks/useTableSort'
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../hooks/useUsers'
+import { SHORT_TEXT } from '../utils/limits'
 
 interface CreateFormValues {
   email: string
@@ -152,8 +153,8 @@ export function UsersPage() {
       <Card withBorder padding="md">
         <form onSubmit={createForm.onSubmit(handleCreate)}>
           <Group align="flex-end">
-            <TextInput label="E-post" type="email" required w={240} {...createForm.getInputProps('email')} />
-            <TextInput label="Namn" required w={160} {...createForm.getInputProps('displayName')} />
+            <TextInput maxLength={SHORT_TEXT} label="E-post" type="email" required w={240} {...createForm.getInputProps('email')} />
+            <TextInput maxLength={SHORT_TEXT} label="Namn" required w={160} {...createForm.getInputProps('displayName')} />
             <PasswordInput
               label="Lösenord (valfritt)"
               placeholder="Endast Google"
@@ -241,7 +242,7 @@ export function UsersPage() {
       <Modal opened={editing !== null} onClose={() => setEditing(null)} title="Redigera användare" centered>
         <form onSubmit={editForm.onSubmit(handleUpdate)}>
           <Stack>
-            <TextInput label="Namn" required {...editForm.getInputProps('displayName')} />
+            <TextInput maxLength={SHORT_TEXT} label="Namn" required {...editForm.getInputProps('displayName')} />
             <Group justify="flex-end">
               <Button type="submit" loading={updateUser.isPending}>
                 Spara

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HouseApp.Api.Data;
 using HouseApp.Api.Dtos.Auth;
+using HouseApp.Api.Extensions;
 using HouseApp.Api.Models;
 using HouseApp.Api.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace HouseApp.Api.Controllers;
@@ -23,6 +25,7 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
     // (bootstrap) or by an existing user via UsersController.
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingExtensions.SignInPolicy)]
     [AllowAnonymous]
     public async Task<ActionResult<MeResponse>> Login(LoginRequest request)
     {
@@ -67,6 +70,7 @@ public class AuthController(AppDbContext db, IGoogleTokenValidator googleTokenVa
     /// is no longer an allowlist. IsBlocked is what keeps someone out now.
     /// </summary>
     [HttpPost("google")]
+    [EnableRateLimiting(RateLimitingExtensions.SignInPolicy)]
     [AllowAnonymous]
     public async Task<ActionResult<MeResponse>> GoogleLogin(GoogleLoginRequest request)
     {

@@ -14,11 +14,13 @@ import {
   ThemeIcon,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
+import { notifications } from '@mantine/notifications'
 import { IconAlertCircle, IconFile, IconUpload, IconX } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import type { DocumentCategory } from '../../api/types'
 import { suggestCategory, suggestTitle } from '../../utils/documentSuggestions'
 import { DOCUMENT_CATEGORY_OPTIONS } from '../../utils/labels'
+import { MAX_FILE_BYTES, MAX_FILE_MB, SHORT_TEXT } from '../../utils/limits'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -121,7 +123,22 @@ export function FileUpload({ onUpload, onComplete, defaultDate }: FileUploadProp
 
   return (
     <>
-      <Dropzone onDrop={addFiles} multiple p="md" radius="md">
+      <Dropzone
+        onDrop={addFiles}
+        onReject={(rejections) =>
+          notifications.show({
+            color: 'red',
+            message:
+              rejections.length === 1
+                ? `${rejections[0].file.name} är för stor – högst ${MAX_FILE_MB} MB per fil.`
+                : `${rejections.length} filer är för stora – högst ${MAX_FILE_MB} MB per fil.`,
+          })
+        }
+        maxSize={MAX_FILE_BYTES}
+        multiple
+        p="md"
+        radius="md"
+      >
         <Group justify="center" gap="sm" mih={48} style={{ pointerEvents: 'none' }}>
           <Dropzone.Accept>
             <IconUpload size={28} stroke={1.5} />
@@ -134,7 +151,7 @@ export function FileUpload({ onUpload, onComplete, defaultDate }: FileUploadProp
               Ladda upp filer
             </Text>
             <Text size="xs" c="dimmed">
-              Dra filerna hit eller klicka för att välja — du namnger dem i nästa steg
+              Dra filerna hit eller klicka för att välja — du namnger dem i nästa steg. Högst {MAX_FILE_MB} MB per fil.
             </Text>
           </div>
         </Group>
@@ -263,6 +280,7 @@ function PendingFileRow({
           label="Titel"
           placeholder="t.ex. Besiktningsprotokoll"
           withAsterisk
+          maxLength={SHORT_TEXT}
           value={item.title}
           disabled={locked}
           onChange={(e) => onChange({ title: e.currentTarget.value })}

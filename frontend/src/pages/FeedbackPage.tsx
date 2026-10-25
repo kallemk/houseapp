@@ -21,6 +21,8 @@ import { ApiError } from '../api/client'
 import { EmptyState } from '../components/common/EmptyState'
 import { useCreateFeedback, useFeedback } from '../hooks/useFeedback'
 import { FEEDBACK_STATUS_COLORS, FEEDBACK_STATUS_LABELS } from '../utils/labels'
+import { notifyError } from '../utils/notifyError'
+import { LONG_TEXT, SHORT_TEXT } from '../utils/limits'
 
 interface FeedbackFormValues {
   title: string
@@ -47,14 +49,8 @@ export function FeedbackPage() {
           form.reset()
           notifications.show({ color: 'green', message: 'Tack! Ditt förslag är inskickat.' })
         },
-        onError: (err) =>
-          notifications.show({
-            color: 'red',
-            message:
-              err instanceof ApiError && err.status === 429
-                ? 'Du har skickat in många förslag idag. Försök igen imorgon.'
-                : 'Kunde inte skicka in förslaget. Försök igen.',
-          }),
+        // A 429 — the daily cap, or the rate limiter — carries its own message, shown by App.tsx.
+        onError: (err) => notifyError(err, 'Kunde inte skicka in förslaget. Försök igen.'),
       },
     )
   }
@@ -89,13 +85,13 @@ export function FeedbackPage() {
             <Card withBorder padding="md">
               <form onSubmit={form.onSubmit(handleSubmit)}>
                 <Stack>
-                  <TextInput
+                  <TextInput maxLength={SHORT_TEXT}
                     label="Rubrik"
                     placeholder="t.ex. Exportera projekt till Excel"
                     required
                     {...form.getInputProps('title')}
                   />
-                  <Textarea
+                  <Textarea maxLength={LONG_TEXT}
                     label="Beskrivning"
                     placeholder="Beskriv gärna vad du vill kunna göra, och varför."
                     autosize

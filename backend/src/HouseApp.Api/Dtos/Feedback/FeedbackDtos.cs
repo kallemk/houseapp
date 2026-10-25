@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace HouseApp.Api.Dtos.Feedback;
@@ -39,4 +40,4 @@ public record FeedbackItemDto(
     bool IsPublished,
     DateTimeOffset CreatedAt);
 
-public record CreateFeedbackRequest(string Title, string Body);
+public record CreateFeedbackRequest([MaxLength(Limits.ShortText)] string Title, [MaxLength(Limits.LongText)] string Body);

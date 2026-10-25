@@ -29,6 +29,14 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
     /// <summary>Exposed so the export tests can simulate a blob that has gone missing.</summary>
     public FakeBlobStorageService Blob { get; } = new();
 
+    protected virtual IReadOnlyDictionary<string, int> RateLimitSettings { get; } = new Dictionary<string, int>
+    {
+        ["RequestsPerMinute"] = 1_000_000,
+        ["SignInsPerMinute"] = 1_000_000,
+        ["ExportsPerHour"] = 1_000_000,
+        ["UploadsPerHour"] = 1_000_000,
+    };
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -37,6 +45,14 @@ public class HouseAppWebApplicationFactory : WebApplicationFactory<Program>
         // tests depend on each other's timing — seeding an issue directly wouldn't be visible until
         // the entry expired. Zero disables it.
         builder.UseSetting("Feedback:CacheSeconds", "0");
+
+        // The suites sign in far more than ten times a minute, all from the test server's one
+        // "address", so the production rate limits would fail them at random. RateLimitingTests
+        // brings them back down to check that they work.
+        foreach (var (key, value) in RateLimitSettings)
+        {
+            builder.UseSetting($"RateLimits:{key}", value.ToString());
+        }
 
         builder.ConfigureServices(services =>
         {

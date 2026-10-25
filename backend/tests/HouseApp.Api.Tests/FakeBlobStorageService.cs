@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using HouseApp.Api.Services;
 
@@ -7,6 +8,13 @@ public class FakeBlobStorageService : IBlobStorageService
 {
     /// <summary>Paths that behave as if the blob had been deleted behind the app's back.</summary>
     public HashSet<string> MissingPaths { get; } = [];
+
+    /// <summary>What GetSizeAsync reports for a path. Anything not listed is a small file.</summary>
+    public ConcurrentDictionary<string, long> Sizes { get; } = new();
+
+    public const long DefaultSize = 1024;
+
+    public ConcurrentBag<string> Deleted { get; } = [];
 
     public static byte[] ContentFor(string blobPath) => Encoding.UTF8.GetBytes($"content of {blobPath}");
 
@@ -19,7 +27,14 @@ public class FakeBlobStorageService : IBlobStorageService
     public Task<string> GetDownloadUrlAsync(string blobPath) =>
         Task.FromResult($"https://fake.blob.local/{blobPath}?sas=fake");
 
-    public Task DeleteAsync(string blobPath) => Task.CompletedTask;
+    public Task DeleteAsync(string blobPath)
+    {
+        Deleted.Add(blobPath);
+        return Task.CompletedTask;
+    }
+
+    public Task<long?> GetSizeAsync(string blobPath) =>
+        Task.FromResult<long?>(MissingPaths.Contains(blobPath) ? null : Sizes.GetValueOrDefault(blobPath, DefaultSize));
 
     public Task<Stream> OpenReadAsync(string blobPath) =>
         MissingPaths.Contains(blobPath)

@@ -12,6 +12,7 @@ import {
   usePropertyMembers,
   useRemovePropertyMember,
 } from '../../hooks/usePropertyMembers'
+import { notifyError } from '../../utils/notifyError'
 
 /**
  * Who has access to one property. Everyone listed here can edit the property *and* manage this list
@@ -48,14 +49,15 @@ export function PropertyAccessModal({
 
     setSearch('')
     addMember.mutate(picked.userId, {
+      // A limit (a full property, or someone already in as many as they may be) is a 409 too, and
+      // explains itself — see notifyError.
       onError: (error) =>
-        notifications.show({
-          color: 'red',
-          message:
-            error instanceof ApiError && error.status === 409
-              ? 'Personen har redan åtkomst.'
-              : 'Kunde inte lägga till personen. Försök igen.',
-        }),
+        notifyError(
+          error,
+          error instanceof ApiError && error.status === 409
+            ? 'Personen har redan åtkomst.'
+            : 'Kunde inte lägga till personen. Försök igen.',
+        ),
     })
   }
 

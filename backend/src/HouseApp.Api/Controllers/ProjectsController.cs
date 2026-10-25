@@ -61,6 +61,19 @@ public class ProjectsController(
             return NotFound();
         }
 
+        if (NestedRowsOverLimit(request) is { } tooMany)
+        {
+            return tooMany;
+        }
+
+        // Ids only, single partition — counting without a terminal aggregate, which Cosmos has
+        // rejected before (see CLAUDE.md).
+        var existing = await db.Projects.Where(p => p.PropertyId == propertyId).Select(p => p.Id).ToListAsync();
+        if (existing.Count >= Limits.ProjectsPerProperty)
+        {
+            return Limits.Reached($"En bostad kan ha högst {Limits.ProjectsPerProperty} projekt.");
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var project = new Project
         {
@@ -92,6 +105,11 @@ public class ProjectsController(
         if (project is null)
         {
             return NotFound();
+        }
+
+        if (NestedRowsOverLimit(request) is { } tooMany)
+        {
+            return tooMany;
         }
 
         var renamed = project.Name != request.Name;
@@ -160,6 +178,22 @@ public class ProjectsController(
         db.Projects.Remove(project);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>Costs and milestones live inside the project document, which Cosmos caps at 2 MB.</summary>
+    private static ConflictObjectResult? NestedRowsOverLimit(SaveProjectRequest request)
+    {
+        if (request.Costs?.Count > Limits.CostsPerProject)
+        {
+            return Limits.Reached($"Ett projekt kan ha högst {Limits.CostsPerProject} kostnadsrader.");
+        }
+
+        if (request.Milestones?.Count > Limits.MilestonesPerProject)
+        {
+            return Limits.Reached($"Ett projekt kan ha högst {Limits.MilestonesPerProject} milstolpar.");
+        }
+
+        return null;
     }
 
     private async Task<Project?> FindAsync(string id, string propertyId) =>

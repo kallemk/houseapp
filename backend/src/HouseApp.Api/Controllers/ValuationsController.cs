@@ -36,6 +36,12 @@ public class ValuationsController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        var existing = await db.ValuationEntries.Where(v => v.PropertyId == propertyId).Select(v => v.Id).ToListAsync();
+        if (existing.Count >= Limits.ValuationsPerProperty)
+        {
+            return Limits.Reached($"En bostad kan ha högst {Limits.ValuationsPerProperty} värderingar.");
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var entry = new ValuationEntry
         {

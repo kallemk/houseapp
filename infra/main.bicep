@@ -30,6 +30,12 @@ param gitHubRepo string = 'houseapp'
 @description('Public origin the app is reached on — the custom domain bound to the App Service. Used to build the Google Drive OAuth redirect URI, which Google sends the *browser* to, so it must be the hostname people actually use rather than the *.azurewebsites.net one. Domain binding and its certificate are done outside Bicep (the binding needs DNS to resolve first, and the managed certificate needs the binding to exist), hence the default here.')
 param appBaseUrl string = 'https://housetracker.odenbulten.se'
 
+@description('Monthly cost alarm for this resource group, in the subscription\'s billing currency. The owners are emailed at 80 % and 100 % of it, and when the month is forecast to exceed it.')
+param costAlarmMonthlyAmount int = 300
+
+@description('Address the cost alarm emails. From the COST_ALARM_EMAIL GitHub variable; empty means no cost alarm is deployed, since Azure refuses a resource-group budget without one.')
+param costAlarmEmail string = ''
+
 @description('First bootstrap account — seeded on first startup so someone can sign in and manage the rest via the in-app Users page')
 @secure()
 param seedUser1 {
@@ -154,6 +160,19 @@ module appService 'modules/appService.bicep' = {
     gitHubRepo: gitHubRepo
     seedUser1: seedUser1
     seedUser2: seedUser2
+  }
+}
+
+// Registration is open and Cosmos is serverless, so a cost spike can happen without anyone noticing
+// until the invoice. The app's own limits and rate limiting make one unlikely; this says so if it
+// happens anyway.
+module budget 'modules/budget.bicep' = if (!empty(costAlarmEmail)) {
+  name: 'budget'
+  params: {
+    name: '${environmentName}-monthly'
+    amount: costAlarmMonthlyAmount
+    contactEmail: costAlarmEmail
+    startDate: '2026-11-01'
   }
 }
 

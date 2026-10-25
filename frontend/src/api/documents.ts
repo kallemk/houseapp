@@ -34,6 +34,8 @@ export const documentsApi = {
       propertyId,
       fileName: file.name,
       contentType,
+      // Lets the server refuse a file that's too big, or a full quota, before any bytes are sent.
+      sizeBytes: file.size,
     })
 
     if (mode === 'Drive') {

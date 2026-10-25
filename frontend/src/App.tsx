@@ -1,6 +1,7 @@
 import { MantineProvider } from '@mantine/core'
-import { Notifications } from '@mantine/notifications'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Notifications, notifications } from '@mantine/notifications'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { limitMessage } from './api/client'
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
@@ -28,7 +29,21 @@ import { ValuationsPage } from './pages/ValuationsPage'
 import { theme } from './theme'
 import { getLastPropertyId } from './utils/lastProperty'
 
-const queryClient = new QueryClient()
+// A limit — too many projects, a full storage quota, the rate limiter — can stop almost any
+// mutation, and the server explains it in Swedish meant to be shown as-is. Handled once here so a
+// mutation without its own error handling still says why; local handlers use `notifyError`, which
+// steps aside for these. Queries are left alone: a refused *read* is the rate limiter, and react-query
+// already retries those.
+const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      const message = limitMessage(error)
+      if (message) {
+        notifications.show({ color: 'red', message })
+      }
+    },
+  }),
+})
 
 /** Jumps straight back into the last-viewed property, or the picker if there isn't one. The
  * target route re-validates membership itself, so a stale id here just bounces to the picker. */

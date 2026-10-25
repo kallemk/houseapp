@@ -8,6 +8,7 @@ import { usePropertyComponentList } from '../../hooks/usePropertyComponents'
 import { WorkTypeSelect } from '../common/WorkTypeSelect'
 import { useUploadDocument } from '../../hooks/useDocuments'
 import type { WorkType } from '../../api/types'
+import { SHORT_TEXT } from '../../utils/limits'
 
 export type QuickAddType = 'valuation' | 'project' | 'document'
 
@@ -52,7 +53,7 @@ function QuickAddValuationForm({
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
         <TextInput label="Värde (kr)" type="number" required {...form.getInputProps('value')} />
-        <TextInput label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
+        <TextInput maxLength={SHORT_TEXT} label="Källa" placeholder="t.ex. värdering" {...form.getInputProps('source')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createValuation.isPending}>
             Spara
@@ -134,7 +135,7 @@ function QuickAddProjectForm({
     <form onSubmit={form.onSubmit(handleSubmit)}>
       <Stack>
         <TextInput label="Datum" type="date" required {...form.getInputProps('date')} />
-        <TextInput label="Namn" required {...form.getInputProps('name')} />
+        <TextInput maxLength={SHORT_TEXT} label="Namn" required {...form.getInputProps('name')} />
         <WorkTypeSelect
           label="Typ av arbete"
           allowDeselect={false}
@@ -147,7 +148,7 @@ function QuickAddProjectForm({
           {...form.getInputProps('componentId')}
         />
         <TextInput label="Kostnad (kr)" type="number" {...form.getInputProps('amount')} />
-        <TextInput label="Entreprenör" {...form.getInputProps('vendor')} />
+        <TextInput maxLength={SHORT_TEXT} label="Entreprenör" {...form.getInputProps('vendor')} />
         <Group justify="flex-end">
           <Button type="submit" loading={createProject.isPending}>
             Spara

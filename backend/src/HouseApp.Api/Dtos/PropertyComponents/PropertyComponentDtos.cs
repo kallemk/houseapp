@@ -1,12 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace HouseApp.Api.Dtos.PropertyComponents;
 
 public record PropertyComponentDto(string Id, string Name, int? RecommendedIntervalMonths);
 
-public record CreatePropertyComponentRequest(string Name, int? RecommendedIntervalMonths);
+public record CreatePropertyComponentRequest([MaxLength(Limits.ShortText)] string Name, int? RecommendedIntervalMonths);
 
-public record UpdatePropertyComponentRequest(string Name, int? RecommendedIntervalMonths);
+public record UpdatePropertyComponentRequest([MaxLength(Limits.ShortText)] string Name, int? RecommendedIntervalMonths);
 
 // --- Per-property component set -------------------------------------------------------------
 
@@ -48,4 +49,4 @@ public record PropertyComponentSetDto(
     /// <summary>Central components this property doesn't have, which a sync would add. Always 0 when not customised.</summary>
     int AvailableFromCentralCount);
 
-public record SavePropertyLocalComponentRequest(string Name, int? RecommendedIntervalMonths);
+public record SavePropertyLocalComponentRequest([MaxLength(Limits.ShortText)] string Name, int? RecommendedIntervalMonths);

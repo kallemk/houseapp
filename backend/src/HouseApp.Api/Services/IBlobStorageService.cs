@@ -11,6 +11,12 @@ public interface IBlobStorageService
     Task DeleteAsync(string blobPath);
 
     /// <summary>
+    /// The stored size of a blob, or null if nothing was uploaded there. What the API records instead
+    /// of the client's own claim, since a SAS upload has no size limit of its own.
+    /// </summary>
+    Task<long?> GetSizeAsync(string blobPath);
+
+    /// <summary>
     /// Reads a blob's content through the API. Only the data export does this — everything else hands
     /// the browser a SAS URL instead. Throws if the blob doesn't exist.
     /// </summary>
