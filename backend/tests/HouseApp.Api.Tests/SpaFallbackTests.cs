@@ -84,6 +84,22 @@ public class SpaFallbackTests : IClassFixture<SpaHostingFactory>
     }
 
     [Fact]
+    public async Task ANonMcpRequestToMcp_IsNotAnsweredWithTheSpa()
+    {
+        // Found in production: a GET or a bare POST doesn't match MapMcp, and fell through to
+        // index.html with a 200.
+        var client = _factory.CreateClient();
+
+        var get = await client.GetAsync("/mcp");
+        var barePost = await client.PostAsync("/mcp", null);
+
+        Assert.NotEqual("text/html", get.Content.Headers.ContentType?.MediaType);
+        Assert.NotEqual(HttpStatusCode.OK, get.StatusCode);
+        Assert.NotEqual("text/html", barePost.Content.Headers.ContentType?.MediaType);
+        Assert.NotEqual(HttpStatusCode.OK, barePost.StatusCode);
+    }
+
+    [Fact]
     public async Task AnUnknownDiscoveryDocument_Returns404_NotTheSpa()
     {
         // OAuth clients probe several /.well-known documents; an HTML 200 for one we don't serve

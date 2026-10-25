@@ -1171,7 +1171,10 @@ and the user drops the original into the ordinary upload. The link carries no cr
 **Where things are served:**
 - `/.well-known/*`, `/oauth/authorize|register|token` and `/mcp` are backend endpoints.
 - `/oauth/consent` is an SPA page; `ProtectedRoute` now passes `state.from` so it survives a sign-in.
-- The SPA fallback 404s unknown `/.well-known/*` paths, for the same reason it 404s unknown `/api`.
+- The SPA fallback 404s unknown `/.well-known/*` and anything under `/mcp` that isn't a proper MCP
+  request, for the same reason it 404s unknown `/api`. `MapMcp` only matches JSON with the right
+  `Accept` header, and a `GET` or bare `POST` used to fall through to `index.html` with a 200; that
+  was found in production.
 - Locally, `vite.config.ts` proxies the backend ones **without** `changeOrigin`, so the metadata
   describes `http://localhost:5173` (where the consent page is) rather than the backend port. The
   official MCP Inspector (`npx @modelcontextprotocol/inspector`) against that URL exercises the same

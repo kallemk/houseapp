@@ -100,6 +100,9 @@ if (File.Exists(indexHtml))
     // spelled out before this replaced it:
     //  - /api/* must 404 rather than return index.html. Handing HTML back from an API path turns a
     //    plain "no such endpoint" into a JSON parse error somewhere far away.
+    //  - /mcp too. MapMcp only matches a proper MCP request (JSON in, the right Accept header), so
+    //    anything else under /mcp — a GET probing for an event stream, a bare POST — would otherwise
+    //    get the SPA's HTML with a 200, which an MCP client can't make sense of.
     //  - /.well-known/* likewise: OAuth clients probe several discovery documents there, and an HTML
     //    200 for one we don't serve (openid-configuration, say) would read as a broken one.
     //  - anything that looks like a file must 404 too. A stale /assets/index-abc123.js should fail
@@ -108,7 +111,10 @@ if (File.Exists(indexHtml))
     app.MapFallback(async context =>
     {
         var path = context.Request.Path;
-        if (path.StartsWithSegments("/api") || path.StartsWithSegments("/.well-known") || Path.HasExtension(path.Value))
+        if (path.StartsWithSegments("/api")
+            || path.StartsWithSegments("/mcp")
+            || path.StartsWithSegments("/.well-known")
+            || Path.HasExtension(path.Value))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
