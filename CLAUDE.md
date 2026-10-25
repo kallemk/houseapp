@@ -11,7 +11,7 @@ decisions here.
 
 ## Commands
 
-### Backend (`backend/`, ASP.NET Core Web API, .NET 9)
+### Backend (`backend/`, ASP.NET Core Web API, .NET 10)
 ```
 cd backend
 dotnet build                          # build the solution
@@ -19,7 +19,11 @@ dotnet test                           # run all xUnit tests
 dotnet test --filter FullyQualifiedName~AuthControllerTests   # run a single test class
 cd src/HouseApp.Api && dotnet run --launch-profile https      # run locally, https://localhost:7275
 ```
-Swagger UI is available at `/swagger` in Development only.
+Swagger UI is available at `/swagger` in Development only. The SDK is pinned by `global.json` at the
+repo root (`rollForward: latestFeature`), and CI's `setup-dotnet` reads the same file, so bumping .NET
+means changing it there plus each `.csproj`'s `TargetFramework` and `linuxFxVersion` in
+`infra/modules/appService.bicep`. The App Service runs the platform's built-in .NET runtime; there is
+no Dockerfile.
 
 ### Frontend (`frontend/`, Vite + React + TypeScript)
 ```
@@ -497,8 +501,10 @@ dokument/Allmänt/…  and  dokument/Projekt/{name} {date}/…   every Blob-stor
 - **A blob that can't be read doesn't fail the export.** It's logged, marked `fileMissing` and listed
   in LÄSMIG.txt — one lost file must not cost someone the rest of their data.
 - **The zip is built in a temp file (`DeleteOnClose`), not streamed into the response.**
-  `ZipArchive` writes synchronously on .NET 9 and Kestrel forbids sync IO; the temp file also keeps
-  memory flat however many documents there are.
+  It was first chosen because `ZipArchive` only wrote synchronously before .NET 10 and Kestrel forbids
+  sync IO. .NET 10 adds async zip APIs, but the temp file stays: it keeps memory flat however many
+  documents there are, and a failure while building the zip becomes a proper error response instead
+  of a truncated download that has already started.
 - **Access is `CanAccessPropertyAsync`, so the demo is exportable.** That reveals nothing everyone
   can't already see.
 - `Export/ExportLabels.cs` is a **backend copy of `utils/labels.ts`** for the spreadsheet. A test

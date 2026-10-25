@@ -49,9 +49,11 @@ public class PropertyExportController(
 
         var bundle = await builder.BuildAsync(property, userId);
 
-        // Built in a temp file rather than streamed into the response: ZipArchive writes synchronously
-        // on .NET 9 and Kestrel forbids synchronous IO, and a disk file keeps memory flat however many
-        // documents there are. DeleteOnClose removes it once the response has been sent.
+        // Built in a temp file rather than streamed into the response: a disk file keeps memory flat
+        // however many documents there are, and a failure while building it can still be an error
+        // response — mid-stream, the client would just get a truncated zip. (It also lets ZipArchive
+        // write synchronously, which Kestrel's response stream forbids.) DeleteOnClose removes it once
+        // the response has been sent.
         var path = Path.Combine(Path.GetTempPath(), $"houseapp-export-{Guid.NewGuid()}.zip");
         var stream = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920,
             FileOptions.DeleteOnClose | FileOptions.Asynchronous);

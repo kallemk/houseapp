@@ -10,7 +10,7 @@ documents/photos.
 
 ## Structure
 
-- `backend/` — ASP.NET Core Web API (.NET 9), Cosmos DB (EF Core), cookie auth
+- `backend/` — ASP.NET Core Web API (.NET 10), Cosmos DB (EF Core), cookie auth
   (email+password or Sign in with Google)
 - `frontend/` — React + TypeScript (Vite), Mantine, TanStack Query
 - `infra/` — Bicep templates for the Azure deployment
