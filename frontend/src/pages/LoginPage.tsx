@@ -64,8 +64,17 @@ export function LoginPage() {
     },
   })
 
+  // Where they were going before being sent here — set by ProtectedRoute. Honoured after a successful
+  // sign-in as well as when already signed in: Claude's consent page and /admin both depend on it.
+  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
+
+  // Accounts are created through Google only, so offering an e-mail and password to everyone made
+  // newcomers think they could register with one. The form is still how the seeded admin accounts
+  // sign in, so it appears when someone heads for /admin signed out — and whenever Google sign-in
+  // isn't configured, which is the case when running locally.
+  const showPassword = !GOOGLE_CLIENT_ID || redirectTo.startsWith('/admin')
+
   if (user) {
-    const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
     return <Navigate to={redirectTo} replace />
   }
 
@@ -74,7 +83,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(values.email, values.password)
-      navigate('/', { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 403
@@ -95,7 +104,7 @@ export function LoginPage() {
     setGooglePending(true)
     try {
       await loginWithGoogle(credential)
-      navigate('/', { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (err) {
       // Three genuinely different situations, so say which one it is rather than one vague
       // "it failed": blocked (403), server not set up (503), or a real auth failure (401). 403 used
@@ -161,19 +170,27 @@ export function LoginPage() {
                     />
                   </Group>
                 </GoogleOAuthProvider>
-                <Divider label="eller" labelPosition="center" />
+                {!showPassword && (
+                  <Text size="sm" c="dimmed" ta="center">
+                    Just nu loggar du in – och skapar konto – med ditt Google-konto. Är du ny skapas ditt konto
+                    automatiskt första gången du loggar in.
+                  </Text>
+                )}
+                {showPassword && <Divider label="eller med lösenord" labelPosition="center" />}
               </>
             )}
 
-            <form onSubmit={form.onSubmit(handleSubmit)}>
-              <Stack>
-                <TextInput label="E-post" type="email" required {...form.getInputProps('email')} />
-                <PasswordInput label="Lösenord" required {...form.getInputProps('password')} />
-                <Button type="submit" loading={submitting} fullWidth>
-                  Logga in
-                </Button>
-              </Stack>
-            </form>
+            {showPassword && (
+              <form onSubmit={form.onSubmit(handleSubmit)}>
+                <Stack>
+                  <TextInput label="E-post" type="email" required {...form.getInputProps('email')} />
+                  <PasswordInput label="Lösenord" required {...form.getInputProps('password')} />
+                  <Button type="submit" loading={submitting} fullWidth>
+                    Logga in
+                  </Button>
+                </Stack>
+              </form>
+            )}
           </Stack>
         </Paper>
 

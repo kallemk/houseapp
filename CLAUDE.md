@@ -85,6 +85,15 @@ plain cookie authentication (`AddAuthentication().AddCookie()`, manual
 same cookie. Everything downstream — `[Authorize]`, Data Protection, the `SameSite=Lax`
 same-origin design — is identical regardless of how you signed in.
 
+**The login page offers Google only, and says it creates the account too.** Showing an e-mail and
+password form to everyone made newcomers think they could register with one, but accounts are only
+ever created through Google. The password form, which is how the seeded admin accounts sign in, appears
+when someone goes to `/admin` signed out: `ProtectedRoute` passes `state.from`, and `LoginPage`
+shows the form when that starts with `/admin`. It also appears whenever `VITE_GOOGLE_CLIENT_ID` is
+unset, which is the case locally. `POST /api/auth/login` itself is unchanged. A successful sign-in now
+returns to `state.from` rather than always `/`, which both `/admin` and Claude's consent page depend
+on.
+
 **Claude is a third way in, and it never shares the session.** A Claude connector gets an OAuth
 bearer token that only `/mcp` accepts, while `/api` accepts only the cookie. The default
 authentication scheme is a policy scheme that picks by path (`HouseAppAuthSchemes.Default`), so the
